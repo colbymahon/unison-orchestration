@@ -1,0 +1,81 @@
+[build-system]
+requires = ["setuptools>=61.0.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "unison-langchain"
+version = "0.1.0"
+description = "Stream-optimized, x402-gated grounding retrievers for LangChain and CrewAI"
+readme = "README.md"
+license = { text = "MIT" }
+authors = [{ name = "V18 Group", email = "engineering@v18.group" }]
+keywords = [
+    "langchain", "retriever", "rag", "grounding", "hallucination",
+    "mcp", "x402", "vector-search", "historical-data", "crewai",
+    "zero-hallucination", "token-efficiency", "tsv",
+]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: MIT License",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Operating System :: OS Independent",
+    "Topic :: Scientific/Engineering :: Artificial Intelligence",
+    "Topic :: Software Development :: Libraries :: Python Modules",
+]
+requires-python = ">=3.11"
+dependencies = [
+    "langchain-core>=0.3.0",
+    "requests>=2.31.0",
+    "pydantic>=2.0.0",
+]
+
+[project.optional-dependencies]
+crewai = ["crewai>=1.0.0"]
+tiktoken = ["tiktoken>=0.7.0"]
+payment = ["web3>=6.0.0"]
+all = [
+    "crewai>=1.0.0",
+    "tiktoken>=0.7.0",
+    "web3>=6.0.0",
+]
+dev = [
+    "pytest>=7.0.0",
+    "pytest-cov>=4.0.0",
+    "mypy>=1.5.0",
+    "ruff>=0.4.0",
+    "build>=1.0.0",
+    "twine>=5.0.0",
+]
+
+[project.urls]
+Homepage         = "https://unisonorchestration.com"
+Repository       = "https://github.com/v18-group/unison-orchestration"
+"Bug Tracker"    = "https://github.com/v18-group/unison-orchestration/issues"
+Documentation    = "https://unison-edge-gateway.unisonorchestration.workers.dev/.well-known/mcp-configuration"
+Changelog        = "https://github.com/v18-group/unison-orchestration/blob/main/packages/unison-langchain/CHANGELOG.md"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.setuptools.package-data]
+"unison_langchain" = ["py.typed"]
+
+[tool.ruff]
+line-length = 100
+target-version = "py311"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B"]
+ignore = ["B008"]
+
+[tool.mypy]
+python_version = "3.11"
+strict = true
+ignore_missing_imports = true
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts   = "-v --cov=unison_langchain --cov-report=term-missing"

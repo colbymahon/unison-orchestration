@@ -1,0 +1,100 @@
+name: Publish unison-langchain to PyPI
+
+# Triggers on any tag of the form v0.1.0, v1.2.3, etc.
+# Workflow:
+#   1. Run the full test suite against the package
+#   2. Build the sdist + wheel
+#   3. Publish to PyPI via Trusted Publisher (OIDC — no API token stored in secrets)
+#
+# Setup required (one-time):
+#   a. On PyPI: Add a "Trusted Publisher" entry under the unison-langchain project:
+#        Owner:    v18-group
+#        Repo:     unison-orchestration
+#        Workflow: release.yml
+#        Env:      pypi-publish
+#   b. Add OPENAI_API_KEY to GitHub repo secrets (used by test suite).
+
+on:
+  push:
+    tags:
+      - 'v[0-9]+.[0-9]+.[0-9]+'
+      - 'v[0-9]+.[0-9]+.[0-9]+.*'
+
+permissions:
+  contents: read
+  id-token: write   # Required for PyPI OIDC Trusted Publisher
+
+jobs:
+  test:
+    name: Test package before publish
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: pip
+
+      - name: Install package with dev extras
+        working-directory: packages/unison-langchain
+        run: |
+          python -m pip install --upgrade pip
+          pip install -e ".[dev]"
+
+      - name: Run unit tests (no network, no API keys)
+        working-directory: packages/unison-langchain
+        run: pytest tests/ -v --cov=unison_langchain --cov-report=term-missing
+
+      - name: Type-check with mypy
+        working-directory: packages/unison-langchain
+        run: mypy src/unison_langchain
+
+      - name: Lint with ruff
+        working-directory: packages/unison-langchain
+        run: ruff check src/
+
+  build:
+    name: Build sdist and wheel
+    needs: test
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install build frontend
+        run: pip install build
+
+      - name: Build distributions
+        working-directory: packages/unison-langchain
+        run: python -m build
+
+      - name: Store distributions as artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: python-dist
+          path: packages/unison-langchain/dist/
+
+  publish:
+    name: Publish to PyPI
+    needs: build
+    runs-on: ubuntu-latest
+    environment: pypi-publish   # Matches the Trusted Publisher environment name
+
+    steps:
+      - name: Download distributions
+        uses: actions/download-artifact@v4
+        with:
+          name: python-dist
+          path: dist/
+
+      - name: Publish to PyPI (Trusted Publisher / OIDC)
+        uses: pypa/gh-action-pypi-publish@release/v1
+        # No password/token needed — OIDC handles authentication

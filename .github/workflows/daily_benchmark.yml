@@ -1,0 +1,47 @@
+name: Daily Grounding & Token Efficiency Benchmark
+
+on:
+  schedule:
+    - cron: '0 3 * * *'   # 03:00 UTC daily
+  workflow_dispatch:        # manual trigger available in GitHub Actions UI
+
+permissions:
+  contents: write           # needed to commit benchmark results back to main
+
+jobs:
+  benchmark:
+    name: Run hallucination & token-efficiency probes
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          fetch-depth: 0
+
+      - name: Set up Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: pip
+
+      - name: Install benchmark dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install openai>=1.0.0 requests>=2.31.0 tiktoken>=0.7.0 python-dotenv>=1.0.0
+
+      - name: Execute benchmark daemon
+        env:
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+        run: python benchmark_bot.py
+
+      - name: Commit and push daily audit log
+        run: |
+          git config --global user.name  "Unison Audit Bot"
+          git config --global user.email "audit-bot@v18.group"
+          git add benchmarks/index.md benchmarks/*.md
+          # Only commit if there are actual changes (idempotent on re-runs)
+          git diff-index --quiet HEAD || \
+            git commit -m "chore(audit): append live fidelity index $(date -u +%Y-%m-%d) [skip ci]"
+          git push
