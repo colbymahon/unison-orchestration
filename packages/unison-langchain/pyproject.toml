@@ -76,6 +76,13 @@ python_version = "3.11"
 strict = true
 ignore_missing_imports = true
 
+# crewai is an optional dependency whose stubs may or may not be installed.
+# Presence/absence of stubs changes whether [misc] fires on BaseTool subclassing,
+# making the check non-deterministic across environments. Exclude it from strict mode.
+[[tool.mypy.overrides]]
+module = "unison_langchain.crewai_tool"
+ignore_errors = true
+
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 addopts   = "-v --cov=unison_langchain --cov-report=term-missing"

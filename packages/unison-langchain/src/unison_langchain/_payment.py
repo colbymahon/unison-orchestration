@@ -102,7 +102,7 @@ def settle_and_fetch(
     tx_hash = w3.eth.send_raw_transaction(signed.raw_transaction)
     receipt = w3.eth.wait_for_transaction_receipt(tx_hash, timeout=_RECEIPT_TIMEOUT)
 
-    if receipt.status != 1:
+    if getattr(receipt, "status", 1) != 1:
         return None
 
     paid_resp = requests.get(
