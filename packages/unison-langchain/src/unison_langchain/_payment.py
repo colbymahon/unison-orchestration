@@ -15,7 +15,6 @@ Required env vars for paid operation:
 from __future__ import annotations
 
 import os
-from typing import Optional
 
 import requests
 
@@ -43,8 +42,8 @@ def settle_and_fetch(
     base_headers: dict[str, str],
     edge_url: str,
     timeout: int = 30,
-    private_key: Optional[str] = None,
-) -> Optional[str]:
+    private_key: str | None = None,
+) -> str | None:
     """
     Parse the 402 payment challenge, broadcast a USDC transfer on Base L2,
     and replay the original request with the ``Payment-Signature`` header.

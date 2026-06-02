@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import os
-from typing import Any, Optional, Type
+from typing import Any
 
 import requests
 from pydantic import BaseModel, Field
@@ -34,7 +34,7 @@ class _GroundingInput(BaseModel):
             "if known (e.g. 'Tesla 1891 AIEE lecture', 'Osler 1892 typhoid protocol')."
         )
     )
-    collection: Optional[str] = Field(
+    collection: str | None = Field(
         default=None,
         description=(
             "Override the default collection. Available: "
@@ -84,7 +84,7 @@ class UnisonGroundingTool(BaseTool):
         "Output: primary source text chunks proving or refuting the claim. "
         f"Collections: {', '.join(list(COLLECTION_REGISTRY.keys())[:6])}, and 19 more."
     )
-    args_schema: Type[BaseModel] = _GroundingInput
+    args_schema: type[BaseModel] = _GroundingInput
 
     default_collection: str = DEFAULT_COLLECTION
     agent_id: str           = "crewai-unison"
@@ -103,7 +103,7 @@ class UnisonGroundingTool(BaseTool):
         self.max_rows           = max_rows
         self._private_key       = os.getenv("UNISON_AGENT_PRIVATE_KEY")
 
-    def _run(self, query: str, collection: Optional[str] = None) -> str:
+    def _run(self, query: str, collection: str | None = None) -> str:
         target = collection or self.default_collection
         params  = {"collection": target, "q": query}
         headers = {"X-Agent-ID": self.agent_id}

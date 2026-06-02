@@ -25,16 +25,16 @@ from __future__ import annotations
 
 from importlib.metadata import PackageNotFoundError, version
 
-from unison_langchain.retriever import UnisonX402Retriever
-from unison_langchain._tsv import tsv_to_documents, parse_tsv
 from unison_langchain._constants import (
-    EDGE_URL,
-    MANIFEST_URL,
     COLLECTION_REGISTRY,
     DEFAULT_COLLECTION,
     DEFAULT_K,
     DEFAULT_TIMEOUT,
+    EDGE_URL,
+    MANIFEST_URL,
 )
+from unison_langchain._tsv import parse_tsv, tsv_to_documents
+from unison_langchain.retriever import UnisonX402Retriever
 
 try:
     __version__: str = version("unison-langchain")
@@ -49,6 +49,9 @@ __all__ = [
     "EDGE_URL",
     "MANIFEST_URL",
     "COLLECTION_REGISTRY",
+    "DEFAULT_COLLECTION",
+    "DEFAULT_K",
+    "DEFAULT_TIMEOUT",
     "__version__",
 ]
 

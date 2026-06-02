@@ -60,7 +60,7 @@ def tsv_to_documents(
     collection: str = "",
     query: str = "",
     k: int = 10,
-) -> list["Document"]:
+) -> list[Document]:
     """
     Convert a Unison TSV payload into LangChain ``Document`` objects.
 

@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import os
-from typing import Any, List, Optional
+from typing import Any
 
 import requests
 from langchain_core.callbacks import CallbackManagerForRetrieverRun
@@ -89,10 +89,10 @@ class UnisonX402Retriever(BaseRetriever):
     timeout: int    = Field(default=DEFAULT_TIMEOUT, ge=1)
 
     # Private — not serialised into the pydantic model
-    _private_key: Optional[str] = None
+    _private_key: str | None = None
 
     @model_validator(mode="after")
-    def _load_private_key(self) -> "UnisonX402Retriever":
+    def _load_private_key(self) -> UnisonX402Retriever:
         self._private_key = os.getenv("UNISON_AGENT_PRIVATE_KEY")
         return self
 
@@ -102,8 +102,8 @@ class UnisonX402Retriever(BaseRetriever):
         self,
         query: str,
         *,
-        run_manager: Optional[CallbackManagerForRetrieverRun] = None,
-    ) -> List[Document]:
+        run_manager: CallbackManagerForRetrieverRun | None = None,
+    ) -> list[Document]:
         headers = {"X-Agent-ID": self.agent_id}
         params  = {"collection": self.collection, "q": query}
 
@@ -139,7 +139,7 @@ class UnisonX402Retriever(BaseRetriever):
         params: dict[str, str],
         headers: dict[str, str],
         payment_resp: requests.Response,
-    ) -> List[Document]:
+    ) -> list[Document]:
         if not self._private_key:
             return [Document(
                 page_content=(
@@ -178,7 +178,7 @@ class UnisonX402Retriever(BaseRetriever):
         agent_id: str = "unison-langchain",
         k: int = DEFAULT_K,
         **kwargs: Any,
-    ) -> "UnisonX402Retriever":
+    ) -> UnisonX402Retriever:
         """
         Instantiate a retriever by fuzzy-matching ``collection_hint`` against
         the live Unison manifest. Falls back to ``unison_engineering_core``
