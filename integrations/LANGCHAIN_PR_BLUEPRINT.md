@@ -141,13 +141,4 @@ the live Unison endpoint.
 
 ---
 
-## Companion: CrewAI `crewai-tools` PR
-
-**Repo:** `crewai-ai/crewai-tools`
-**Title:** `feat(tools): add UnisonGroundingTool for zero-hallucination historical grounding`
-**Same pre-flight:** open a GitHub Discussion first.
-
-Copy `packages/unison-langchain/src/unison_langchain/crewai_tool.py` and adapt:
-- Move to `crewai_tools/tools/unison_grounding/`
-- Add `__init__.py` exporting `UnisonGroundingTool`
-- Follow the `crewai-tools` directory structure (one tool per subdirectory)
+> For the CrewAI `crewai-tools` PR, see [`CREWAI_PR_BLUEPRINT.md`](./CREWAI_PR_BLUEPRINT.md).
