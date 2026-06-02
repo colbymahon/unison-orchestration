@@ -1,0 +1,52 @@
+root_form,language,language_family,morpheme_chain,feature_string,surface_form,gloss_english
+git,Turkish,Turkic,git+me+di+m,1SG_PAST_NEG_INTRANS,gitmedim,I did not go
+git,Turkish,Turkic,git+me+di+n,2SG_PAST_NEG_INTRANS,gitmedin,You did not go
+git,Turkish,Turkic,git+me+di,3SG_PAST_NEG_INTRANS,gitmedi,He/she did not go
+git,Turkish,Turkic,git+iyor+um,1SG_PRES_PROG_INTRANS,gidiyorum,I am going
+git,Turkish,Turkic,git+ecek+im,1SG_FUT_INTRANS,gideceğim,I will go
+sev,Turkish,Turkic,sev+il+iyor,3SG_PRES_PROG_PASS,seviliyor,He/she is being loved
+sev,Turkish,Turkic,sev+dir+me+k,INF_CAUS_NEG,sevdirmemek,To not cause to love
+ver,Turkish,Turkic,ver+ebil+ir+mi+yim,1SG_PRES_ABIL_INTERROG,verebilir miyim,Can I give?
+al,Turkish,Turkic,al+in+a+bil+ir+siniz,2PL_DAT_REFL_ABIL_PRES,alınabilirsiniz,You (pl.) can be taken (reflexive-dative)
+oku,Turkish,Turkic,oku+t+ul+ma+dan,ABL_CAUS_PASS_NEG_CONV,okutulmadan,Without being caused to read
+tul,Finnish,Uralic-Finnic,tul+e+ma+an,GEN_VEN_INF_ILLATIVE,tulemaan,Into coming (illative of verbal noun)
+talo,Finnish,Uralic-Finnic,talo+ssa+ni+kin,INESS_1SG_POSS_CLIT,talossanikin,In my house too
+talo,Finnish,Uralic-Finnic,talo+i+ssa+ni,INESS_PL_1SG_POSS,taloisssani,In my houses
+kirja,Finnish,Uralic-Finnic,kirja+lla+an+kin,ADESS_3SG_POSS_CLIT,kirjallaan+kin,With his/her book too
+kirja,Finnish,Uralic-Finnic,kirja+t+ta+kin,ELAT_PL_CLIT,kirjoistakin,From books too
+sanoa,Finnish,Uralic-Finnic,sano+a+kin,INF_CLIT,sanoakin,To say too (clitic focus)
+lukea,Finnish,Uralic-Finnic,lue+taan+ko,PASS_PRES_INTERROG,luetaanko,Is it read?
+menneisyys,Finnish,Uralic-Finnic,menn+eisyys+ssa+mme,INESS_1PL_POSS,menneisyydessämme,In our past
+ház,Hungarian,Uralic-Ugric,ház+ba+n+k,SUPERESS_1PL_POSS,házunkban,In our house
+megy,Hungarian,Uralic-Ugric,megy+ek+el+ő+tt+ed,ADESS_CONV_2SG_POSS,előtted,In front of you (lit. going before you)
+olvas,Hungarian,Uralic-Ugric,olvas+hat+ná+m,1SG_COND_ABIL,olvashatnám,I could (probably) read it
+barát,Hungarian,Uralic-Ugric,barát+ai+m+nak,DAT_PL_1SG_POSS,barátaimnak,For my friends
+jön,Hungarian,Uralic-Ugric,jön+ne+k,3PL_COND,jönnének,They would come
+szeret,Hungarian,Uralic-Ugric,szeret+tet+len+ség+e+i+vel,INST_PL_CAUS_PRIV_NMLZ_3SG,szerettetlenségéivel,With his/her lovelessnesses (caused)
+m-dug,Sumerian,Language_Isolate,m-dug+ga+am,STAT_NMLZ_COP_3SG,mdugaam,It is a sweet thing
+na,Sumerian,Language_Isolate,na+an+du+un,NEG_3SG_SUBJ_go_2SG_OBJ,naanduum,He did not go to you
+dug4,Sumerian,Language_Isolate,dug4+mu+na+ab,VENT_3SG_DAT_3SG_OBJ_PERF,dug4munaab,He said it to him
+en3,Sumerian,Language_Isolate,en3+tar+mu+na+ab,VENT_3SG_DAT_3SG_OBJ_INQ,en3tarmunaab,He inquired of him for me
+lu2,Sumerian,Language_Isolate,lu2+kalam+ma,GEN_COUNTRY_NMLZ,lu2kalamma,Person of the land
+sipa,Sumerian,Language_Isolate,sipa+zi+da,GEN_TRUE_RIGHT,sipazida,True and right shepherd
+riz,Quechua,Quechuan,ri+y,INF_MOV,riy,To go
+ri,Quechua,Quechuan,ri+ni,1SG_PRES,rini,I go
+ri,Quechua,Quechuan,ri+ma+nki,2SG_PRES_SPEAK,rimanki,You speak
+ri,Quechua,Quechuan,ri+pti+y+mi,1SG_SUBORD_EVID,riptiyim,When I go (evidential)
+muna,Quechua,Quechuan,muna+ni+chu,1SG_PRES_NEG,munanichu,I do not want
+muna,Quechua,Quechuan,muna+wa+rqa+nki,2SG_1OBJ_PAST_PERF,munawaqanki,You wanted me (perfective)
+pacha,Quechua,Quechuan,pacha+kuna+pi+qa,LOC_PL_TOP,pachakuanpiqa,In the times/places (topic)
+kamu,Japanese,Japonic,kamu+sa+re+ta+i+to+omou,PASS_CAUS_PAST_DESID_QUOT_COGIT,kamusaretaito omou,I think I want to have been made to bite
+tabe,Japanese,Japonic,tabe+rare+nakat+ta,PASS_POT_NEG_PAST,taberarenakatta,Could not eat / was not eaten
+mi,Japanese,Japonic,mi+sase+rare+ta,CAUS_PASS_PAST,misaserareta,Was made to see
+hana,Japanese,Japonic,hana+s+ana+kere+ba+nara+nai,NEG_COND_OBLIG,hanasanakereba naranai,Must speak (negative conditional obligation)
+kak,Japanese,Japonic,kak+e+ba+kak+u+hodo,COND_CORREL,kakeba kaku hodo,The more one writes (correlative)
+noma,Japanese,Japonic,noma+se+te+mora+i+tai,CAUS_TE_RECIP_DESID,nomasete moraitai,Want to have someone make (one) drink
+kel,Swahili,Bantu,ni+li+ku+ambia,1SG_PAST_2SG_OBJ_tell,nilikuambia,I told you
+soma,Swahili,Bantu,a+me+soma+wa,3SG_PERF_PASS_read,amesomwa,He has been read (to)
+soma,Swahili,Bantu,ha+ku+soma+wa,3SG_NEG_PAST_PASS_read,hakusomwa,He was not read (to)
+enda,Swahili,Bantu,wa+ta+ka+po+enda,3PL_FUT_REL_go,watakaoenda,Those who will go
+andik,Swahili,Bantu,ni+li+mw+andikia,1SG_PAST_3SG_APPLIC_write,nilimwandikia,I wrote for him/her
+penda,Swahili,Bantu,wa+na+pend+an+a,3PL_PRES_RECIP_love,wanapendana,They love each other
+pia,Georgian,Kartvelian,mo+v+i+s+min+a,PREV_1SG_SUBJ_VERS_hear+PERF,movismine,I have heard (preverb+version)
+ts'er,Georgian,Kartvelian,da+v+ts'er,PREV_1SG_SUBJ_write,davts'er,I will write

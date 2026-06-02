@@ -1,0 +1,22 @@
+# Philosophy bulk ingestion URLs → unison_philosophy_core
+# Aristotle
+https://www.gutenberg.org/cache/epub/8438/pg8438.txt
+https://www.gutenberg.org/cache/epub/6762/pg6762.txt
+https://www.gutenberg.org/cache/epub/26095/pg26095.txt
+# Plato
+https://www.gutenberg.org/cache/epub/1600/pg1600.txt
+https://www.gutenberg.org/cache/epub/1656/pg1656.txt
+https://www.gutenberg.org/cache/epub/37521/pg37521.txt
+# Hume
+https://www.gutenberg.org/cache/epub/4705/pg4705.txt
+https://www.gutenberg.org/cache/epub/9662/pg9662.txt
+https://www.gutenberg.org/cache/epub/3826/pg3826.txt
+# Kant
+https://www.gutenberg.org/cache/epub/5683/pg5683.txt
+https://www.gutenberg.org/cache/epub/23428/pg23428.txt
+# Descartes & Locke
+https://www.gutenberg.org/cache/epub/59/pg59.txt
+https://www.gutenberg.org/cache/epub/10615/pg10615.txt
+https://www.gutenberg.org/cache/epub/7370/pg7370.txt
+# Nietzsche
+https://www.gutenberg.org/cache/epub/4363/pg4363.txt

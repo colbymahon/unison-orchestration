@@ -1,0 +1,21 @@
+ledger_id,timestamp_utc,arbitrage_class,venue_primary,venue_secondary,settlement_class,settlement_latency_ms,gross_spread_bps,net_spread_bps,dex_cross_spread_threshold_bps,triangular_proof_summary,ledger_hash
+ARB-001,2024-03-15T14:32:01.042Z,cross_exchange_spot,NYSE ARCA,NASDAQ BX,T+0_atomic,0.8,4.2,1.9,3.0,USDC/USD loop: buy ARCA sell BX; Π net = (1+s₁)(1+s₂)(1+s₃)-1 = +1.9bps after fees,sha256:a1f3…9c02
+ARB-002,2024-03-15T14:32:01.891Z,triangular_fx,CME FX Link,EBS Spot,T+0,1.2,2.8,0.7,2.5,EUR/USD×USD/JPY÷EUR/JPY=1.00007; log proof ln(1.00007)=0.7bps net,sha256:b2e4…0d11
+ARB-003,2024-06-01T09:15:33.221Z,dex_cross_spread,Uniswap v3 Base,Curve ETH/stETH,T+0_block,1200.0,18.5,11.2,15.0,stETH/ETH pool 0.05% fee tier; cross-spread 18.5bps > threshold 15.0bps → execute,sha256:c3f5…1e22
+ARB-004,2024-06-01T09:15:34.005Z,stat_arb_pairs,Binance Perp,OKX Perp,T+0_margin,2.1,6.1,3.4,5.0,β-neutral BTC/ETH spread z=2.4σ; half-life 47min; net 3.4bps post-funding,sha256:d4a6…2f33
+ARB-005,2024-08-12T16:44:00.118Z,convertible_bond,TRACE OTC,Bloomberg BVAL,T+1,86400000.0,42.0,28.5,35.0,CB cheap vs parity: P_bond < P_stock×ratio+coupon_pv; arb 28.5bps vs BVAL,sha256:e5b7…3a44
+ARB-006,2024-08-12T16:44:01.002Z,latency_arb,Cboe BZX,MEMX,T+0,0.35,1.1,0.3,0.8,Quote stale 350μs on MEMX; IOC sweep net 0.3bps after colo fees,sha256:f6c8…4b55
+ARB-007,2024-09-20T11:02:17.556Z,triangular_crypto,Binance Spot,Kraken Spot,Coinbase Spot,T+0,890.0,9.4,5.1,7.0,BTC→ETH→USDT→BTC: ∏(1- fee_i) = 1.00051; 5.1bps net; proof in ledger row 7,sha256:07d9…5c66
+ARB-008,2024-09-20T11:02:18.301Z,basis_trade,CME BTC Fut,spot_aggregate,T+0_cash_and_carry,450.0,22.0,14.8,18.0,Fut-spot basis 22bps > 18bps threshold; carry annualized 8.2%,sha256:18ea…6d77
+ARB-009,2024-10-05T13:30:00.004Z,index_arbitrage,SPX cash basket,ES futures,T+0,0.9,3.5,2.1,3.0,Cash-fut fair: F=S·e^((r-q)T); mispricing 3.5bps; program trade net 2.1bps,sha256:29fb…7e88
+ARB-010,2024-10-05T13:30:00.612Z,etf_creation,AP NAV wire,NYSE ETF,T+0_create,1800.0,7.8,4.6,6.0,Premium 7.8bps > 6.0bps; create basket redeem; net 4.6bps vs NAV,sha256:3a0c…8f99
+ARB-011,2024-11-11T08:00:01.200Z,dex_triangular,Balancer V2,SushiSwap V2,Uniswap V2,T+0_block,2100.0,31.2,19.7,25.0,DAI→WETH→USDC→DAI: closed loop +19.7bps; gas 11.5bps; proof ∏rates=1.000197,sha256:4b1d…900a
+ARB-012,2024-11-11T08:00:02.450Z,funding_rate,BTC perp A,BTC perp B,T+0_perp,500.0,12.0,8.3,10.0,Funding diff 12bps/8hr; delta-neutral hedge; net 8.3bps per interval,sha256:5c2e…011b
+ARB-013,2025-01-08T15:22:44.881Z,on_chain_cex,Coinbase Advanced,Uniswap v3 Arbitrum,T+0_bridge,45000.0,24.6,9.2,20.0,ETH cross 24.6bps; bridge latency 45s; threshold 20bps; net 9.2bps,sha256:6d3f…122c
+ARB-014,2025-01-08T15:22:45.990Z,vol_surface,Deribit options,CME options,T+0,1200.0,55.0,38.0,45.0,Calendar spread misprice; σ_diff 2.1 vol pts; vega-neutral package 38bps,sha256:7e40…233d
+ARB-015,2025-02-14T10:05:30.003Z,settlement_fail_arb,DTCC DTC,Euroclear,T+2_fail,172800000.0,85.0,52.0,70.0,Fail charge arb: borrow fee 85bps vs collateral yield; net 52bps T+2,sha256:8f51…344e
+ARB-016,2025-02-14T10:05:31.118Z,stablecoin_depeg,Circle USDC,Curve 3pool,T+0,600.0,14.0,6.8,12.0,USDC 0.9986 vs peg; mint/redeem arb; net 6.8bps; proof Δ=14bps gross,sha256:9062…455f
+ARB-017,2025-03-01T12:00:00.500Z,triangular_equity,TSX,NASDAQ,NYSE,T+1,86400000.0,5.5,2.8,4.0,ADR/ORD loop: TSX CAD→NYSE USD→NASDAQ; FX hedge; net 2.8bps,sha256:a173…5660
+ARB-018,2025-03-01T12:00:01.200Z,maker_taker_rebate,Cboe EDGX,Nasdaq PSX,T+0,0.6,1.8,0.9,1.5,Rebate arb: maker -0.30c take 0.27c; net 0.9bps per round-trip,sha256:b284…6771
+ARB-019,2025-04-18T07:30:15.333Z,commodity_spread,ICE Brent,CME WTI,T+0,3000.0,38.0,21.0,30.0,Brent-WTI spread 38bps > 30bps; tanker arb; net 21bps logistics,sha256:c395…7882
+ARB-020,2025-04-18T07:30:16.001Z,x402_agentic_settlement,Unison Edge Gateway,Coinbase CDP Wallet,T+0_x402,12.0,500.0,495.0,450.0,Micro-query spread: agent pays $0.005 retrieves $0.05 tier data; net margin proof 4950bps face; settlement hash on Base L2,sha256:d4a6…8993

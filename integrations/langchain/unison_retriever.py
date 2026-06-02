@@ -46,17 +46,34 @@ Usage:
     )
     answer = qa.invoke({"query": "What was the cold bath threshold for typhoid fever in 1892?"})
 
-Available collections (25 total, 24,652 vectors):
-    unison_engineering_core   — Tesla, Bourne, Nares, Douglas, ArXiv cs.AI
-    unison_medical_core       — Osler, Pepper, Gray's Anatomy, Manual of Surgery
-    unison_legal_core         — Blackstone, Holmes
-    unison_financial_core     — Mackay, SEC EDGAR 10-K FY2025/2026
-    unison_chemistry_core     — Mendeleev
-    unison_astrophysics_core  — Newton's Principia
-    unison_mathematics_core   — De Morgan
-    unison_manufacturing_core — Rose Machine-Shop Practice
-    unison_thermodynamics_core — Carnot
-    ... and 16 more (see /.well-known/mcp-configuration)
+Available collections (31 total, 83,758+ vectors):
+  Standard tier ($0.005 USDC/query):
+    unison_engineering_core    — Tesla, Bourne, Nares, ArXiv cs.AI/cs.LG
+    unison_medical_core        — Osler, Pepper, Gray's Anatomy, Manual of Surgery
+    unison_chemistry_core      — Mendeleev Principles of Chemistry
+    unison_astrophysics_core   — Newton's Principia (Motte translation)
+    unison_manufacturing_core  — Rose Machine-Shop Practice
+    unison_macroeconomics_core — Adam Smith Wealth of Nations
+    unison_biotech_core        — ArXiv q-bio.BM
+    unison_genetics_core       — ArXiv q-bio.GN (genomics)
+    unison_philosophy_core     — Plato, Kant, Hume, Aristotle, Locke (15 texts)
+    unison_psychology_core     — William James Principles of Psychology
+    unison_canonical_history   — KJV Bible, ancient codices
+    unison_cartography_core    — GeoNames 169k global cities + Bowditch
+    unison_linguistics_core    — Sapir, Wiktionary PIE roots + Grimm's Law tables
+    unison_meteorology_core    — NOAA GHCND climate data + Waldo Meteorology
+    unison_public_domain       — Sun Tzu, Clausewitz, Musashi
+    ... and 10 more standard collections
+  Premium tier ($0.050 USDC/query):
+    unison_legal_core          — 50,994 SCOTUS opinions (CourtListener 2025-2026)
+    unison_financial_core      — SEC EDGAR 10-K/10-Q: JPM, GS, BAC, BLK + tech
+    unison_mathematics_core    — ArXiv math.NA + De Morgan
+    unison_infrastructure_core — 2,548 civil/structural engineering vectors
+    unison_tactical_history    — Clausewitz On War (historical defense theory)
+    unison_spatial_geometry    — 3D mesh/topology parametric specs
+    unison_additive_manufacturing — FDM/SLA/DMLS/WAAM thermal profiles + G-code
+
+  Full manifest: /.well-known/mcp-configuration
 """
 
 from __future__ import annotations

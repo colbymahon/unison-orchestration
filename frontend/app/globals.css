@@ -1,0 +1,186 @@
+@import "tailwindcss";
+
+/* ─── Brand tokens ─────────────────────────────────────────────────────────── */
+:root {
+  --obsidian:      #050914;
+  --obsidian-deep: #03050A;
+  --cyan:          #00E5FF;
+  --purple:        #B300FF;
+  --cyan-dim:      rgba(0, 229, 255, 0.15);
+  --purple-dim:    rgba(179, 0, 255, 0.12);
+  --glass-bg:      rgba(255, 255, 255, 0.04);
+  --glass-border:  rgba(255, 255, 255, 0.08);
+  --text-primary:  #F0F4FF;
+  --text-muted:    #8896B0;
+}
+
+@theme inline {
+  --color-background: var(--obsidian);
+  --color-foreground:  var(--text-primary);
+  --color-cyan:        var(--cyan);
+  --color-purple:      var(--purple);
+}
+
+/* ─── Base reset ────────────────────────────────────────────────────────────── */
+*, *::before, *::after { box-sizing: border-box; }
+
+html {
+  scroll-behavior: smooth;
+  -webkit-text-size-adjust: 100%;
+}
+
+body {
+  background-color: var(--obsidian);
+  color: var(--text-primary);
+  font-family: 'Inter', 'Helvetica Now Display', system-ui, -apple-system, sans-serif;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  overflow-x: hidden;
+}
+
+/* ─── Hex grid background ───────────────────────────────────────────────────── */
+.hex-grid-bg {
+  background-color: var(--obsidian-deep);
+  background-image:
+    radial-gradient(circle at 20% 20%, rgba(0, 229, 255, 0.06) 0%, transparent 50%),
+    radial-gradient(circle at 80% 80%, rgba(179, 0, 255, 0.06) 0%, transparent 50%),
+    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='60' height='104' viewBox='0 0 60 104'%3E%3Cpolygon points='30,2 58,17 58,47 30,62 2,47 2,17' fill='none' stroke='%2303050A' stroke-width='1'/%3E%3Cpolygon points='30,54 58,69 58,99 30,114 2,99 2,69' fill='none' stroke='%2303050A' stroke-width='1'/%3E%3C/svg%3E");
+}
+
+/* ─── Glassmorphism utilities ──────────────────────────────────────────────── */
+.glass {
+  background: var(--glass-bg);
+  backdrop-filter: blur(20px) saturate(180%);
+  -webkit-backdrop-filter: blur(20px) saturate(180%);
+  border: 1px solid var(--glass-border);
+}
+
+.glass-hover {
+  transition: background 0.25s, border-color 0.25s, box-shadow 0.25s;
+}
+.glass-hover:hover {
+  background: rgba(255, 255, 255, 0.07);
+  border-color: rgba(0, 229, 255, 0.25);
+  box-shadow: 0 0 30px rgba(0, 229, 255, 0.08), 0 8px 32px rgba(0, 0, 0, 0.4);
+}
+
+/* ─── Gradient text ─────────────────────────────────────────────────────────── */
+.gradient-text {
+  background: linear-gradient(135deg, var(--cyan) 0%, var(--purple) 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+/* ─── Glow effects ──────────────────────────────────────────────────────────── */
+.glow-cyan  { text-shadow: 0 0 20px rgba(0, 229, 255, 0.5); }
+.glow-purple{ text-shadow: 0 0 20px rgba(179, 0, 255, 0.5); }
+.glow-box-cyan   { box-shadow: 0 0 24px rgba(0, 229, 255, 0.25), inset 0 0 24px rgba(0, 229, 255, 0.04); }
+.glow-box-purple { box-shadow: 0 0 24px rgba(179, 0, 255, 0.25), inset 0 0 24px rgba(179, 0, 255, 0.04); }
+
+/* ─── Scrollbar ─────────────────────────────────────────────────────────────── */
+::-webkit-scrollbar { width: 4px; height: 4px; }
+::-webkit-scrollbar-track { background: var(--obsidian-deep); }
+::-webkit-scrollbar-thumb { background: rgba(0, 229, 255, 0.3); border-radius: 2px; }
+::-webkit-scrollbar-thumb:hover { background: var(--cyan); }
+
+/* ─── Font helpers ──────────────────────────────────────────────────────────── */
+.font-mono-brand {
+  font-family: 'JetBrains Mono', 'Geist Mono', 'Fira Code', monospace;
+}
+.font-grotesk {
+  font-family: var(--font-grotesk), 'Space Grotesk', 'Inter', system-ui, sans-serif;
+}
+
+/* ─── Brutalist / Command Center utilities ──────────────────────────────────── */
+.brutalist-border {
+  border: 1px solid rgba(0, 229, 255, 0.18);
+}
+.brutalist-border-purple {
+  border: 1px solid rgba(179, 0, 255, 0.18);
+}
+.brutalist-bg {
+  background: #000000;
+}
+.brutalist-card {
+  background: rgba(0, 0, 0, 0.85);
+  border: 1px solid rgba(0, 229, 255, 0.15);
+}
+.brutalist-card-purple {
+  background: rgba(0, 0, 0, 0.85);
+  border: 1px solid rgba(179, 0, 255, 0.15);
+}
+.brutalist-card-neutral {
+  background: rgba(255, 255, 255, 0.02);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+/* ─── Live blink ────────────────────────────────────────────────────────────── */
+@keyframes live-pulse {
+  0%, 100% { opacity: 1; box-shadow: 0 0 0 0 rgba(0, 229, 255, 0.7); }
+  50%       { opacity: 0.8; box-shadow: 0 0 0 4px rgba(0, 229, 255, 0); }
+}
+.live-dot {
+  animation: live-pulse 1.8s ease-in-out infinite;
+}
+
+/* ─── Number counter glow ───────────────────────────────────────────────────── */
+@keyframes number-flash {
+  0%   { color: #00E5FF; }
+  15%  { color: #ffffff; }
+  100% { color: #00E5FF; }
+}
+.counter-flash { animation: number-flash 0.4s ease-out; }
+
+@keyframes counter-flash-purple {
+  0%   { color: #B300FF; }
+  15%  { color: #ffffff; }
+  100% { color: #B300FF; }
+}
+.counter-flash-purple { animation: counter-flash-purple 0.4s ease-out; }
+
+/* ─── Tick line (terminal border-bottom) ────────────────────────────────────── */
+.tick-line {
+  border-bottom: 1px solid rgba(0, 229, 255, 0.12);
+}
+
+/* ─── Stripe overlay for brutalism ─────────────────────────────────────────── */
+.stripe-bg {
+  background-image: repeating-linear-gradient(
+    0deg,
+    transparent,
+    transparent 2px,
+    rgba(0, 229, 255, 0.012) 2px,
+    rgba(0, 229, 255, 0.012) 4px
+  );
+}
+
+/* ─── Terminal cursor blink ─────────────────────────────────────────────────── */
+@keyframes cursor-blink {
+  0%, 100% { opacity: 1; }
+  50%       { opacity: 0; }
+}
+.cursor-blink { animation: cursor-blink 1.1s step-end infinite; }
+
+/* ─── Scanline overlay ──────────────────────────────────────────────────────── */
+@keyframes scanline {
+  0%   { transform: translateY(-100%); }
+  100% { transform: translateY(100vh); }
+}
+.scanline {
+  position: fixed; inset: 0; pointer-events: none; z-index: 9999;
+  overflow: hidden;
+}
+.scanline::after {
+  content: '';
+  position: absolute; left: 0; right: 0; top: 0; height: 2px;
+  background: linear-gradient(90deg, transparent, rgba(0, 229, 255, 0.15), transparent);
+  animation: scanline 8s linear infinite;
+}
+
+/* ─── Flow animation ────────────────────────────────────────────────────────── */
+@keyframes flow-right {
+  0%   { stroke-dashoffset: 200; }
+  100% { stroke-dashoffset: 0; }
+}
+.flow-line { stroke-dasharray: 8 4; animation: flow-right 2s linear infinite; }

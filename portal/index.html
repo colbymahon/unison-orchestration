@@ -1,0 +1,1033 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Unison Command Center</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          fontFamily: {
+            mono: ['JetBrains Mono', 'Fira Code', 'Cascadia Code', 'Consolas', 'monospace'],
+            sans: ['Inter', 'system-ui', 'sans-serif'],
+          }
+        }
+      }
+    };
+  </script>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@300;400;500;600;700&family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet" />
+  <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+  <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+  <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      background: #030712;
+      color: #e2e8f0;
+      font-family: 'Inter', system-ui, sans-serif;
+      overflow-x: hidden;
+    }
+
+    ::-webkit-scrollbar { width: 5px; height: 5px; }
+    ::-webkit-scrollbar-track { background: #0b0f19; }
+    ::-webkit-scrollbar-thumb { background: #1e3a5f; border-radius: 3px; }
+    ::-webkit-scrollbar-thumb:hover { background: #0ea5e9; }
+
+    @keyframes pulse-ring {
+      0%   { box-shadow: 0 0 0 0 rgba(52, 211, 153, 0.5); }
+      70%  { box-shadow: 0 0 0 5px rgba(52, 211, 153, 0); }
+      100% { box-shadow: 0 0 0 0 rgba(52, 211, 153, 0); }
+    }
+    @keyframes pulse-amber {
+      0%   { box-shadow: 0 0 0 0 rgba(251, 191, 36, 0.5); }
+      70%  { box-shadow: 0 0 0 5px rgba(251, 191, 36, 0); }
+      100% { box-shadow: 0 0 0 0 rgba(251, 191, 36, 0); }
+    }
+    @keyframes blink-cursor {
+      0%, 100% { opacity: 1; }
+      50%       { opacity: 0; }
+    }
+    @keyframes scanline {
+      0%   { transform: translateY(-100vh); }
+      100% { transform: translateY(100vh); }
+    }
+    @keyframes fade-in {
+      from { opacity: 0; transform: translateY(4px); }
+      to   { opacity: 1; transform: translateY(0); }
+    }
+    @keyframes spin {
+      to { transform: rotate(360deg); }
+    }
+    @keyframes counter-up {
+      from { opacity: 0; transform: translateY(6px); }
+      to   { opacity: 1; transform: translateY(0); }
+    }
+
+    .dot-operational { animation: pulse-ring 2s ease-out infinite; }
+    .dot-degraded    { animation: pulse-amber 2s ease-out infinite; }
+    .cursor-blink    { animation: blink-cursor 1.1s step-end infinite; }
+    .scanline-bar    {
+      position: fixed; top: 0; left: 0; right: 0; height: 1px; z-index: 9999;
+      background: linear-gradient(90deg, transparent, rgba(6, 182, 212, 0.25), transparent);
+      animation: scanline 12s linear infinite;
+      pointer-events: none;
+    }
+    .fade-in         { animation: fade-in 0.25s ease-out both; }
+    .spin            { animation: spin 0.7s linear infinite; }
+
+    .grid-bg {
+      background-image:
+        linear-gradient(rgba(30, 58, 95, 0.12) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(30, 58, 95, 0.12) 1px, transparent 1px);
+      background-size: 40px 40px;
+    }
+    .terminal-font {
+      font-family: 'JetBrains Mono', 'Fira Code', 'Cascadia Code', Consolas, monospace;
+      font-size: 12px;
+      line-height: 1.65;
+    }
+    .glow-cyan  { text-shadow: 0 0 12px rgba(6, 182, 212, 0.6); }
+    .glow-emerald { text-shadow: 0 0 12px rgba(52, 211, 153, 0.5); }
+
+    select option { background: #0b0f19; color: #e2e8f0; }
+  </style>
+</head>
+<body>
+  <div class="scanline-bar"></div>
+  <div id="root"></div>
+
+  <script type="text/babel">
+    const { useState, useEffect, useRef, useCallback, useMemo } = React;
+
+    /* ─────────────────────────────────────────────────────────────────────
+       CONFIGURATION
+    ───────────────────────────────────────────────────────────────────── */
+    const CONFIG = {
+      LOCAL_API:              'http://localhost:3000',
+      FLY_API:                'https://unison-mcp.fly.dev',
+      EDGE_GATEWAY:           'https://unison-edge-gateway.unisonorchestration.workers.dev',
+      HEARTBEAT_INTERVAL_MS:  10_000,
+      LATENCY_DEGRADED_MS:    350,
+      USDC_PER_QUERY:         0.005,
+      TOTAL_VECTORS:          23_749,
+      TOTAL_COLLECTIONS:      25,
+    };
+
+    /* ─────────────────────────────────────────────────────────────────────
+       COLLECTIONS REGISTRY
+    ───────────────────────────────────────────────────────────────────── */
+    const COLLECTIONS = [
+      { id: 'unison_public_domain',       label: 'Public Domain',   domain: 'Literature',      color: 'purple'  },
+      { id: 'unison_engineering_core',    label: 'Engineering',     domain: 'Technical',       color: 'blue'    },
+      { id: 'unison_medical_core',        label: 'Medical',         domain: 'Life Sciences',   color: 'red'     },
+      { id: 'unison_financial_core',      label: 'Financial',       domain: 'Finance',         color: 'emerald' },
+      { id: 'unison_collectibles_core',   label: 'Collectibles',    domain: 'Sports & TCG',    color: 'orange'  },
+      { id: 'unison_dtc_core',            label: 'DTC',             domain: 'Commerce',        color: 'yellow'  },
+      { id: 'unison_legal_core',          label: 'Legal',           domain: 'Law',             color: 'slate'   },
+      { id: 'unison_cyber_core',          label: 'Cyber',           domain: 'Security',        color: 'cyan'    },
+      { id: 'unison_architecture_core',   label: 'Architecture',    domain: 'Engineering',     color: 'stone'   },
+      { id: 'unison_astrophysics_core',   label: 'Astrophysics',    domain: 'Physics',         color: 'indigo'  },
+      { id: 'unison_chemistry_core',      label: 'Chemistry',       domain: 'Science',         color: 'green'   },
+      { id: 'unison_aerospace_core',      label: 'Aerospace',       domain: 'Engineering',     color: 'sky'     },
+      { id: 'unison_intelligence_core',   label: 'Intelligence',    domain: 'Classified',      color: 'rose'    },
+      { id: 'unison_biotech_core',        label: 'Biotech',         domain: 'Life Sciences',   color: 'teal'    },
+      { id: 'unison_infrastructure_core', label: 'Infrastructure',  domain: 'Civil Eng.',      color: 'amber'   },
+      { id: 'unison_manufacturing_core',  label: 'Manufacturing',   domain: 'Industrial',      color: 'lime'    },
+      { id: 'unison_macroeconomics_core', label: 'Macroeconomics',  domain: 'Finance',         color: 'violet'  },
+      { id: 'unison_mathematics_core',    label: 'Mathematics',     domain: 'Pure Science',    color: 'fuchsia' },
+      { id: 'unison_thermodynamics_core', label: 'Thermodynamics',  domain: 'Physics',         color: 'orange'  },
+      { id: 'unison_agronomy_core',       label: 'Agronomy',        domain: 'Agriculture',     color: 'lime'    },
+      { id: 'unison_meteorology_core',    label: 'Meteorology',     domain: 'Atmospheric Sci', color: 'sky'     },
+      { id: 'unison_genetics_core',       label: 'Genetics',        domain: 'Biology',         color: 'pink'    },
+      { id: 'unison_materials_core',      label: 'Materials',       domain: 'Physics',         color: 'gray'    },
+      { id: 'unison_linguistics_core',    label: 'Linguistics',     domain: 'Humanities',      color: 'cyan'    },
+      { id: 'unison_cartography_core',    label: 'Cartography',     domain: 'Geography',       color: 'emerald' },
+    ];
+
+    /* ─────────────────────────────────────────────────────────────────────
+       SVG ICON PRIMITIVES
+    ───────────────────────────────────────────────────────────────────── */
+    const ICONS = {
+      activity:      <path d="M22 12h-4l-3 9L9 3l-3 9H2" strokeLinecap="round" strokeLinejoin="round" />,
+      database:      <><ellipse cx="12" cy="5" rx="9" ry="3" /><path d="M21 12c0 1.66-4 3-9 3s-9-1.34-9-3" /><path d="M3 5v14c0 1.66 4 3 9 3s9-1.34 9-3V5" /></>,
+      cpu:           <><rect x="4" y="4" width="16" height="16" rx="2" /><rect x="9" y="9" width="6" height="6" /><line x1="9" y1="1" x2="9" y2="4" /><line x1="15" y1="1" x2="15" y2="4" /><line x1="9" y1="20" x2="9" y2="23" /><line x1="15" y1="20" x2="15" y2="23" /><line x1="20" y1="9" x2="23" y2="9" /><line x1="20" y1="14" x2="23" y2="14" /><line x1="1" y1="9" x2="4" y2="9" /><line x1="1" y1="14" x2="4" y2="14" /></>,
+      globe:         <><circle cx="12" cy="12" r="10" /><line x1="2" y1="12" x2="22" y2="12" /><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z" /></>,
+      layers:        <><polygon points="12 2 2 7 12 12 22 7 12 2" /><polyline points="2 17 12 22 22 17" /><polyline points="2 12 12 17 22 12" /></>,
+      terminal:      <><polyline points="4 17 10 11 4 5" /><line x1="12" y1="19" x2="20" y2="19" /></>,
+      search:        <><circle cx="11" cy="11" r="8" /><line x1="21" y1="21" x2="16.65" y2="16.65" /></>,
+      server:        <><rect x="2" y="2" width="20" height="8" rx="2" /><rect x="2" y="14" width="20" height="8" rx="2" /><line x1="6" y1="6" x2="6.01" y2="6" /><line x1="6" y1="18" x2="6.01" y2="18" /></>,
+      shield:        <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" />,
+      zap:           <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2" />,
+      coins:         <><circle cx="8" cy="8" r="6" /><path d="M18.09 10.37A6 6 0 1 1 10.34 18" /><path d="M7 6h1v4" /><line x1="16.71" y1="13.88" x2="13.14" y2="9.35" /></>,
+      alert_circle:  <><circle cx="12" cy="12" r="10" /><line x1="12" y1="8" x2="12" y2="12" /><line x1="12" y1="16" x2="12.01" y2="16" /></>,
+      check_circle:  <><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14" /><polyline points="22 4 12 14.01 9 11.01" /></>,
+      refresh:       <><polyline points="23 4 23 10 17 10" /><polyline points="1 20 1 14 7 14" /><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15" /></>,
+      trending_up:   <><polyline points="23 6 13.5 15.5 8.5 10.5 1 18" /><polyline points="17 6 23 6 23 12" /></>,
+      wifi_off:      <><line x1="1" y1="1" x2="23" y2="23" /><path d="M16.72 11.06A10.94 10.94 0 0 1 19 12.55" /><path d="M5 12.55a10.94 10.94 0 0 1 5.17-2.39" /><path d="M10.71 5.05A16 16 0 0 1 22.56 9" /><path d="M1.42 9a15.91 15.91 0 0 1 4.7-2.88" /><path d="M8.53 16.11a6 6 0 0 1 6.95 0" /><line x1="12" y1="20" x2="12.01" y2="20" /></>,
+      grid:          <><rect x="3" y="3" width="7" height="7" /><rect x="14" y="3" width="7" height="7" /><rect x="14" y="14" width="7" height="7" /><rect x="3" y="14" width="7" height="7" /></>,
+      external_link: <><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6" /><polyline points="15 3 21 3 21 9" /><line x1="10" y1="14" x2="21" y2="3" /></>,
+    };
+
+    const Icon = ({ name, size = 16, className = '' }) => {
+      const paths = ICONS[name];
+      if (!paths) return null;
+      return (
+        <svg
+          xmlns="http://www.w3.org/2000/svg"
+          width={size}
+          height={size}
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="2"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+          className={className}
+          aria-hidden="true"
+        >
+          {paths}
+        </svg>
+      );
+    };
+
+    /* ─────────────────────────────────────────────────────────────────────
+       STATUS HELPERS
+    ───────────────────────────────────────────────────────────────────── */
+    const STATUS_STYLES = {
+      OPERATIONAL: {
+        text:   'text-emerald-400',
+        dot:    'bg-emerald-400 dot-operational',
+        border: 'border-emerald-400/25',
+        badge:  'bg-emerald-400/10 text-emerald-400',
+        pill:   'border-emerald-400/30 bg-emerald-400/5',
+      },
+      DEGRADED: {
+        text:   'text-amber-400',
+        dot:    'bg-amber-400 dot-degraded',
+        border: 'border-amber-400/25',
+        badge:  'bg-amber-400/10 text-amber-400',
+        pill:   'border-amber-400/30 bg-amber-400/5',
+      },
+      OFFLINE: {
+        text:   'text-rose-500',
+        dot:    'bg-rose-500',
+        border: 'border-rose-500/25',
+        badge:  'bg-rose-500/10 text-rose-500',
+        pill:   'border-rose-500/30 bg-rose-500/5',
+      },
+      CHECKING: {
+        text:   'text-slate-500',
+        dot:    'bg-slate-600',
+        border: 'border-slate-700',
+        badge:  'bg-slate-800 text-slate-500',
+        pill:   'border-slate-700 bg-slate-900/30',
+      },
+    };
+
+    const ss = (status) => STATUS_STYLES[status] || STATUS_STYLES.CHECKING;
+
+    const latencyColor = (ms) => {
+      if (ms === null || ms === undefined) return 'text-slate-500';
+      if (ms < 150) return 'text-emerald-400';
+      if (ms < CONFIG.LATENCY_DEGRADED_MS) return 'text-amber-400';
+      return 'text-rose-500';
+    };
+
+    const formatMs = (ms) => ms === null || ms === undefined ? '---' : `${Math.round(ms)}ms`;
+
+    const nowUtc = () => new Date().toISOString().replace('T', ' ').slice(0, 19);
+
+    /* ─────────────────────────────────────────────────────────────────────
+       HEARTBEAT HOOK
+    ───────────────────────────────────────────────────────────────────── */
+    const ENDPOINT_MAP = {
+      LOCAL_API:    CONFIG.LOCAL_API,
+      FLY_API:      CONFIG.FLY_API,
+      EDGE_GATEWAY: CONFIG.EDGE_GATEWAY,
+    };
+
+    const useHeartbeat = () => {
+      const [statuses, setStatuses] = useState(() =>
+        Object.fromEntries(Object.keys(ENDPOINT_MAP).map(k => [k, { status: 'CHECKING', latency: null, lastTs: null }]))
+      );
+
+      const ping = useCallback(async (name, baseUrl) => {
+        const t0 = performance.now();
+        try {
+          const resp = await fetch(`${baseUrl}/health`, {
+            signal: AbortSignal.timeout(5_000),
+            cache: 'no-store',
+          });
+          const latency = performance.now() - t0;
+          const status = !resp.ok
+            ? 'DEGRADED'
+            : latency > CONFIG.LATENCY_DEGRADED_MS
+            ? 'DEGRADED'
+            : 'OPERATIONAL';
+          setStatuses(prev => ({ ...prev, [name]: { status, latency, lastTs: nowUtc() } }));
+        } catch {
+          const latency = performance.now() - t0;
+          const status = latency >= 4_900 ? 'OFFLINE' : 'OFFLINE';
+          setStatuses(prev => ({ ...prev, [name]: { status, latency: null, lastTs: nowUtc() } }));
+        }
+      }, []);
+
+      const runAll = useCallback(() => {
+        Object.entries(ENDPOINT_MAP).forEach(([name, url]) => ping(name, url));
+      }, [ping]);
+
+      useEffect(() => {
+        runAll();
+        const iv = setInterval(runAll, CONFIG.HEARTBEAT_INTERVAL_MS);
+        return () => clearInterval(iv);
+      }, [runAll]);
+
+      return { statuses, refresh: runAll };
+    };
+
+    /* ─────────────────────────────────────────────────────────────────────
+       TOP STATUS BAR
+    ───────────────────────────────────────────────────────────────────── */
+    const TopStatusBar = ({ statuses, onRefresh }) => {
+      const [clock, setClock] = useState(nowUtc());
+      useEffect(() => {
+        const iv = setInterval(() => setClock(nowUtc()), 1_000);
+        return () => clearInterval(iv);
+      }, []);
+
+      const overall = useMemo(() => {
+        const all = Object.values(statuses);
+        if (all.every(s => s.status === 'OPERATIONAL')) return 'OPERATIONAL';
+        if (all.some(s => s.status === 'OPERATIONAL'))  return 'DEGRADED';
+        return 'OFFLINE';
+      }, [statuses]);
+
+      return (
+        <header
+          style={{ background: 'rgba(3,7,18,0.96)', backdropFilter: 'blur(8px)' }}
+          className="fixed top-0 left-0 right-0 z-50 border-b border-slate-800/80 h-12 flex items-center px-4 gap-4"
+        >
+          {/* Brand */}
+          <div className="flex items-center gap-2.5 shrink-0">
+            <div className="w-7 h-7 border border-cyan-400/50 rounded flex items-center justify-center bg-cyan-400/5">
+              <Icon name="layers" size={13} className="text-cyan-400" />
+            </div>
+            <div>
+              <div className="terminal-font font-bold tracking-widest text-white text-xs uppercase leading-none">UNISON</div>
+              <div className="terminal-font text-slate-500 text-xs tracking-wider leading-none mt-0.5">COMMAND&nbsp;CENTER</div>
+            </div>
+          </div>
+
+          <div className="w-px h-6 bg-slate-800 mx-1" />
+
+          {/* Endpoint Pills */}
+          <div className="flex items-center gap-2 flex-1 overflow-x-auto">
+            {Object.entries(statuses).map(([name, state]) => (
+              <div
+                key={name}
+                className={`flex items-center gap-1.5 px-2.5 py-1 rounded border terminal-font text-xs shrink-0 ${ss(state.status).pill}`}
+              >
+                <div className={`w-1.5 h-1.5 rounded-full shrink-0 ${ss(state.status).dot}`} />
+                <span className="text-slate-400">{name}</span>
+                <span className={`font-semibold ${ss(state.status).text}`}>{state.status}</span>
+                {state.latency !== null && (
+                  <span className={latencyColor(state.latency)}>{formatMs(state.latency)}</span>
+                )}
+              </div>
+            ))}
+          </div>
+
+          {/* Right side */}
+          <div className="flex items-center gap-3 shrink-0">
+            <button
+              onClick={onRefresh}
+              className="text-slate-600 hover:text-slate-400 transition-colors"
+              title="Force heartbeat refresh"
+            >
+              <Icon name="refresh" size={13} />
+            </button>
+            <div className="flex items-center gap-1.5">
+              <div className={`w-1.5 h-1.5 rounded-full ${ss(overall).dot}`} />
+              <span className={`terminal-font text-xs font-bold ${ss(overall).text}`}>{overall}</span>
+            </div>
+            <div className="terminal-font text-xs text-slate-600 hidden lg:block">{clock} UTC</div>
+          </div>
+        </header>
+      );
+    };
+
+    /* ─────────────────────────────────────────────────────────────────────
+       TAB NAVIGATION
+    ───────────────────────────────────────────────────────────────────── */
+    const TABS = [
+      { id: 'overview',  label: 'System Overview',      icon: 'cpu'      },
+      { id: 'analytics', label: 'Data Moat Analytics',  icon: 'database' },
+      { id: 'ledger',    label: 'x402 Ledger Engine',   icon: 'coins'    },
+      { id: 'repl',      label: 'Verification REPL',    icon: 'terminal' },
+    ];
+
+    const TabNav = ({ active, setActive }) => (
+      <nav className="flex border-b border-slate-800 bg-[#030712]/80 sticky top-12 z-40 backdrop-blur">
+        {TABS.map(t => (
+          <button
+            key={t.id}
+            onClick={() => setActive(t.id)}
+            className={`flex items-center gap-2 px-5 py-3 terminal-font text-xs font-medium border-b-2 transition-all tracking-wider uppercase ${
+              active === t.id
+                ? 'border-cyan-400 text-cyan-400 bg-cyan-400/5'
+                : 'border-transparent text-slate-600 hover:text-slate-300 hover:border-slate-600'
+            }`}
+          >
+            <Icon name={t.icon} size={13} />
+            {t.label}
+          </button>
+        ))}
+      </nav>
+    );
+
+    /* ─────────────────────────────────────────────────────────────────────
+       STAT CARD
+    ───────────────────────────────────────────────────────────────────── */
+    const StatCard = ({ label, value, sub, icon, colorClass }) => (
+      <div className="bg-[#0b0f19] border border-slate-800 rounded-lg p-5 relative overflow-hidden hover:border-slate-700 transition-colors">
+        <div className={`absolute -top-1 -right-1 w-14 h-14 flex items-center justify-center opacity-5 ${colorClass}`}>
+          <Icon name={icon} size={44} />
+        </div>
+        <div className="terminal-font text-xs text-slate-500 uppercase tracking-widest mb-3">{label}</div>
+        <div className={`terminal-font text-2xl font-bold ${colorClass}`}>{value}</div>
+        {sub && <div className="terminal-font text-xs text-slate-600 mt-1">{sub}</div>}
+      </div>
+    );
+
+    /* ─────────────────────────────────────────────────────────────────────
+       SYSTEM OVERVIEW PANEL
+    ───────────────────────────────────────────────────────────────────── */
+    const SystemOverview = ({ statuses, queryCount, usdcEarned, queryLog }) => {
+      const endpointRows = [
+        { name: 'LOCAL_API',    url: CONFIG.LOCAL_API,    role: 'Rust / Axum — Development'       },
+        { name: 'FLY_API',      url: CONFIG.FLY_API,      role: 'Rust / Axum — Fly.io Production' },
+        { name: 'EDGE_GATEWAY', url: CONFIG.EDGE_GATEWAY, role: 'Cloudflare Worker — x402 Gate'  },
+      ];
+
+      return (
+        <div className="p-6 space-y-6 fade-in">
+          {/* KPI Row */}
+          <div className="grid grid-cols-2 xl:grid-cols-4 gap-4">
+            <StatCard
+              label="Active Collections"
+              value={CONFIG.TOTAL_COLLECTIONS}
+              sub="25 curated corpora"
+              icon="database"
+              colorClass="text-cyan-400"
+            />
+            <StatCard
+              label="Total Vectors"
+              value={CONFIG.TOTAL_VECTORS.toLocaleString()}
+              sub="text-embedding-3-small · 1536d"
+              icon="layers"
+              colorClass="text-violet-400"
+            />
+            <StatCard
+              label="Queries Processed"
+              value={queryCount}
+              sub="This session"
+              icon="activity"
+              colorClass="text-emerald-400"
+            />
+            <StatCard
+              label="USDC Revenue"
+              value={`$${usdcEarned.toFixed(4)}`}
+              sub="Base Network · x402"
+              icon="coins"
+              colorClass="text-amber-400"
+            />
+          </div>
+
+          {/* Infrastructure Matrix */}
+          <div>
+            <h2 className="terminal-font text-xs uppercase tracking-widest text-slate-500 mb-3">
+              Infrastructure Matrix
+            </h2>
+            <div className="space-y-2">
+              {endpointRows.map(ep => {
+                const state = statuses[ep.name] || { status: 'CHECKING', latency: null };
+                return (
+                  <div
+                    key={ep.name}
+                    className={`flex items-center justify-between p-4 rounded-lg border ${ss(state.status).border} bg-[#0b0f19] hover:bg-[#0d1220] transition-colors`}
+                  >
+                    <div className="flex items-center gap-3">
+                      <div className={`w-2.5 h-2.5 rounded-full shrink-0 ${ss(state.status).dot}`} />
+                      <div>
+                        <div className="terminal-font text-sm text-white font-semibold">{ep.name}</div>
+                        <div className="terminal-font text-xs text-slate-500 mt-0.5">{ep.url}</div>
+                        <div className="terminal-font text-xs text-slate-600">{ep.role}</div>
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-5">
+                      <div className="text-right hidden sm:block">
+                        <div className="terminal-font text-xs text-slate-600 uppercase tracking-wider">Latency</div>
+                        <div className={`terminal-font text-sm font-bold ${latencyColor(state.latency)}`}>
+                          {formatMs(state.latency)}
+                        </div>
+                      </div>
+                      <div className="text-right hidden sm:block">
+                        <div className="terminal-font text-xs text-slate-600 uppercase tracking-wider">Last Check</div>
+                        <div className="terminal-font text-xs text-slate-400">{state.lastTs || '---'}</div>
+                      </div>
+                      <span className={`terminal-font text-xs font-bold px-2.5 py-1 rounded ${ss(state.status).badge}`}>
+                        {state.status}
+                      </span>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+
+          {/* Deployment Config */}
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+            <div className="bg-[#0b0f19] border border-slate-800 rounded-lg p-4">
+              <h3 className="terminal-font text-xs uppercase tracking-widest text-slate-500 mb-4">Deployment Configuration</h3>
+              <div className="space-y-2">
+                {[
+                  ['Backend Runtime',  'Rust / Axum 0.7'],
+                  ['Edge Runtime',     'Cloudflare Workers'],
+                  ['Vector DB',        'Qdrant Cloud · us-east4'],
+                  ['Embedding Model',  'text-embedding-3-small'],
+                  ['Vector Dims',      '1536'],
+                  ['Distance Metric',  'Cosine'],
+                  ['Fly.io Region',    'iad (Washington D.C.)'],
+                  ['Payment Protocol', 'x402 · Base · USDC'],
+                ].map(([k, v]) => (
+                  <div key={k} className="flex items-center justify-between terminal-font text-xs py-1.5 border-b border-slate-800/60 last:border-0">
+                    <span className="text-slate-500">{k}</span>
+                    <span className="text-cyan-300 font-medium">{v}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            {/* Activity Log */}
+            <div className="bg-[#0b0f19] border border-slate-800 rounded-lg p-4">
+              <h3 className="terminal-font text-xs uppercase tracking-widest text-slate-500 mb-3">Activity Log</h3>
+              <div
+                className="bg-[#050810] rounded p-3 terminal-font max-h-52 overflow-y-auto space-y-0.5"
+              >
+                {queryLog.length === 0 ? (
+                  <span className="text-slate-700">
+                    No activity. Run a search to populate.
+                    <span className="cursor-blink ml-0.5 text-cyan-400">█</span>
+                  </span>
+                ) : (
+                  queryLog.slice().reverse().map((entry, i) => (
+                    <div key={i} className="flex gap-2 leading-relaxed">
+                      <span className="text-slate-700 shrink-0">{entry.time}</span>
+                      <span className={entry.success ? 'text-emerald-400 shrink-0' : 'text-rose-400 shrink-0'}>
+                        {entry.success ? '[OK]' : '[ERR]'}
+                      </span>
+                      <span className="text-slate-400 break-all">{entry.message}</span>
+                    </div>
+                  ))
+                )}
+              </div>
+            </div>
+          </div>
+        </div>
+      );
+    };
+
+    /* ─────────────────────────────────────────────────────────────────────
+       DATA MOAT ANALYTICS PANEL
+    ───────────────────────────────────────────────────────────────────── */
+    const COLOR_MAP = {
+      purple:  'border-purple-500/30  text-purple-400  bg-purple-500/5',
+      blue:    'border-blue-500/30    text-blue-400    bg-blue-500/5',
+      red:     'border-red-500/30     text-red-400     bg-red-500/5',
+      emerald: 'border-emerald-500/30 text-emerald-400 bg-emerald-500/5',
+      orange:  'border-orange-500/30  text-orange-400  bg-orange-500/5',
+      yellow:  'border-yellow-500/30  text-yellow-400  bg-yellow-500/5',
+      slate:   'border-slate-500/30   text-slate-400   bg-slate-500/5',
+      cyan:    'border-cyan-500/30    text-cyan-400    bg-cyan-500/5',
+      stone:   'border-stone-500/30   text-stone-400   bg-stone-500/5',
+      indigo:  'border-indigo-500/30  text-indigo-400  bg-indigo-500/5',
+      green:   'border-green-500/30   text-green-400   bg-green-500/5',
+      sky:     'border-sky-500/30     text-sky-400     bg-sky-500/5',
+      rose:    'border-rose-500/30    text-rose-400    bg-rose-500/5',
+      teal:    'border-teal-500/30    text-teal-400    bg-teal-500/5',
+      amber:   'border-amber-500/30   text-amber-400   bg-amber-500/5',
+      lime:    'border-lime-500/30    text-lime-400    bg-lime-500/5',
+      violet:  'border-violet-500/30  text-violet-400  bg-violet-500/5',
+      fuchsia: 'border-fuchsia-500/30 text-fuchsia-400 bg-fuchsia-500/5',
+      pink:    'border-pink-500/30    text-pink-400    bg-pink-500/5',
+      gray:    'border-gray-500/30    text-gray-400    bg-gray-500/5',
+    };
+
+    const DataMoatAnalytics = () => (
+      <div className="p-6 space-y-6 fade-in">
+        {/* Summary Banner */}
+        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 p-5 bg-[#0b0f19] border border-slate-800 rounded-lg">
+          <div>
+            <div className="terminal-font text-xs uppercase tracking-widest text-slate-500 mb-1">Data Moat Status</div>
+            <div className="terminal-font text-2xl font-bold text-cyan-400 glow-cyan">
+              {CONFIG.TOTAL_COLLECTIONS} Collections Active
+            </div>
+            <div className="terminal-font text-sm text-slate-400 mt-1">
+              {CONFIG.TOTAL_VECTORS.toLocaleString()} vectors indexed &middot; text-embedding-3-small &middot; Cosine similarity &middot; 1536 dims
+            </div>
+          </div>
+          <div className="text-right shrink-0">
+            <div className="terminal-font text-xs uppercase tracking-widest text-slate-500 mb-1">Qdrant Cloud</div>
+            <div className="terminal-font text-lg font-bold text-emerald-400">us-east4</div>
+            <div className="terminal-font text-xs text-slate-500">Co-located · Fly.io iad</div>
+          </div>
+        </div>
+
+        {/* Collection Grid */}
+        <div>
+          <div className="terminal-font text-xs uppercase tracking-widest text-slate-500 mb-4">
+            Collection Registry — {COLLECTIONS.length} corpora
+          </div>
+          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-3">
+            {COLLECTIONS.map((col, idx) => {
+              const cls = COLOR_MAP[col.color] || COLOR_MAP.slate;
+              return (
+                <div
+                  key={col.id}
+                  className={`border rounded-lg p-3 ${cls} hover:brightness-125 transition-all cursor-default relative overflow-hidden`}
+                >
+                  <div className="flex items-start justify-between mb-2">
+                    <div className="terminal-font text-xs font-bold uppercase tracking-wide leading-tight">
+                      {col.label}
+                    </div>
+                    <div className="terminal-font text-xs opacity-30 shrink-0 ml-1">
+                      #{String(idx + 1).padStart(2, '0')}
+                    </div>
+                  </div>
+                  <div className="terminal-font text-xs opacity-50 mb-2">{col.domain}</div>
+                  <div className="terminal-font text-xs opacity-25 truncate">{col.id}</div>
+                  <div className="flex items-center gap-1.5 mt-2.5">
+                    <div className="w-1.5 h-1.5 rounded-full bg-emerald-400 dot-operational" />
+                    <span className="terminal-font text-xs opacity-50 uppercase tracking-wider">Active</span>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      </div>
+    );
+
+    /* ─────────────────────────────────────────────────────────────────────
+       x402 LEDGER ENGINE
+    ───────────────────────────────────────────────────────────────────── */
+    const X402Ledger = ({ queryCount, usdcEarned, queryLog }) => {
+      const cleared = queryLog.filter(e => e.success);
+
+      return (
+        <div className="p-6 space-y-6 fade-in">
+          {/* Revenue Metrics */}
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+            <div className="bg-[#0b0f19] border border-cyan-400/20 rounded-lg p-5 text-center">
+              <div className="terminal-font text-xs uppercase tracking-widest text-slate-500 mb-3">Total Revenue</div>
+              <div className="terminal-font text-3xl font-bold text-cyan-400 glow-cyan">${usdcEarned.toFixed(4)}</div>
+              <div className="terminal-font text-xs text-slate-500 mt-1">USDC &middot; Base Network</div>
+            </div>
+            <div className="bg-[#0b0f19] border border-emerald-400/20 rounded-lg p-5 text-center">
+              <div className="terminal-font text-xs uppercase tracking-widest text-slate-500 mb-3">Cleared Queries</div>
+              <div className="terminal-font text-3xl font-bold text-emerald-400 glow-emerald">{cleared.length}</div>
+              <div className="terminal-font text-xs text-slate-500 mt-1">$0.005 USDC / query</div>
+            </div>
+            <div className="bg-[#0b0f19] border border-amber-400/20 rounded-lg p-5 text-center">
+              <div className="terminal-font text-xs uppercase tracking-widest text-slate-500 mb-3">Settlement Protocol</div>
+              <div className="terminal-font text-3xl font-bold text-amber-400">x402</div>
+              <div className="terminal-font text-xs text-slate-500 mt-1">HTTP Payment Extension</div>
+            </div>
+          </div>
+
+          {/* Protocol Config */}
+          <div className="bg-[#0b0f19] border border-slate-800 rounded-lg p-5">
+            <h3 className="terminal-font text-xs uppercase tracking-widest text-slate-500 mb-4">x402 Settlement Configuration</h3>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-8 terminal-font">
+              {[
+                ['Network',           'Base (Ethereum L2)'],
+                ['Asset',             'USDC (Circle)'],
+                ['Price Per Query',   '$0.005 USDC'],
+                ['Payment Header',    'PAYMENT-SIGNATURE'],
+                ['Free Tier',         '50 queries / client'],
+                ['Auth Standard',     'x402 HTTP Extension'],
+                ['Settlement',        'On-chain · Base Mainnet'],
+                ['Validation Gate',   'Cloudflare Edge Worker'],
+                ['Trace Headers',     'traceparent, tracestate'],
+                ['CORS Exposed',      'PAYMENT-SIGNATURE, X-Remaining-Free-Tier'],
+              ].map(([k, v]) => (
+                <div key={k} className="flex items-center justify-between py-1.5 border-b border-slate-800/50 last:border-0">
+                  <span className="text-slate-500 text-xs">{k}</span>
+                  <span className="text-cyan-300 text-xs font-semibold">{v}</span>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          {/* Transaction Ledger */}
+          <div>
+            <h3 className="terminal-font text-xs uppercase tracking-widest text-slate-500 mb-3">Transaction Ledger</h3>
+            <div className="bg-[#050810] border border-slate-800 rounded-lg overflow-hidden">
+              <div className="overflow-x-auto">
+                <table className="w-full terminal-font">
+                  <thead>
+                    <tr className="border-b border-slate-800">
+                      {['Timestamp', 'Query', 'Collection', 'Amount (USDC)', 'Status'].map(h => (
+                        <th key={h} className="px-4 py-2.5 text-left text-xs text-slate-500 uppercase tracking-wider whitespace-nowrap">
+                          {h}
+                        </th>
+                      ))}
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {cleared.length === 0 ? (
+                      <tr>
+                        <td colSpan={5} className="px-4 py-8 text-center text-slate-700 text-sm">
+                          No transactions recorded. Execute vector queries to populate the ledger.
+                        </td>
+                      </tr>
+                    ) : (
+                      cleared.slice().reverse().map((entry, i) => (
+                        <tr key={i} className="border-b border-slate-800/40 hover:bg-slate-800/10 align-top">
+                          <td className="px-4 py-2 text-slate-600 whitespace-nowrap">{entry.time}</td>
+                          <td className="px-4 py-2 text-slate-300 max-w-xs truncate">{entry.query || 'N/A'}</td>
+                          <td className="px-4 py-2 text-slate-500 whitespace-nowrap">{entry.collection || 'N/A'}</td>
+                          <td className="px-4 py-2 text-emerald-400 font-semibold whitespace-nowrap">+$0.0050</td>
+                          <td className="px-4 py-2">
+                            <span className="px-2 py-0.5 rounded bg-emerald-400/10 text-emerald-400 text-xs font-mono">
+                              CLEARED
+                            </span>
+                          </td>
+                        </tr>
+                      ))
+                    )}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+        </div>
+      );
+    };
+
+    /* ─────────────────────────────────────────────────────────────────────
+       VERIFICATION REPL TERMINAL
+    ───────────────────────────────────────────────────────────────────── */
+    const parseTSV = (raw) => {
+      const lines = raw.trim().split('\n');
+      if (lines.length < 1) return { headers: [], rows: [] };
+      const headers = lines[0].split('\t');
+      const rows = lines.slice(1).map(l => l.split('\t'));
+      return { headers, rows };
+    };
+
+    const VerificationREPL = ({ onSuccess, onError }) => {
+      const [query,      setQuery]      = useState('');
+      const [collection, setCollection] = useState('unison_public_domain');
+      const [loading,    setLoading]    = useState(false);
+      const [result,     setResult]     = useState(null);
+      const [error,      setError]      = useState(null);
+      const [rawMode,    setRawMode]    = useState(false);
+      const [history,    setHistory]    = useState([]);
+      const textareaRef = useRef(null);
+      const resultsRef  = useRef(null);
+
+      const execute = useCallback(async () => {
+        const q = query.trim();
+        if (!q || loading) return;
+
+        setLoading(true);
+        setError(null);
+        setResult(null);
+
+        const ts = nowUtc();
+        const url = `${CONFIG.EDGE_GATEWAY}/mcp/v1/search?q=${encodeURIComponent(q)}&collection=${encodeURIComponent(collection)}`;
+
+        try {
+          const t0 = performance.now();
+          const resp = await fetch(url, {
+            headers: { Accept: 'text/tab-separated-values' },
+            signal: AbortSignal.timeout(15_000),
+          });
+          const latencyMs = performance.now() - t0;
+          const body = await resp.text();
+
+          if (!resp.ok) {
+            throw new Error(`HTTP ${resp.status} — ${body.slice(0, 300)}`);
+          }
+
+          setResult({ tsv: body, latencyMs });
+          const entry = { query: q, collection, time: ts, success: true, message: `SEARCH "${q}" → ${collection}` };
+          setHistory(h => [...h, entry]);
+          onSuccess(entry);
+
+          setTimeout(() => resultsRef.current?.scrollIntoView({ behavior: 'smooth' }), 50);
+        } catch (err) {
+          const msg = err?.message || String(err);
+          setError(msg);
+          const entry = { query: q, collection, time: ts, success: false, message: `FAILED "${q}" — ${msg.slice(0, 80)}` };
+          setHistory(h => [...h, entry]);
+          onError(entry);
+        } finally {
+          setLoading(false);
+        }
+      }, [query, collection, loading, onSuccess, onError]);
+
+      const handleKeyDown = (e) => {
+        if (e.key === 'Enter' && !e.shiftKey) {
+          e.preventDefault();
+          execute();
+        }
+      };
+
+      const { headers, rows } = result ? parseTSV(result.tsv) : { headers: [], rows: [] };
+
+      return (
+        <div className="p-6 space-y-5 fade-in">
+          {/* Terminal heading */}
+          <div className="flex items-center gap-3">
+            <Icon name="terminal" size={15} className="text-cyan-400" />
+            <span className="terminal-font text-sm font-bold text-cyan-400 uppercase tracking-widest">
+              Vector Verification REPL
+            </span>
+            <div className="flex-1 h-px bg-cyan-400/15" />
+            <span className="terminal-font text-xs text-slate-700 hidden md:block">{CONFIG.EDGE_GATEWAY}</span>
+          </div>
+
+          {/* Input Form */}
+          <div className="bg-[#050810] border border-slate-700 rounded-lg p-4 space-y-3">
+            {/* Controls Row */}
+            <div className="flex flex-wrap gap-2 items-center">
+              <select
+                value={collection}
+                onChange={e => setCollection(e.target.value)}
+                className="bg-[#0b0f19] border border-slate-700 text-cyan-300 terminal-font text-xs px-3 py-2 rounded focus:outline-none focus:border-cyan-400 flex-1 min-w-[200px] max-w-xs"
+              >
+                {COLLECTIONS.map(c => (
+                  <option key={c.id} value={c.id}>{c.label} — {c.id}</option>
+                ))}
+              </select>
+
+              <button
+                onClick={() => setRawMode(r => !r)}
+                className={`px-3 py-2 terminal-font text-xs border rounded transition-all ${
+                  rawMode
+                    ? 'border-cyan-400 text-cyan-400 bg-cyan-400/10'
+                    : 'border-slate-700 text-slate-500 hover:border-slate-500 hover:text-slate-400'
+                }`}
+              >
+                RAW TSV
+              </button>
+            </div>
+
+            {/* Query Input */}
+            <div className="flex gap-2 items-start">
+              <span className="text-cyan-400 terminal-font mt-2 shrink-0 text-base leading-none select-none">❯</span>
+              <textarea
+                ref={textareaRef}
+                value={query}
+                onChange={e => setQuery(e.target.value)}
+                onKeyDown={handleKeyDown}
+                placeholder="Enter natural language query… (Enter to execute, Shift+Enter for newline)"
+                rows={2}
+                className="flex-1 bg-transparent text-slate-200 terminal-font text-sm placeholder-slate-700 focus:outline-none resize-none leading-relaxed"
+              />
+              <button
+                onClick={execute}
+                disabled={loading || !query.trim()}
+                className={`px-4 py-2 terminal-font text-xs font-bold rounded border flex items-center gap-2 shrink-0 transition-all ${
+                  loading || !query.trim()
+                    ? 'border-slate-700 text-slate-700 cursor-not-allowed'
+                    : 'border-cyan-400 text-cyan-400 bg-cyan-400/10 hover:bg-cyan-400/20'
+                }`}
+              >
+                {loading ? (
+                  <>
+                    <div className="w-3 h-3 border border-cyan-400 border-t-transparent rounded-full spin" />
+                    QUERYING
+                  </>
+                ) : (
+                  <>
+                    <Icon name="search" size={12} />
+                    EXECUTE
+                  </>
+                )}
+              </button>
+            </div>
+          </div>
+
+          {/* Error Display */}
+          {error && (
+            <div className="bg-rose-500/5 border border-rose-500/30 rounded-lg p-4 terminal-font fade-in">
+              <div className="flex items-center gap-2 text-rose-400 font-bold text-xs mb-2">
+                <Icon name="alert_circle" size={13} />
+                QUERY ERROR
+              </div>
+              <pre className="text-rose-300 text-xs whitespace-pre-wrap break-words">{error}</pre>
+            </div>
+          )}
+
+          {/* Results */}
+          {result && (
+            <div ref={resultsRef} className="space-y-3 fade-in">
+              <div className="flex items-center gap-3 terminal-font text-xs">
+                <span className="text-emerald-400 font-bold">[OK]</span>
+                <span className="text-slate-400">{rows.length} result{rows.length !== 1 ? 's' : ''}</span>
+                <span className="text-slate-700">·</span>
+                <span className={latencyColor(result.latencyMs)}>{formatMs(result.latencyMs)}</span>
+                <span className="text-slate-700">·</span>
+                <span className="text-slate-500 truncate">{collection}</span>
+              </div>
+
+              {rawMode ? (
+                <div className="bg-[#050810] border border-slate-800 rounded-lg p-4 max-h-[500px] overflow-auto terminal-font">
+                  <pre className="text-emerald-300 text-xs whitespace-pre-wrap break-words">{result.tsv}</pre>
+                </div>
+              ) : (
+                <div className="bg-[#050810] border border-slate-800 rounded-lg overflow-hidden max-h-[520px] overflow-y-auto">
+                  <table className="w-full terminal-font">
+                    <thead className="sticky top-0 bg-[#050810] border-b border-slate-800 z-10">
+                      <tr>
+                        {headers.map((h, i) => (
+                          <th
+                            key={i}
+                            className="px-4 py-2.5 text-left text-xs text-cyan-400 uppercase tracking-wider whitespace-nowrap"
+                          >
+                            {h}
+                          </th>
+                        ))}
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {rows.map((row, ri) => (
+                        <tr key={ri} className="border-b border-slate-800/40 hover:bg-slate-800/10 align-top">
+                          {row.map((cell, ci) => (
+                            <td
+                              key={ci}
+                              className={`px-4 py-3 text-xs ${
+                                ci === 0
+                                  ? 'text-cyan-300 whitespace-nowrap shrink-0'
+                                  : ci === 1
+                                  ? 'text-blue-400 whitespace-nowrap max-w-xs'
+                                  : 'text-slate-300 leading-relaxed max-w-xl'
+                              }`}
+                            >
+                              {ci === 1 && cell ? (
+                                <a
+                                  href={cell}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  className="hover:text-blue-300 underline underline-offset-2 flex items-center gap-1"
+                                >
+                                  <span className="truncate max-w-[180px] inline-block">{cell}</span>
+                                  <Icon name="external_link" size={10} className="shrink-0 opacity-60" />
+                                </a>
+                              ) : cell}
+                            </td>
+                          ))}
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* Session History */}
+          {history.length > 0 && (
+            <div>
+              <h3 className="terminal-font text-xs uppercase tracking-widest text-slate-600 mb-2">Session History</h3>
+              <div className="bg-[#050810] border border-slate-800 rounded-lg p-3 max-h-44 overflow-y-auto terminal-font space-y-0.5">
+                {history.slice().reverse().map((h, i) => (
+                  <div key={i} className="flex gap-2 text-xs leading-relaxed">
+                    <span className="text-slate-700 shrink-0">{h.time}</span>
+                    <span className={`shrink-0 ${h.success ? 'text-emerald-400' : 'text-rose-400'}`}>
+                      {h.success ? '[OK]' : '[ERR]'}
+                    </span>
+                    <span className="text-slate-500 shrink-0">{h.collection}</span>
+                    <span className="text-slate-700">·</span>
+                    <span className="text-slate-400 truncate">{h.query}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+        </div>
+      );
+    };
+
+    /* ─────────────────────────────────────────────────────────────────────
+       ROOT APP
+    ───────────────────────────────────────────────────────────────────── */
+    const App = () => {
+      const [activeTab,  setActiveTab]  = useState('overview');
+      const [queryCount, setQueryCount] = useState(0);
+      const [usdcEarned, setUsdcEarned] = useState(0);
+      const [queryLog,   setQueryLog]   = useState([]);
+
+      const { statuses, refresh } = useHeartbeat();
+
+      const handleSuccess = useCallback((entry) => {
+        setQueryCount(c => c + 1);
+        setUsdcEarned(u => u + CONFIG.USDC_PER_QUERY);
+        setQueryLog(log => [...log, entry]);
+      }, []);
+
+      const handleError = useCallback((entry) => {
+        setQueryLog(log => [...log, entry]);
+      }, []);
+
+      return (
+        <div className="min-h-screen grid-bg" style={{ background: '#030712' }}>
+          <TopStatusBar statuses={statuses} onRefresh={refresh} />
+
+          <div className="pt-12">
+            <TabNav active={activeTab} setActive={setActiveTab} />
+
+            <main className="max-w-screen-2xl mx-auto">
+              {activeTab === 'overview' && (
+                <SystemOverview
+                  statuses={statuses}
+                  queryCount={queryCount}
+                  usdcEarned={usdcEarned}
+                  queryLog={queryLog}
+                />
+              )}
+              {activeTab === 'analytics' && <DataMoatAnalytics />}
+              {activeTab === 'ledger' && (
+                <X402Ledger
+                  queryCount={queryCount}
+                  usdcEarned={usdcEarned}
+                  queryLog={queryLog}
+                />
+              )}
+              {activeTab === 'repl' && (
+                <VerificationREPL
+                  onSuccess={handleSuccess}
+                  onError={handleError}
+                />
+              )}
+            </main>
+          </div>
+        </div>
+      );
+    };
+
+    /* ─────────────────────────────────────────────────────────────────────
+       MOUNT
+    ───────────────────────────────────────────────────────────────────── */
+    ReactDOM.createRoot(document.getElementById('root')).render(<App />);
+  </script>
+</body>
+</html>

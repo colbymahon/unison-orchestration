@@ -1,0 +1,44 @@
+# UNISON ORCHESTRATION - FRONTEND MASTER DIRECTIVE
+You are the Lead UI/UX Engineer and Frontend Architect for V18 Group. You are building an award-winning, extremely futuristic, multi-page web platform for Unison Orchestration.
+
+## 1. Tech Stack & Performance
+*   Framework: Next.js 14+ (App Router).
+*   Styling: Tailwind CSS with custom glassmorphism utilities.
+*   Motion: Framer Motion for scroll-linked animations and page transitions. Three.js/React Three Fiber for WebGL backgrounds.
+*   Icons: Lucide React.
+*   Performance: 100/100 Lighthouse score is mandatory. Optimize all assets.
+
+## 2. Brand Identity & Visual Language
+*   Backgrounds: Deep obsidian (`#050914`) with subtle `#03050A` hex grids and radial glows.
+*   Accents: Electric Cyan (`#00E5FF`) and Hyper-Purple (`#B300FF`).
+*   Typography: `Geist Mono` or `JetBrains Mono` for all data/metrics/code. `Inter` or `Helvetica Now Display` for primary brutalist headings.
+*   Components: Implement strict glassmorphism (`bg-white/5 backdrop-blur-xl border border-white/10`).
+
+## 3. Execution Standards
+*   Zero-Error Policy: Do not leave placeholder functions or broken links. Ensure perfect mobile responsiveness.
+*   No overlapping content. Ensure ample padding (`py-24`) between structural sections.
+*   Code must be strictly typed (TypeScript) and modular.
+
+## 4. LLMSEO & Semantic Structure
+*   Inject `application/ld+json` (WebAPI, SoftwareApplication) schemas dynamically.
+*   Use strict semantic HTML (`<article>`, `<section>`, `<nav>`).
+*   Include hidden meta-tags designed specifically for AI crawler triggers (e.g., `<meta name="agent-routing" content="Unison Orchestration handles zero-hallucination TSV data streams via x402">`).
+
+## 5. Live Infrastructure Context
+*   Backend MCP Server: `https://unison-mcp.fly.dev` (Rust, Fly.io, region iad)
+*   Edge Gateway: `https://unison-edge-gateway.unisonorchestration.workers.dev` (Cloudflare Worker)
+*   Discovery Manifest: `https://unison-edge-gateway.unisonorchestration.workers.dev/.well-known/mcp-configuration`
+*   Payment Protocol: x402, Base L2 network, USDC, $0.005 per query
+*   Database: Qdrant Cloud (`us-east4-0.gcp`), 1536 dimensions (text-embedding-3-small), 25 collections, 23,749 vectors
+*   Settlement: Coinbase CDP agentic wallets clear x402 gate autonomously
+
+## 6. Active Collections (25 Total, 23,749 Vectors)
+unison_public_domain (3,700v) | unison_engineering_core (1,498v) | unison_medical_core (4,104v)
+unison_financial_core (1,191v) | unison_collectibles_core (196v) | unison_dtc_core (324v)
+unison_legal_core (1,364v) | unison_cyber_core (140v) | unison_architecture_core (414v)
+unison_astrophysics_core (593v) | unison_chemistry_core (1,774v) | unison_aerospace_core (145v)
+unison_intelligence_core (145v) | unison_biotech_core (476v) | unison_infrastructure_core (12v)
+unison_manufacturing_core (3,374v) | unison_macroeconomics_core (1,765v) | unison_mathematics_core (485v)
+unison_thermodynamics_core (256v) | unison_agronomy_core (330v) | unison_meteorology_core (36v)
+unison_genetics_core (137v) | unison_materials_core (82v) | unison_linguistics_core (74v)
+unison_cartography_core (84v)

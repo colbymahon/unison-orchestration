@@ -1,0 +1,53 @@
+name: "Ingest — Gutenberg Verticals (Philosophy, Psychology, Tactical, Canonical)"
+
+on:
+  schedule:
+    # 4:00 AM UTC nightly — after financial, legal, and arxiv crawls
+    - cron: "0 4 * * *"
+  workflow_dispatch:
+
+jobs:
+  ingest:
+    name: "Gutenberg [${{ matrix.pipeline }}] → ${{ matrix.collection }}"
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - pipeline:   "pipeline_philosophy.py"
+            collection: "unison_philosophy_core"
+            url:        "https://www.gutenberg.org/cache/epub/4280/pg4280.txt"
+          - pipeline:   "pipeline_psychology.py"
+            collection: "unison_psychology_core"
+            url:        "https://www.gutenberg.org/cache/epub/55068/pg55068.txt"
+          - pipeline:   "pipeline_tactical_history.py"
+            collection: "unison_tactical_history"
+            url:        "https://www.gutenberg.org/cache/epub/1946/pg1946.txt"
+          - pipeline:   "pipeline_canonical_history.py"
+            collection: "unison_canonical_history"
+            url:        "https://www.gutenberg.org/cache/epub/10/pg10.txt"
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: "pip"
+          cache-dependency-path: data-ingestion/requirements.txt
+
+      - name: Install dependencies
+        working-directory: data-ingestion
+        run: pip install -r requirements.txt
+
+      - name: Run Gutenberg ingestion — ${{ matrix.collection }}
+        working-directory: data-ingestion
+        env:
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+          QDRANT_URL:     ${{ secrets.QDRANT_URL }}
+          QDRANT_API_KEY: ${{ secrets.QDRANT_API_KEY }}
+        run: python3 ${{ matrix.pipeline }} --url ${{ matrix.url }}

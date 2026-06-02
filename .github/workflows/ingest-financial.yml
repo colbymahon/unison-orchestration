@@ -1,0 +1,58 @@
+name: "Ingest — Financial Core (SEC EDGAR)"
+
+on:
+  schedule:
+    # 1:00 AM UTC, Monday–Friday — catches after-hours SEC filings
+    - cron: "0 1 * * 1-5"
+  workflow_dispatch:
+    inputs:
+      max_filings:
+        description: "Max filings per company"
+        required: false
+        default: "1"
+      forms:
+        description: "SEC form types (space-separated)"
+        required: false
+        default: "10-K 10-Q"
+
+jobs:
+  ingest:
+    name: "SEC EDGAR → unison_financial_core"
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: "pip"
+          cache-dependency-path: data-ingestion/requirements.txt
+
+      - name: Install dependencies
+        working-directory: data-ingestion
+        run: pip install -r requirements.txt
+
+      - name: Run SEC EDGAR ingestion
+        working-directory: data-ingestion
+        env:
+          OPENAI_API_KEY:  ${{ secrets.OPENAI_API_KEY }}
+          QDRANT_URL:      ${{ secrets.QDRANT_URL }}
+          QDRANT_API_KEY:  ${{ secrets.QDRANT_API_KEY }}
+        run: |
+          python3 pipeline_edgar.py \
+            --max-filings ${{ inputs.max_filings || '1' }} \
+            --forms ${{ inputs.forms || '10-K 10-Q' }} \
+            --ciks \
+              0000019617 \
+              0000886982 \
+              0000070858 \
+              0001364742 \
+              0000320193 \
+              0000789019 \
+              0001318605 \
+              0001045810 \
+              0001018724

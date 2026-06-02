@@ -1,0 +1,25 @@
+name = "unison-edge-gateway"
+main = "src/index.ts"
+compatibility_date = "2024-09-23"
+compatibility_flags = ["nodejs_compat"]
+workers_dev = true
+
+[[kv_namespaces]]
+binding = "FREE_TIER"
+id = "91fdd2e791234210906e25b8dd90ba96"
+
+# Phase B0 zero-result trap — create: wrangler kv namespace create UNISON_ZERO_LOGS
+# Then replace id below and set ADMIN_API_SECRET via wrangler secret put
+[[kv_namespaces]]
+binding = "UNISON_ZERO_LOGS"
+id = "977472f20ce947fa8cd2f841559aeec9"
+
+[vars]
+# BACKEND_URL is set via `wrangler secret put BACKEND_URL` (production).
+# For local dev, set in .dev.vars (git-ignored): BACKEND_URL=http://localhost:3000
+
+# x402 payment terms broadcast to agents on 402 responses
+PAYMENT_AMOUNT   = "0.005"
+PAYMENT_TOKEN    = "USDC"
+PAYMENT_NETWORK  = "base"
+PAYMENT_DEST     = "0xE37BEA19c284eebc561735588e773C097115668B"

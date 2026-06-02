@@ -31,5 +31,11 @@ htmlcov/
 # Secrets
 data-ingestion/.env
 client-agent/.env
+client-agent/.env.save
 core-mcp-server/.env
 edge-routing/.env
+frontend/.env.local
+
+# Node
+**/node_modules/
+**/.next/

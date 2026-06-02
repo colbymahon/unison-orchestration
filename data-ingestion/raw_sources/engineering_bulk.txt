@@ -1,0 +1,23 @@
+# Engineering bulk ingestion URLs → unison_engineering_core
+# Classical mechanics / physics
+https://www.gutenberg.org/cache/epub/28233/pg28233.txt
+https://www.gutenberg.org/cache/epub/38040/pg38040.txt
+# Electricity & electromagnetism
+https://www.gutenberg.org/cache/epub/14986/pg14986.txt
+https://www.gutenberg.org/cache/epub/16510/pg16510.txt
+https://www.gutenberg.org/cache/epub/48022/pg48022.txt
+# Thermodynamics & steam
+https://www.gutenberg.org/cache/epub/50526/pg50526.txt
+https://www.gutenberg.org/cache/epub/43732/pg43732.txt
+# Mechanical engineering
+https://www.gutenberg.org/cache/epub/29609/pg29609.txt
+https://www.gutenberg.org/cache/epub/25639/pg25639.txt
+# Applied mathematics for engineers
+https://www.gutenberg.org/cache/epub/36943/pg36943.txt
+https://www.gutenberg.org/cache/epub/33861/pg33861.txt
+# Naval / structural
+https://www.gutenberg.org/cache/epub/14554/pg14554.txt
+https://www.gutenberg.org/cache/epub/16163/pg16163.txt
+# Materials & metallurgy
+https://www.gutenberg.org/cache/epub/13630/pg13630.txt
+https://www.gutenberg.org/cache/epub/12655/pg12655.txt

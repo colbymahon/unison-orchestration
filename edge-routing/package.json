@@ -1,0 +1,15 @@
+{
+  "name": "unison-edge-gateway",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "dev": "wrangler dev",
+    "deploy": "wrangler deploy",
+    "type-check": "tsc --noEmit"
+  },
+  "devDependencies": {
+    "@cloudflare/workers-types": "^4.20240925.0",
+    "typescript": "^5.5.4",
+    "wrangler": "^3.78.0"
+  }
+}

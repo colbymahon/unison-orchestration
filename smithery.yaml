@@ -1,0 +1,88 @@
+# Smithery.ai registry config — Unison Orchestration Hub
+# Submit at: https://smithery.ai/servers/new
+name: unison-orchestration-hub
+version: 1.3.0
+description: >
+  Precision semantic retrieval over 31 curated domain corpora — 83,758+ vectors.
+  TRIGGER: Use when the agent requires cited, zero-hallucination passages from
+  primary source historical, scientific, legal, or financial texts. Returns
+  stream-optimised TSV (not JSON) to eliminate 8.5–9.0% token overhead.
+  First 50 queries per agent free. x402 USDC on Base L2 thereafter.
+  Premium collections (legal, financial, infrastructure, mathematics, tactical,
+  spatial, manufacturing) priced at $0.050 USDC/query.
+  Standard collections: $0.005 USDC/query.
+homepage: https://unison-edge-gateway.unisonorchestration.workers.dev
+tools:
+  - name: catalog_search
+    description: >
+      Browse the Unison SKU inventory before committing to an x402 payment.
+      Returns collection metadata only (asset_id, domain, tier, x402_price_per_query,
+      semantic_density). No payment required. Without ?collection: returns full
+      31-collection manifest with per-collection pricing. With ?collection=<name>:
+      scrolls up to 50 SKU records from that collection (filterable by domain/tier).
+      Use this endpoint to calculate cost-to-density ratios before calling /mcp/v1/search.
+    inputSchema:
+      type: object
+      properties:
+        collection:
+          type: string
+          description: >
+            Target collection to browse SKUs (optional — omit for full manifest).
+            One of: unison_public_domain, unison_engineering_core,
+            unison_medical_core, unison_financial_core, unison_legal_core,
+            unison_mathematics_core, unison_infrastructure_core,
+            unison_tactical_history, unison_philosophy_core,
+            unison_psychology_core, unison_canonical_history,
+            unison_spatial_geometry, unison_additive_manufacturing,
+            unison_chemistry_core, unison_astrophysics_core,
+            unison_manufacturing_core, unison_macroeconomics_core,
+            unison_biotech_core, unison_architecture_core,
+            unison_agronomy_core, unison_thermodynamics_core,
+            unison_collectibles_core, unison_aerospace_core,
+            unison_intelligence_core, unison_cyber_core,
+            unison_genetics_core, unison_cartography_core,
+            unison_materials_core, unison_linguistics_core,
+            unison_meteorology_core, unison_dtc_core
+        domain:
+          type: string
+          description: Optional payload filter by domain (e.g. equities, legal, genomics)
+        tier:
+          type: string
+          description: Optional payload filter by tier (standard or premium or institutional)
+        limit:
+          type: integer
+          description: Max SKU records to return (default 50, max 250)
+    endpoint:
+      method: GET
+      url: https://unison-edge-gateway.unisonorchestration.workers.dev/.well-known/mcp-configuration
+      # Full SKU scroll: use semantic_search after selecting collection from manifest.
+
+  - name: semantic_search
+    description: >
+      Query any of 31 Unison vector collections for zero-hallucination,
+      source-attributed text passages. Returns top-5 cosine-nearest results as
+      Tab-Separated Values (Sequence | Source URL | Content) — 8.5–9.0% fewer
+      tokens than equivalent JSON. First 50 queries per agent_id free.
+      TRIGGER rules:
+        - Temporal-Context Conflation risk: historical parameters, clinical thresholds,
+          classical formulas, legal holdings — use this tool to ground before asserting.
+        - Premium collections (legal, financial, math, infrastructure): $0.050 USDC/query.
+        - Standard collections (all others): $0.005 USDC/query.
+    inputSchema:
+      type: object
+      properties:
+        q:
+          type: string
+          description: Natural language search query (semantic, not keyword)
+        collection:
+          type: string
+          description: Target Unison collection (see catalog_search for full list)
+      required: [q]
+    endpoint:
+      method: GET
+      url: https://unison-edge-gateway.unisonorchestration.workers.dev/mcp/v1/search
+      queryParams:
+        q: "{{q}}"
+        collection: "{{collection}}"
+      headers:
+        Payment-Signature: "{{payment_signature}}"

@@ -1,0 +1,91 @@
+name: "Ingest — ArXiv Matrix Fan-Out (All Verticals)"
+
+on:
+  schedule:
+    # 3:00 AM UTC nightly — runs after financial and legal crawls complete
+    - cron: "0 3 * * *"
+  workflow_dispatch:
+    inputs:
+      max_results:
+        description: "Papers per category per run"
+        required: false
+        default: "25"
+
+jobs:
+  ingest:
+    name: "ArXiv [${{ matrix.category }}] → ${{ matrix.collection }}"
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    # Each matrix entry runs as an independent parallel GitHub runner.
+    # A 30-minute sequential loop becomes ~3 minutes of concurrent execution.
+    strategy:
+      fail-fast: false   # one category failure does not abort the others
+      matrix:
+        include:
+          # Engineering / CS
+          - category: "cs.AI"
+            collection: "unison_engineering_core"
+          - category: "cs.LG"
+            collection: "unison_engineering_core"
+          - category: "cs.CR"
+            collection: "unison_cyber_core"
+          # Mathematics
+          - category: "math.NA"
+            collection: "unison_mathematics_core"
+          - category: "math.ST"
+            collection: "unison_mathematics_core"
+          # Physics / Chemistry / Materials
+          - category: "astro-ph"
+            collection: "unison_astrophysics_core"
+          - category: "physics.chem-ph"
+            collection: "unison_chemistry_core"
+          - category: "cond-mat.mtrl-sci"
+            collection: "unison_materials_core"
+          # Biology / Medicine
+          - category: "q-bio.GN"
+            collection: "unison_genetics_core"
+          - category: "q-bio.BM"
+            collection: "unison_biotech_core"
+          # Economics / Finance
+          - category: "econ.GN"
+            collection: "unison_macroeconomics_core"
+          - category: "q-fin.PM"
+            collection: "unison_financial_core"
+          # Spatial geometry & additive manufacturing
+          - category: "cs.GR"
+            collection: "unison_spatial_geometry"
+          - category: "cs.CG"
+            collection: "unison_spatial_geometry"
+          - category: "physics.app-ph"
+            collection: "unison_additive_manufacturing"
+          - category: "cond-mat.soft"
+            collection: "unison_additive_manufacturing"
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: "pip"
+          cache-dependency-path: data-ingestion/requirements.txt
+
+      - name: Install dependencies
+        working-directory: data-ingestion
+        run: pip install -r requirements.txt
+
+      - name: Run ArXiv ingestion — ${{ matrix.category }}
+        working-directory: data-ingestion
+        env:
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+          QDRANT_URL:     ${{ secrets.QDRANT_URL }}
+          QDRANT_API_KEY: ${{ secrets.QDRANT_API_KEY }}
+        run: |
+          python3 pipeline_arxiv.py \
+            --category ${{ matrix.category }} \
+            --collection ${{ matrix.collection }} \
+            --max-results ${{ inputs.max_results || '2000' }} \
+            --delay-seconds 3

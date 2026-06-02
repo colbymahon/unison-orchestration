@@ -1,47 +1,50 @@
-name: Daily Grounding & Token Efficiency Benchmark
+name: "Daily Hallucination Audit — Unison vs. Frontier Models"
 
 on:
   schedule:
-    - cron: '0 3 * * *'   # 03:00 UTC daily
-  workflow_dispatch:        # manual trigger available in GitHub Actions UI
-
-permissions:
-  contents: write           # needed to commit benchmark results back to main
+    # 03:00 UTC nightly — after all ingestion workflows complete
+    - cron: "0 3 * * *"
+  workflow_dispatch:
+    inputs:
+      models:
+        description: "Comma-separated model list to benchmark"
+        required: false
+        default: "gpt-4o,gpt-4o-mini"
 
 jobs:
   benchmark:
-    name: Run hallucination & token-efficiency probes
+    name: "Run deterministic probes and commit audit report"
     runs-on: ubuntu-latest
+    timeout-minutes: 30
+    permissions:
+      contents: write   # Required to commit the benchmark report
 
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
-          fetch-depth: 0
 
-      - name: Set up Python 3.11
+      - name: Set up Python
         uses: actions/setup-python@v5
         with:
-          python-version: '3.11'
-          cache: pip
+          python-version: "3.11"
 
-      - name: Install benchmark dependencies
-        run: |
-          python -m pip install --upgrade pip
-          pip install openai>=1.0.0 requests>=2.31.0 tiktoken>=0.7.0 python-dotenv>=1.0.0
+      - name: Install dependencies
+        run: pip install openai requests python-dotenv tiktoken
 
-      - name: Execute benchmark daemon
+      - name: Run hallucination audit
         env:
-          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
-        run: python benchmark_bot.py
+          OPENAI_API_KEY:       ${{ secrets.OPENAI_API_KEY }}
+          UNISON_EDGE_URL:      "https://unison-edge-gateway.unisonorchestration.workers.dev"
+          BENCHMARK_MODELS:     ${{ inputs.models || 'gpt-4o,gpt-4o-mini' }}
+        run: python3 benchmarks/benchmark_bot.py
 
-      - name: Commit and push daily audit log
+      - name: Commit benchmark report
         run: |
-          git config --global user.name  "Unison Audit Bot"
-          git config --global user.email "audit-bot@v18.group"
-          git add benchmarks/index.md benchmarks/*.md
-          # Only commit if there are actual changes (idempotent on re-runs)
-          git diff-index --quiet HEAD || \
-            git commit -m "chore(audit): append live fidelity index $(date -u +%Y-%m-%d) [skip ci]"
+          git config user.name  "Unison Benchmark Bot"
+          git config user.email "benchmarks@unisonorchestration.workers.dev"
+          git add benchmarks/
+          git diff --cached --quiet || git commit -m \
+            "chore(benchmarks): nightly audit $(date -u '+%Y-%m-%d') [automated]"
           git push

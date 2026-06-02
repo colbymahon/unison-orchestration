@@ -1,0 +1,21 @@
+tree_id,language_family,language,proto_root,suffix_stack_rule,morpheme_chain,surface_form,pie_comparative_root,gloss_english,syntax_tree_depth
+AGG-001,Uralic,Finnish,*menə-,STEM→TAM→PERS→CASE; negation -e- before TAM,men+e+t+in,menetin,I went (1SG past ind),5
+AGG-002,Uralic,Hungarian,*lab-,STEM→MODAL→PERS; vowel harmony back harmony,lab+hat+ok,labhatok,I can swim (1SG potential),4
+AGG-003,Uralic,Estonian,*tul-,STEM→NEG→TAM→PERS,tul+i+da+ma,tulidama,they were coming (3PL past cont),5
+AGG-004,Altaic,Turkish,*yürü-,STEM→NEG→TAM→PERS; vowel raising yürü→yürü,yürü+me+d+im,yürümedim,I did not walk,5
+AGG-005,Altaic,Kazakh,*bar-,STEM→TAM→PERS→CASE; front/back harmony,bar+yp+yn,barypyn,while going (converb 2SG),4
+AGG-006,Altaic,Mongolian,*och-,STEM→DIR→TAM→PERS,och+i+ra+gui,ochiraagui,probably will not depart (neg epist),5
+AGG-007,Dravidian,Tamil,*var-,STEM→TAM→PERS→CASE; retroflex assimilation,var+uk+ki+ren,varukkiren,I am coming (1SG pres),5
+AGG-008,Dravidian,Telugu,*cēy-,STEM→CAUS→TAM→PERS,cēy+in+ch+ānu,cēyinchānu,I caused to do (1SG past caus),5
+AGG-009,Dravidian,Kannada,*hōg-,STEM→NEG→TAM→PERS,hōg+a+de+we,hōgadewe,we do not go (1PL pres neg),5
+AGG-010,PIE-comparative,Sanskrit reflex,*h₁es-,PIE *-s- aorist + *-ti 3SG → ásti; zero-grade *h₁s-,as+ti,ásti,he is (PIE *h₁ésti),3
+AGG-011,PIE-comparative,Latin reflex,*bʰer-,PIE *-ō perfect + thematic → ferō; suffixed *bʰer-e-,fer+ō,ferō,I carry (1SG pres act),3
+AGG-012,PIE-comparative,Greek reflex,*wed-,PIE *-h₂e- thematic present → eídō; o-grade *wod-,eid+ō,eídō,I know (1SG pres),3
+AGG-013,Uralic,Sami North,*munnje-,STEM→TAM→PERS→LOC; consonant gradation,munnje+jin+munnje,munnjejinmunnje,to me while going (1SG),6
+AGG-014,Altaic,Uzbek,*kel-,STEM→EVID→TAM→PERS,kel+gan+im,kelganman,I came (evidential 1SG),4
+AGG-015,Dravidian,Malayalam,*kaṇ-,STEM→ASPECT→PERS→DAT,kaṇ+ikk+uv+an,kaṇikkuvan,for seeing (purposive 3SG),4
+AGG-016,Uralic,Mari,*kando-,STEM→PL→TAM→PERS,kando+la+š+et,kandolašet,they carry (3PL pres),4
+AGG-017,Altaic,Tuvan,*sor-,STEM→RECIP→TAM→PERS,sor+ush+kan+s,sorushkans,they asked each other (3PL past recip),5
+AGG-018,Dravidian,Tulu,*pāḍ-,STEM→CAUS→BEN→PERS,pāḍ+ip+panu,pāḍip panu,caused to sing for (benefactive),4
+AGG-019,PIE-comparative,Armenian reflex,*gʷen-,PIE *gʷén-h₂ woman → kin; suffixed verb *gʷen-e-,kin+em,k'inem,I buy (1SG pres; gʷhen- commerce root),3
+AGG-020,Cross-family template,Proto-template,*ROOT-,UNIVERSAL: ROOT→(VALENCE)→(TAM)→(EVID)→(PERS)→(CASE); non-fusional stacking only,ROOT+VAL+TAM+EVID+PERS+CASE,ROOTVALTAMEVIDPERSCASE,agglutinative paradigm structural matrix for agentic SEO retrieval,6
