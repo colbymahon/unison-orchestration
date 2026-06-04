@@ -6,7 +6,6 @@ import { NextResponse } from "next/server";
 import { SESSION_COOKIE } from "@/lib/webauthn-config";
 import {
   resolveWebAuthnSessionSecret,
-  signAdminTelemetryTransportJwt,
   warnUninitializedCryptoMesh,
 } from "@/lib/session-crypto";
 import { verifyOpsSessionToken } from "@/lib/webauthn-session";
@@ -35,17 +34,9 @@ export async function GET(): Promise<Response> {
     );
   }
 
-  const transport = await signAdminTelemetryTransportJwt();
-  if (!transport) {
-    warnUninitializedCryptoMesh();
-    return NextResponse.json(
-      { error: "CRYPTO_MESH_UNINITIALIZED" },
-      { status: 503, headers: { "Cache-Control": "no-store" } }
-    );
-  }
-
+  // Re-use the verified session JWT (same HS256 key as worker OPS_SESSION_SECRET).
   return NextResponse.json(
-    { token: transport },
+    { token: sessionToken },
     { headers: { "Cache-Control": "no-store, max-age=0" } }
   );
 }

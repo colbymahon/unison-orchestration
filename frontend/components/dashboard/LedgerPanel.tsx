@@ -178,7 +178,7 @@ export function LedgerPanel({ ledger, revenueHistory, rejectionHistory, loading 
               {affiliateInitializing
                 ? "AFFILIATE TELEMETRY INITIALIZING // SYSTEM RUNNING DARK"
                 : affiliateError
-                  ? "AFFILIATE ENCLAVE DEGRADED · SYNC WEBAUTHN + OPS_SESSION_SECRET"
+                  ? "AFFILIATE ROUTE DEGRADED · RE-LOGIN OR SYNC OPS_SESSION_SECRET"
                   : affiliateAwaitingTick
                     ? "A2A NETWORK LEDGER ACTIVE // AWAITING STREAM TICK"
                     : "REVENUE_ROUTING_EVENT · zero-hop admin-telemetry LIVE"}

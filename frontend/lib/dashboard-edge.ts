@@ -119,3 +119,15 @@ export function isDirectEdgeAdminPath(path: string | null): boolean {
   if (!path) return false;
   return resolveDashboardApiUrl(path).directEdge;
 }
+
+/** Map worker admin-telemetry URL back to same-origin Vercel admin proxy. */
+export function adminPathFromEdgeTelemetryUrl(url: string): string | null {
+  const m = url.match(/\/admin-telemetry\/([a-z0-9-]+)/);
+  return m ? `/api/admin/${m[1]}` : null;
+}
+
+export function isSecurityEnclaveErrorBody(body: unknown): boolean {
+  if (!body || typeof body !== "object") return false;
+  const err = (body as { error?: string }).error ?? "";
+  return err.includes("Security Enclave Violation");
+}

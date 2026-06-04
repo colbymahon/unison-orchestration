@@ -10,10 +10,13 @@ import {
   useLiveFetch as useLiveFetchBase,
   type UseLiveFetchOptions,
 } from "@/lib/use-live-fetch";
+import { parseJsonResponseBody } from "@/lib/stream-json";
 import {
+  adminPathFromEdgeTelemetryUrl,
   clearEdgeSessionBearerCache,
   getEdgeSessionBearer,
   isDirectEdgeAdminPath,
+  isSecurityEnclaveErrorBody,
   resolveDashboardApiUrl,
 } from "@/lib/dashboard-edge";
 
@@ -79,7 +82,7 @@ async function dashboardFetcher(
     headers.set("Authorization", `Bearer ${token}`);
   }
 
-  const res = await fetch(url, {
+  let res = await fetch(url, {
     ...init,
     headers,
     credentials: directEdge ? "omit" : init?.credentials,
@@ -87,6 +90,21 @@ async function dashboardFetcher(
 
   if (directEdge && res.status === 401) {
     clearEdgeSessionBearerCache();
+    const fallbackPath = adminPathFromEdgeTelemetryUrl(url);
+    if (fallbackPath) {
+      try {
+        const errBody = await parseJsonResponseBody(res);
+        if (isSecurityEnclaveErrorBody(errBody)) {
+          res = await fetch(fallbackPath, {
+            cache: "no-store",
+            credentials: "include",
+            headers: { Accept: "application/json" },
+          });
+        }
+      } catch {
+        /* keep original 401 */
+      }
+    }
   }
 
   return res;
@@ -161,8 +179,11 @@ export function useLiveFetch<T>(
 
   const error =
     result.error?.includes("Security Enclave Violation")
-      ? "CRYPTO_MESH_MISMATCH // Re-login after WEBAUTHN_SESSION_SECRET sync"
-      : result.error;
+      ? "EDGE_ENCLAVE_MISMATCH // Data via Vercel proxy — run: ./scripts/sync-core-session-secret.sh then re-login"
+      : result.error?.includes("WEBAUTHN_REQUIRED") ||
+          result.error?.includes("SESSION_ENCLAVE_REQUIRED")
+        ? "SESSION_ENCLAVE_REQUIRED // Log out and sign in again with Touch ID"
+        : result.error;
 
   return {
     ...result,
