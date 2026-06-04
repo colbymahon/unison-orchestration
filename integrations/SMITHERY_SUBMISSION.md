@@ -42,10 +42,17 @@ npx @smithery/cli auth login
 # 2. Local smoke (resolves registry + hits edge)
 npx @smithery/cli run colbymahon/unison-orchestration-hub
 
-# 3. Publish to public catalog
+# 3. Publish to public catalog (namespace must exist on Smithery — see auth whoami)
+npx @smithery/cli auth login
+npx @smithery/cli namespace list
 npx @smithery/cli mcp publish \
   "https://unison-edge-gateway.unisonorchestration.workers.dev" \
-  -n colbymahon/unison-orchestration-hub
+  -n <your-smithery-namespace>/unison-orchestration-hub
+
+# If `colbymahon` namespace is not registered yet:
+npx @smithery/cli namespace create colbymahon
+# Or publish under your active namespace (e.g. crmendeavors/unison-orchestration-hub)
+# Web fallback: https://smithery.ai/new → URL → edge gateway manifest URL
 ```
 
 See also [`../GTM_REGISTRY_SUBMISSIONS.md`](../GTM_REGISTRY_SUBMISSIONS.md) Section 2.

@@ -19,8 +19,11 @@ Public telemetry wire: Actions run [#26931843165](https://github.com/colbymahon/
 ```bash
 cd ~/unison-orchestration
 npx @smithery/cli auth login
-npx @smithery/cli mcp publish
-npx @smithery/cli run colbymahon/unison-orchestration-hub
+npx @smithery/cli namespace list   # use your active namespace
+npx @smithery/cli mcp publish \
+  "https://unison-edge-gateway.unisonorchestration.workers.dev" \
+  -n crmendeavors/unison-orchestration-hub
+npx @smithery/cli run crmendeavors/unison-orchestration-hub
 ```
 
 ## Channel B — LangChain

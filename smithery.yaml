@@ -1,7 +1,8 @@
 # Smithery.ai registry config — Unison Orchestration Hub
 # Submit at: https://smithery.ai/servers/new
 # Live baseline (2026-06-04): 91,703 vectors · 32 collections · edge worker 160ee2ac
-# Zero-config install: npx @smithery/cli run colbymahon/unison-orchestration-hub
+# Zero-config install (published): npx @smithery/cli run crmendeavors/unison-orchestration-hub
+# Alternate namespace (create on Smithery first): colbymahon/unison-orchestration-hub
 name: unison-orchestration-hub
 version: 1.5.0
 description: >
