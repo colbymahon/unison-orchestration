@@ -39,3 +39,7 @@ AUCTION_QUEUE_DELAY_MS = "250"
 
 # Sprint 3.6–3.7 — churn recovery + attestation reviews (uses UNISON_ZERO_LOGS prefixes)
 ATTESTATION_RELAXED = "true"
+
+# Direct dashboard admin-telemetry (browser JWT):
+#   wrangler secret put OPS_SESSION_SECRET
+# Use the same value as Vercel WEBAUTHN_SESSION_SECRET.

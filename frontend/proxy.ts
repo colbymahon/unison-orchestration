@@ -28,7 +28,16 @@ const PUBLIC_PREFIXES = [
   "/.well-known/",
   "/_next/",
   "/api/openapi.json",
-  "/api/auth/",
+];
+
+/** WebAuthn handshake — edge-bearer is session-gated (direct worker JWT) */
+const PUBLIC_AUTH_PREFIXES = [
+  "/api/auth/authenticate-challenge",
+  "/api/auth/register-challenge",
+  "/api/auth/register-verify",
+  "/api/auth/verify-biometric",
+  "/api/auth/session",
+  "/api/auth/logout",
 ];
 
 const PRIVATE_PREFIXES = [
@@ -38,6 +47,7 @@ const PRIVATE_PREFIXES = [
   "/api/v1/infra-health",
   "/api/v1/private",
   "/api/admin",
+  "/api/auth/edge-bearer",
 ];
 
 /** Dashboard HTML is gated client-side; APIs return JSON 401 */
@@ -50,6 +60,7 @@ function isPreviewOrLocalHost(host: string): boolean {
 
 function isPublicRoute(pathname: string): boolean {
   if (PUBLIC_EXACT.has(pathname)) return true;
+  if (PUBLIC_AUTH_PREFIXES.some((p) => pathname.startsWith(p))) return true;
   return PUBLIC_PREFIXES.some((p) => pathname.startsWith(p));
 }
 

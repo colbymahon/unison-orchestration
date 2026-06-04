@@ -1,5 +1,6 @@
 "use client";
 
+import { normalizeAffiliateLedgerPayload } from "@/lib/dashboard-edge";
 import { useCallback, useEffect, useRef, useState } from "react";
 
 export interface UseLiveFetchOptions {
@@ -10,6 +11,8 @@ export interface UseLiveFetchOptions {
   /** Background poll interval (ms); omit for fetch-on-mount only */
   pollIntervalMs?: number;
   fetchInit?: RequestInit;
+  /** Override fetch (e.g. direct Anycast edge + ops JWT) */
+  fetcher?: typeof fetch;
 }
 
 interface CacheEntry<T> {
@@ -67,10 +70,18 @@ function normalizePayload(url: string, body: unknown): unknown {
   };
 }
 
+function normalizeDashboardPayload(url: string, body: unknown): unknown {
+  if (url.includes("affiliate-ledger")) {
+    return normalizeAffiliateLedgerPayload(body);
+  }
+  return normalizePayload(url, body);
+}
+
 async function fetchDeduped<T>(
   url: string,
   dedupingInterval: number,
-  init?: RequestInit
+  init?: RequestInit,
+  fetcher: typeof fetch = fetch
 ): Promise<T> {
   const now = Date.now();
   const cached = globalCache.get(url) as CacheEntry<T> | undefined;
@@ -84,13 +95,13 @@ async function fetchDeduped<T>(
   }
 
   const promise = (async () => {
-    const res = await fetch(url, { cache: "no-store", ...init });
+    const res = await fetcher(url, { cache: "no-store", ...init });
     const body = await res.json();
     if (!res.ok) {
       const err = (body as { error?: string }).error ?? `HTTP ${res.status}`;
       throw new Error(err);
     }
-    const normalized = normalizePayload(url, body);
+    const normalized = normalizeDashboardPayload(url, body);
     globalCache.set(url, { data: normalized, fetchedAt: Date.now() });
     return normalized as T;
   })();
@@ -117,6 +128,7 @@ export function useLiveFetch<T>(
     revalidateOnFocus = false,
     pollIntervalMs,
     fetchInit,
+    fetcher,
   } = options;
 
   const [data, setData] = useState<T | null>(() => {
@@ -134,7 +146,7 @@ export function useLiveFetch<T>(
     setError(null);
     try {
       globalCache.delete(url);
-      const body = await fetchDeduped<T>(url, 0, fetchInit);
+      const body = await fetchDeduped<T>(url, 0, fetchInit, fetcher);
       if (mounted.current) {
         setData(body);
         setError(null);
@@ -146,7 +158,7 @@ export function useLiveFetch<T>(
     } finally {
       if (mounted.current) setLoading(false);
     }
-  }, [url, fetchInit]);
+  }, [url, fetchInit, fetcher]);
 
   useEffect(() => {
     mounted.current = true;
@@ -157,7 +169,7 @@ export function useLiveFetch<T>(
     let pollId: ReturnType<typeof setInterval> | undefined;
     if (pollIntervalMs && pollIntervalMs > 0) {
       pollId = setInterval(() => {
-        void fetchDeduped<T>(url, dedupingInterval, fetchInit)
+        void fetchDeduped<T>(url, dedupingInterval, fetchInit, fetcher)
           .then((body) => {
             if (mounted.current) {
               setData(body);
@@ -184,7 +196,7 @@ export function useLiveFetch<T>(
       if (pollId) clearInterval(pollId);
       if (revalidateOnFocus) window.removeEventListener("focus", onFocus);
     };
-  }, [url, mutate, pollIntervalMs, dedupingInterval, fetchInit, revalidateOnFocus]);
+  }, [url, mutate, pollIntervalMs, dedupingInterval, fetchInit, fetcher, revalidateOnFocus]);
 
   return { data, error, loading, mutate };
 }

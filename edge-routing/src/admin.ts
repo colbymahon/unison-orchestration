@@ -1,7 +1,8 @@
 /**
- * Phase B0 — Admin API for trapped-gap review (protected by ADMIN_API_SECRET).
+ * Phase B0 — Admin API for trapped-gap review (ADMIN_API_SECRET or ops JWT).
  */
 
+import { jwtVerify } from "jose";
 import type { ZeroLogEvent } from "./zero_trap";
 import { getAffiliateLedgerStats, type AffiliateLedgerStats } from "./affiliate_ledger";
 
@@ -48,14 +49,54 @@ export async function listTrappedGaps(kv: KVNamespace): Promise<TrappedGapRow[]>
   }
 }
 
-export function authorizeAdmin(request: Request, secret: string | undefined): boolean {
-  if (!secret) {
-    console.error("[ADMIN] ADMIN_API_SECRET not configured — denying.");
+export interface AdminAuthEnv {
+  ADMIN_API_SECRET?: string;
+  OPS_SESSION_SECRET?: string;
+}
+
+async function verifyOpsSessionBearer(
+  token: string,
+  sessionSecret: string | undefined
+): Promise<boolean> {
+  if (!sessionSecret || sessionSecret.length < 16) return false;
+  try {
+    const key = new TextEncoder().encode(sessionSecret);
+    const { payload } = await jwtVerify(token, key);
+    return payload.role === "ops" && payload.auth === "webauthn";
+  } catch {
     return false;
   }
+}
+
+/** Service secret (server) or dashboard ops JWT (direct browser → worker). */
+export async function authorizeAdmin(
+  request: Request,
+  env: AdminAuthEnv
+): Promise<boolean> {
   const auth = request.headers.get("authorization");
   if (!auth?.startsWith("Bearer ")) return false;
-  return auth.slice("Bearer ".length).trim() === secret;
+  const token = auth.slice("Bearer ".length).trim();
+  if (!token) return false;
+
+  const serviceSecret = env.ADMIN_API_SECRET;
+  if (serviceSecret && token === serviceSecret) return true;
+
+  if (await verifyOpsSessionBearer(token, env.OPS_SESSION_SECRET)) {
+    return true;
+  }
+
+  if (!serviceSecret && !env.OPS_SESSION_SECRET) {
+    console.error("[ADMIN] No ADMIN_API_SECRET or OPS_SESSION_SECRET — denying.");
+  }
+  return false;
+}
+
+/** Map /admin-telemetry/* aliases to canonical /api/admin/* paths. */
+export function resolveAdminPathname(pathname: string): string | null {
+  if (pathname.startsWith("/api/admin/")) return pathname;
+  const alias = pathname.match(/^\/admin-telemetry\/([a-z0-9-]+)$/);
+  if (alias) return `/api/admin/${alias[1]}`;
+  return null;
 }
 
 export async function markPipelineQueued(

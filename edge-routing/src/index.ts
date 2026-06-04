@@ -19,6 +19,7 @@ import {
   getAffiliateLedgerStats,
   listTrappedGaps,
   markPipelineQueued,
+  resolveAdminPathname,
 } from "./admin";
 import { scheduleAffiliateLedger } from "./affiliate_ledger";
 import {
@@ -82,6 +83,8 @@ export interface Env {
   PAYMENT_DEST: string;
   /** Bearer token for /api/admin/* routes (dashboard proxy) */
   ADMIN_API_SECRET?: string;
+  /** Same value as Vercel WEBAUTHN_SESSION_SECRET — direct dashboard JWT auth */
+  OPS_SESSION_SECRET?: string;
   ATTESTATION_RELAXED?: string;
   ATTESTATION_HMAC_SECRET?: string;
   /** Phase 2b — auction window tuning (optional) */
@@ -100,15 +103,59 @@ const FREE_TIER_LIMIT = 50;
 const FREE_TIER_TTL_SECONDS = 90 * 24 * 60 * 60;
 const CDP_FACILITATOR_URL = "https://api.developer.coinbase.com/x402/verify";
 
+const DASHBOARD_ORIGINS = new Set([
+  "https://unisonorchestration.com",
+  "http://localhost:3000",
+  "http://127.0.0.1:3000",
+]);
+
 const CORS_HEADERS: Record<string, string> = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
   "Access-Control-Allow-Headers":
-    "Content-Type, Payment-Signature, Authorization, X-Agent-ID, X-Unison-Lineage, X-Unison-Lineage-Version, X-Unison-Priority-Premium, X-Unison-Affiliate-ID, X-Unison-Callback-URL, X-Agent-Callback, X-Agent-Webhook",
+    "Content-Type, Payment-Signature, Authorization, X-Agent-ID, X-Unison-Lineage, X-Unison-Lineage-Version, X-Unison-Priority-Premium, X-Unison-Affiliate-ID, X-Unison-Callback-URL, X-Agent-Callback, X-Agent-Webhook, X-Admin-Api-Secret",
   "Access-Control-Expose-Headers":
-    "X-Unison-Satiation, X-Unison-Auction-Status, X-Unison-Premium-Settled, X-Unison-Min-Premium-Bid, X-Unison-Lineage, X-Unison-Lineage-Step, X-Unison-Lineage-Episode, X-Unison-Router-Composition, X-Unison-Settlement-Split, X-Unison-Revenue-Split, X-Unison-Affiliate-Settled, X-Unison-ZKP-Verification-Digest, X-Unison-ZKP-Chunk-Count, X-Unison-ZKP-Verified-Count, X-Unison-Source-Digest, X-Remaining-Free-Tier",
+    "X-Unison-Satiation, X-Unison-Auction-Status, X-Unison-Premium-Settled, X-Unison-Min-Premium-Bid, X-Unison-Lineage, X-Unison-Lineage-Step, X-Unison-Lineage-Episode, X-Unison-Router-Composition, X-Unison-Settlement-Split, X-Unison-Revenue-Split, X-Unison-Affiliate-Settled, X-Unison-ZKP-Verification-Digest, X-Unison-ZKP-Chunk-Count, X-Unison-ZKP-Verified-Count, X-Unison-Source-Digest, X-Remaining-Free-Tier, X-Unison-Embed-Ms, X-Unison-Qdrant-Ms, X-Unison-Embed-Cache-Hit, X-Unison-Fly-Region, X-Unison-Delivery",
   "Access-Control-Max-Age": "86400",
 };
+
+function isDashboardOrigin(origin: string | null): boolean {
+  if (!origin) return false;
+  if (DASHBOARD_ORIGINS.has(origin)) return true;
+  try {
+    const host = new URL(origin).hostname.toLowerCase();
+    return host.endsWith(".vercel.app");
+  } catch {
+    return false;
+  }
+}
+
+function isAdminTelemetryPath(pathname: string): boolean {
+  return (
+    pathname.startsWith("/api/admin/") || pathname.startsWith("/admin-telemetry/")
+  );
+}
+
+function corsHeadersForRequest(request: Request): Record<string, string> {
+  const origin = request.headers.get("Origin");
+  if (isAdminTelemetryPath(new URL(request.url).pathname) && isDashboardOrigin(origin)) {
+    return {
+      ...CORS_HEADERS,
+      "Access-Control-Allow-Origin": origin!,
+      "Access-Control-Allow-Credentials": "true",
+    };
+  }
+  return CORS_HEADERS;
+}
+
+function withCorsForRequest(request: Request, response: Response): Response {
+  const headers = corsHeadersForRequest(request);
+  const patched = new Response(response.body, response);
+  for (const [key, val] of Object.entries(headers)) {
+    patched.headers.set(key, val);
+  }
+  return patched;
+}
 
 // ---------------------------------------------------------------------------
 // x402 types
@@ -140,7 +187,8 @@ function getPaymentSignature(request: Request): string | null {
   );
 }
 
-function withCors(response: Response): Response {
+function withCors(response: Response, request?: Request): Response {
+  if (request) return withCorsForRequest(request, response);
   const patched = new Response(response.body, response);
   for (const [key, val] of Object.entries(CORS_HEADERS)) {
     patched.headers.set(key, val);
@@ -148,12 +196,17 @@ function withCors(response: Response): Response {
   return patched;
 }
 
-function errorResponse(status: number, message: string): Response {
+function errorResponse(
+  status: number,
+  message: string,
+  request?: Request
+): Response {
   return withCors(
     new Response(message, {
       status,
       headers: { "Content-Type": "text/plain; charset=utf-8" },
-    })
+    }),
+    request
   );
 }
 
@@ -605,35 +658,45 @@ export default {
     const url = new URL(request.url);
     const { method } = request;
     const pathname = url.pathname;
+    const adminPath = resolveAdminPathname(pathname);
+    const adminAuthEnv = {
+      ADMIN_API_SECRET: env.ADMIN_API_SECRET,
+      OPS_SESSION_SECRET: env.OPS_SESSION_SECRET,
+    };
 
-    // CORS pre-flight
+    // CORS pre-flight — dashboard direct admin-telemetry uses credentialed CORS
     if (method === "OPTIONS") {
-      return new Response(null, { status: 204, headers: CORS_HEADERS });
+      const status = isAdminTelemetryPath(pathname) ? 200 : 204;
+      return new Response(null, {
+        status,
+        headers: corsHeadersForRequest(request),
+      });
     }
 
-    // Phase B0 — Admin trapped-gap API (dashboard proxy)
-    if (pathname === "/api/admin/trapped-gaps") {
+    // Phase B0 — Admin + /admin-telemetry/* (zero-hop dashboard reads)
+    if (adminPath === "/api/admin/trapped-gaps") {
       if (method !== "GET") {
-        return errorResponse(405, "Method Not Allowed. Use GET.");
+        return errorResponse(405, "Method Not Allowed. Use GET.", request);
       }
-      if (!authorizeAdmin(request, env.ADMIN_API_SECRET)) {
-        return errorResponse(401, "Unauthorized.");
+      if (!(await authorizeAdmin(request, adminAuthEnv))) {
+        return errorResponse(401, "Unauthorized.", request);
       }
       const gaps = await listTrappedGaps(env.UNISON_ZERO_LOGS);
       return withCors(
         new Response(JSON.stringify({ gaps, count: gaps.length }), {
           status: 200,
           headers: { "Content-Type": "application/json" },
-        })
+        }),
+        request
       );
     }
 
-    if (pathname === "/api/admin/churn-logs") {
+    if (adminPath === "/api/admin/churn-logs") {
       if (method !== "GET") {
-        return errorResponse(405, "Method Not Allowed. Use GET.");
+        return errorResponse(405, "Method Not Allowed. Use GET.", request);
       }
-      if (!authorizeAdmin(request, env.ADMIN_API_SECRET)) {
-        return errorResponse(401, "Unauthorized.");
+      if (!(await authorizeAdmin(request, adminAuthEnv))) {
+        return errorResponse(401, "Unauthorized.", request);
       }
       const churnKv = resolveChurnKv(env);
       const logs = churnKv ? await listChurnLogs(churnKv) : [];
@@ -641,23 +704,25 @@ export default {
         new Response(JSON.stringify({ logs, count: logs.length }), {
           status: 200,
           headers: { "Content-Type": "application/json" },
-        })
+        }),
+        request
       );
     }
 
-    if (pathname === "/api/admin/advocacy-logs") {
+    if (adminPath === "/api/admin/advocacy-logs") {
       if (method !== "GET") {
-        return errorResponse(405, "Method Not Allowed. Use GET.");
+        return errorResponse(405, "Method Not Allowed. Use GET.", request);
       }
-      if (!authorizeAdmin(request, env.ADMIN_API_SECRET)) {
-        return errorResponse(401, "Unauthorized.");
+      if (!(await authorizeAdmin(request, adminAuthEnv))) {
+        return errorResponse(401, "Unauthorized.", request);
       }
       const logs = await listAdvocacyLogs(env.UNISON_ZERO_LOGS);
       return withCors(
         new Response(JSON.stringify({ logs, count: logs.length }), {
           status: 200,
           headers: { "Content-Type": "application/json" },
-        })
+        }),
+        request
       );
     }
 
@@ -755,12 +820,12 @@ export default {
       }
     }
 
-    if (pathname === "/api/admin/affiliate-ledger") {
+    if (adminPath === "/api/admin/affiliate-ledger") {
       if (method !== "GET") {
-        return errorResponse(405, "Method Not Allowed. Use GET.");
+        return errorResponse(405, "Method Not Allowed. Use GET.", request);
       }
-      if (!authorizeAdmin(request, env.ADMIN_API_SECRET)) {
-        return errorResponse(401, "Unauthorized.");
+      if (!(await authorizeAdmin(request, adminAuthEnv))) {
+        return errorResponse(401, "Unauthorized.", request);
       }
       const stats = env.UNISON_ZERO_LOGS
         ? await getAffiliateLedgerStats(env.UNISON_ZERO_LOGS)
@@ -774,17 +839,21 @@ export default {
       return withCors(
         new Response(JSON.stringify(stats), {
           status: 200,
-          headers: { "Content-Type": "application/json" },
-        })
+          headers: {
+            "Content-Type": "application/json",
+            "Cache-Control": "no-store",
+          },
+        }),
+        request
       );
     }
 
-    if (pathname === "/api/admin/mark-pipeline-queued") {
+    if (adminPath === "/api/admin/mark-pipeline-queued") {
       if (method !== "POST") {
-        return errorResponse(405, "Method Not Allowed. Use POST.");
+        return errorResponse(405, "Method Not Allowed. Use POST.", request);
       }
-      if (!authorizeAdmin(request, env.ADMIN_API_SECRET)) {
-        return errorResponse(401, "Unauthorized.");
+      if (!(await authorizeAdmin(request, adminAuthEnv))) {
+        return errorResponse(401, "Unauthorized.", request);
       }
       let body: { key?: string };
       try {
@@ -803,7 +872,8 @@ export default {
         new Response(JSON.stringify({ ok: true, gap: updated }), {
           status: 200,
           headers: { "Content-Type": "application/json" },
-        })
+        }),
+        request
       );
     }
 
