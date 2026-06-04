@@ -5,7 +5,7 @@
 **Lead (paste first line of body):**
 
 ```bash
-npx @smithery/cli run colbymahon/unison-orchestration-hub
+npx @smithery/cli run crmendeavors/unison-orchestration-hub
 ```
 
 **Body:**

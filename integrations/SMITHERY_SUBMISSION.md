@@ -2,11 +2,13 @@
 
 **Submit at:** https://smithery.ai/servers/new
 
-**Qualified name (registry):** `colbymahon/unison-orchestration-hub`
+**Qualified name (registry, production):** `crmendeavors/unison-orchestration-hub`
+
+**Legacy staging namespace:** `colbymahon/unison-orchestration-hub` (deprecated — use corporate line above)
 
 **Manifest URL (link in submission):** `https://unison-edge-gateway.unisonorchestration.workers.dev/.well-known/mcp-configuration`
 
-**Install string (post-publish):** `npx @smithery/cli run colbymahon/unison-orchestration-hub`
+**Install string (post-publish):** `npx @smithery/cli run crmendeavors/unison-orchestration-hub`
 
 **Live baseline (2026-06-04):** **91,703 vectors** · **32 collections** · Phase 2 edge `160ee2ac` (lineage / auctions / routers / ZKP)
 
@@ -40,7 +42,7 @@ From `~/unison-orchestration` (symlink — no spaces in path):
 npx @smithery/cli auth login
 
 # 2. Local smoke (resolves registry + hits edge)
-npx @smithery/cli run colbymahon/unison-orchestration-hub
+npx @smithery/cli run crmendeavors/unison-orchestration-hub
 
 # 3. Publish to public catalog (namespace must exist on Smithery — see auth whoami)
 npx @smithery/cli auth login
@@ -94,5 +96,5 @@ Expected: TSV header `Sequence\tURL\tContent` (or `Sequence\tSource URL\tContent
 ## Post-submit verification
 
 ```bash
-npx @smithery/cli run colbymahon/unison-orchestration-hub
+npx @smithery/cli run crmendeavors/unison-orchestration-hub
 ```

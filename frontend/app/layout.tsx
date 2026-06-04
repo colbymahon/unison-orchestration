@@ -3,6 +3,7 @@ export const dynamic = "force-dynamic";
 export const revalidate = 0;
 
 import type { Metadata, Viewport } from "next";
+import { headers } from "next/headers";
 import { Inter, JetBrains_Mono, Space_Grotesk } from "next/font/google";
 import "./globals.css";
 import { ScanlineOverlay } from "@/components/ScanlineOverlay";
@@ -186,13 +187,29 @@ const jsonLdGraphNodes = [
 ];
 
 /* ─── Root Layout ─────────────────────────────────────────────────────────────── */
+const STATIC_MOAT_FOR_JSONLD = {
+  total_vectors: 91_847,
+  collection_count: 32,
+  collections: [] as Array<{ name: string; count: number }>,
+  fetched_at: "layout-static",
+};
+
 export default async function RootLayout({
   children,
 }: {
   children: React.ReactNode;
 }) {
-  const moat = await fetchLiveMoatSnapshot();
-  const reviewsDirectory = await fetchReviewsDirectory();
+  const headerList = await headers();
+  const path =
+    headerList.get("x-unison-path") ?? headerList.get("x-invoke-path") ?? "";
+  const skipLiveJsonLd = path.startsWith("/dashboard");
+
+  const moat = skipLiveJsonLd
+    ? STATIC_MOAT_FOR_JSONLD
+    : await fetchLiveMoatSnapshot();
+  const reviewsDirectory = skipLiveJsonLd
+    ? null
+    : await fetchReviewsDirectory();
   const jsonLdWebApi = buildFullJsonLdGraph(jsonLdGraphNodes, moat);
 
   return (

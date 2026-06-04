@@ -4,13 +4,18 @@
 
 ---
 
-## Step 0 — Pre-flight (do these before submitting the PR)
+## Step 0 — Pre-flight (2026 routing — read `LANGCHAIN_CHANNEL_B_2026.md`)
 
-1. Fork `langchain-ai/langchain` on GitHub.
-2. Open a **GitHub Discussion** in the `langchain-ai/langchain` repo under
-   "Ideas" or "Integrations" with the title below. Wait for a maintainer 👍 before
-   submitting the PR.
-3. Reference the discussion number in the PR description.
+**Do not** open GitHub Discussions under Ideas/Integrations — those categories no longer exist on
+`langchain-ai/langchain` (only **Announcements**). `langchain-community` has **no** discussions (404).
+
+**`langchain-community` is sunset** — no new retriever PRs. Use the standalone package instead:
+
+1. Publish / promote **`unison-langchain`** on PyPI (`packages/unison-langchain/`).
+2. Post on **LangChain Forum** → **Talking Shop** using `integrations/LANGCHAIN_FORUM_POST.md`.
+3. Request docs listing per https://docs.langchain.com/oss/python/contributing/publish-langchain
+   (PR to LangChain **docs** repo, not `langchain_community` code).
+4. Optional: GitHub Issue on `langchain-ai/langchain` labeled external integration (link PyPI + Smithery).
 
 **Discussion title:**
 > [Integration Proposal] UnisonX402Retriever — TSV-stream grounding retriever

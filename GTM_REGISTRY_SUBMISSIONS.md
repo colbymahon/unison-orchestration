@@ -148,10 +148,10 @@ After `npx @smithery/cli auth login`:
 ```bash
 cd ~/unison-orchestration
 npx @smithery/cli auth login
-npx @smithery/cli run colbymahon/unison-orchestration-hub
+npx @smithery/cli run crmendeavors/unison-orchestration-hub
 npx @smithery/cli mcp publish \
   "https://unison-edge-gateway.unisonorchestration.workers.dev" \
-  -n colbymahon/unison-orchestration-hub
+  -n crmendeavors/unison-orchestration-hub
 ```
 
 `smithery.yaml` (v1.4.0) is at repo root — paste into web form or use CLI above.

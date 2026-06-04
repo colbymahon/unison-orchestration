@@ -3,7 +3,6 @@
 /**
  * Dashboard live-fetch hook.
  * Hot /api/admin/* reads bypass Vercel serverless and hit Anycast worker admin-telemetry.
- * Auth: transport JWT via /api/auth/edge-bearer (never ADMIN_API_SECRET in browser).
  */
 
 import { useCallback, useEffect, useMemo, useState } from "react";
@@ -22,6 +21,13 @@ export type { UseLiveFetchOptions };
 
 const SESSION_ENCLAVE_ERROR =
   "SESSION_ENCLAVE_REQUIRED // Re-authenticate via Touch ID";
+
+const IDLE_FETCH_STATE = {
+  data: null,
+  error: SESSION_ENCLAVE_ERROR,
+  loading: false,
+  authBlocked: true,
+} as const;
 
 function buildDashboardFetchInit(
   url: string,
@@ -96,6 +102,11 @@ export function useLiveFetch<T>(
   const [bearerReady, setBearerReady] = useState(!needsEdgeJwt);
   const [hasBearer, setHasBearer] = useState(false);
 
+  const authNonce = useMemo(
+    () => (typeof crypto !== "undefined" ? crypto.randomUUID() : "ssr"),
+    [url, hasBearer, bearerReady]
+  );
+
   useEffect(() => {
     if (!url || !needsEdgeJwt) {
       setBearerReady(true);
@@ -116,14 +127,16 @@ export function useLiveFetch<T>(
     return () => {
       cancelled = true;
     };
-  }, [url, needsEdgeJwt]);
+  }, [url, needsEdgeJwt, authNonce]);
 
-  const resolvedUrl = useMemo(() => {
-    if (!url) return null;
+  const fetchGate = useMemo(() => {
+    if (!url) return { activeUrl: null as string | null, idle: true };
     const { url: target, directEdge } = resolveDashboardApiUrl(url);
-    if (directEdge && (!bearerReady || !hasBearer)) return null;
-    return target;
-  }, [url, bearerReady, hasBearer]);
+    if (directEdge && (!bearerReady || !hasBearer)) {
+      return { activeUrl: null, idle: true };
+    }
+    return { activeUrl: target, idle: false };
+  }, [url, bearerReady, hasBearer, authNonce]);
 
   const authBlocked = needsEdgeJwt && bearerReady && !hasBearer;
 
@@ -133,23 +146,28 @@ export function useLiveFetch<T>(
 
   const fetcher = useCallback(dashboardFetcher, []);
 
-  const result = useLiveFetchBase<T>(resolvedUrl, {
+  const result = useLiveFetchBase<T>(fetchGate.activeUrl, {
     ...rest,
     fetchInit: resolvedInit,
     fetcher,
   });
 
+  if (authBlocked || (fetchGate.idle && needsEdgeJwt && bearerReady)) {
+    return {
+      ...IDLE_FETCH_STATE,
+      mutate: result.mutate,
+    } as ReturnType<typeof useLiveFetchBase<T>> & { authBlocked: boolean };
+  }
+
   const error =
-    authBlocked
-      ? SESSION_ENCLAVE_ERROR
-      : result.error?.includes("Security Enclave Violation")
-        ? "CRYPTO_MESH_MISMATCH // Re-login after WEBAUTHN_SESSION_SECRET sync"
-        : result.error;
+    result.error?.includes("Security Enclave Violation")
+      ? "CRYPTO_MESH_MISMATCH // Re-login after WEBAUTHN_SESSION_SECRET sync"
+      : result.error;
 
   return {
     ...result,
     error,
-    loading: authBlocked ? false : result.loading || (needsEdgeJwt && !bearerReady),
-    authBlocked,
+    loading: result.loading || (needsEdgeJwt && !bearerReady),
+    authBlocked: false,
   };
 }

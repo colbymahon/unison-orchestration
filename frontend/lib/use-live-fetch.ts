@@ -1,6 +1,7 @@
 "use client";
 
 import { normalizeAffiliateLedgerPayload } from "@/lib/dashboard-edge";
+import { parseJsonResponseBody } from "@/lib/stream-json";
 import { useCallback, useEffect, useRef, useState } from "react";
 
 export interface UseLiveFetchOptions {
@@ -96,7 +97,7 @@ async function fetchDeduped<T>(
 
   const promise = (async () => {
     const res = await fetcher(url, { cache: "no-store", ...init });
-    const body = await res.json();
+    const body = await parseJsonResponseBody(res);
     if (!res.ok) {
       const err = (body as { error?: string }).error ?? `HTTP ${res.status}`;
       throw new Error(err);

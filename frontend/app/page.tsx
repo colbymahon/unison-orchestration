@@ -1,11 +1,7 @@
-import type { Metadata } from "next";
 import StorefrontPage from "@/components/StorefrontPage";
+import { BASE_APP_VERIFICATION_METADATA } from "@/lib/base-verification";
 
-export const metadata: Metadata = {
-  other: {
-    "base:app_id": "6a1a76c711d30a39b5246d95",
-  },
-};
+export const metadata = BASE_APP_VERIFICATION_METADATA;
 
 export default function HomePage() {
   return <StorefrontPage />;

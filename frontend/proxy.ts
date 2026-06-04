@@ -122,8 +122,18 @@ export async function proxy(req: NextRequest) {
 
   const pathname = req.nextUrl.pathname;
 
+  const requestHeaders = new Headers(req.headers);
+  requestHeaders.set("x-unison-path", pathname);
+
+  const attachPath = (res: NextResponse) => {
+    res.headers.set("x-unison-path", pathname);
+    return res;
+  };
+
   if (isPublicRoute(pathname)) {
-    return NextResponse.next();
+    return attachPath(
+      NextResponse.next({ request: { headers: requestHeaders } })
+    );
   }
 
   if (isPrivateRoute(pathname)) {
@@ -132,13 +142,17 @@ export async function proxy(req: NextRequest) {
 
     if (!valid) {
       if (isClientGatedDocument(pathname, req)) {
-        return NextResponse.next();
+        return attachPath(
+          NextResponse.next({ request: { headers: requestHeaders } })
+        );
       }
-      return privateApiUnauthorized();
+      return attachPath(privateApiUnauthorized());
     }
   }
 
-  return NextResponse.next();
+  return attachPath(
+    NextResponse.next({ request: { headers: requestHeaders } })
+  );
 }
 
 export const config = {

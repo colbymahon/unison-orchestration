@@ -20,7 +20,7 @@ Usage:
 Environment:
     MASTER_MNEMONIC, BASE_RPC_URL, USDC_CONTRACT_ADDRESS (same as swarm_commander)
     SMITHERY_API_KEY (optional) — live registry lookup at api.smithery.ai
-    SMITHERY_QUALIFIED_NAME (optional, default: colbymahon/unison-orchestration-hub)
+    SMITHERY_QUALIFIED_NAME (optional, default: crmendeavors/unison-orchestration-hub)
 """
 
 from __future__ import annotations
@@ -458,7 +458,7 @@ def main() -> None:
         "--qualified-name",
         default=os.getenv(
             "SMITHERY_QUALIFIED_NAME",
-            "colbymahon/unison-orchestration-hub",
+            "crmendeavors/unison-orchestration-hub",
         ),
         help="Smithery qualified name when using --smithery-api.",
     )

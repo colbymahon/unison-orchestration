@@ -1,7 +1,8 @@
 "use client";
 
+import dynamic from "next/dynamic";
 import { useMemo } from "react";
-import { Coins, GitBranch, MessageSquare, ShieldX, TrendingUp, Wallet } from "lucide-react";
+import { Coins, MessageSquare, ShieldX, TrendingUp, Wallet } from "lucide-react";
 import type {
   AffiliateLedgerTelemetry,
   ChurnLogRow,
@@ -13,6 +14,18 @@ import { computeRevenueVelocityFromGaps, formatUsdcPerHour, formatUsdcTotal } fr
 import { useLiveFetch } from "@/hooks/useLiveFetch";
 import { AFFILIATE_POLL_MS, DASHBOARD_FETCH_BASE } from "@/lib/dashboard-fetch";
 import type { TrappedGapRow } from "./types";
+
+const LedgerPayoutTable = dynamic(
+  () =>
+    import("./ledger/LedgerPayoutTable").then((m) => m.LedgerPayoutTable),
+  { ssr: false, loading: () => null }
+);
+
+const LedgerChurnStream = dynamic(
+  () =>
+    import("./ledger/LedgerChurnStream").then((m) => m.LedgerChurnStream),
+  { ssr: false, loading: () => null }
+);
 
 interface TrappedGapsApiResponse {
   gaps: TrappedGapRow[];
@@ -51,6 +64,8 @@ function shortWallet(addr: string): string {
   if (addr.length < 12) return addr;
   return `${addr.slice(0, 6)}…${addr.slice(-4)}`;
 }
+
+const MAX_TRAPPED_VIEW = 10;
 
 export function LedgerPanel({ ledger, revenueHistory, rejectionHistory, loading }: Props) {
   const telemetry = ledger?.fly_telemetry ?? null;
@@ -99,8 +114,10 @@ export function LedgerPanel({ ledger, revenueHistory, rejectionHistory, loading 
   const uniqueRoutingNodes = affiliate?.unique_routing_nodes ?? 0;
   const payoutRows = affiliate?.recent_payout_rows ?? [];
 
+  const trappedWindow = trappedRows.slice(0, MAX_TRAPPED_VIEW);
+
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 transform-gpu">
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 font-mono">
         <div className="bg-gray-950 border border-gray-900 rounded-xl p-4 border-l-2 border-l-[#B300FF]">
           <div className="text-[10px] text-gray-600 uppercase tracking-widest flex items-center gap-1">
@@ -141,7 +158,7 @@ export function LedgerPanel({ ledger, revenueHistory, rejectionHistory, loading 
 
       {/* A2A affiliate — live affiliate:stats via dedicated admin route */}
       <section
-        className="relative overflow-hidden rounded-xl border-2 border-[#00E5FF]/40 bg-[#050914]/95 p-5 font-mono"
+        className="relative overflow-hidden rounded-xl border-2 border-[#00E5FF]/40 bg-[#050914]/95 p-5 font-mono transform-gpu"
         aria-label="A2A system feedback and advocacy mesh"
       >
         <div
@@ -218,46 +235,7 @@ export function LedgerPanel({ ledger, revenueHistory, rejectionHistory, loading 
               </div>
 
               {payoutRows.length > 0 ? (
-                <div className="overflow-x-auto rounded-lg border border-[#00E5FF]/20 bg-white/[0.02]">
-                  <table className="w-full min-w-[640px] text-left text-[11px]">
-                    <thead>
-                      <tr className="border-b border-[#00E5FF]/20 text-gray-500 uppercase tracking-wider">
-                        <th className="px-3 py-2 font-semibold whitespace-nowrap">Wallet</th>
-                        <th className="px-3 py-2 font-semibold whitespace-nowrap">Settled USDC</th>
-                        <th className="px-3 py-2 font-semibold whitespace-nowrap">Collection</th>
-                        <th className="px-3 py-2 font-semibold whitespace-nowrap">Composition</th>
-                        <th className="px-3 py-2 font-semibold whitespace-nowrap">Query Intent</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {payoutRows.slice(0, 12).map((row, i) => (
-                        <tr
-                          key={`${row.timestamp}-${i}`}
-                          className="border-b border-white/5 hover:bg-[#00E5FF]/5 transition-colors"
-                        >
-                          <td className="px-3 py-2 text-[#00E5FF] tabular-nums whitespace-nowrap">
-                            {shortWallet(row.wallet)}
-                          </td>
-                          <td className="px-3 py-2 text-emerald-400/90 tabular-nums whitespace-nowrap">
-                            ${row.settled_amount.toFixed(6)}
-                          </td>
-                          <td className="px-3 py-2 text-gray-400 max-w-[160px] truncate">
-                            {row.collection}
-                          </td>
-                          <td className="px-3 py-2 text-gray-500 whitespace-nowrap">
-                            <span className="inline-flex items-center gap-1">
-                              <GitBranch size={10} />
-                              {row.composition}
-                            </span>
-                          </td>
-                          <td className="px-3 py-2 text-gray-600 max-w-[240px] truncate">
-                            {row.query || "—"}
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
+                <LedgerPayoutTable rows={payoutRows} />
               ) : (
                 <p className="text-[11px] text-gray-600">
                   No affiliate settlements yet. Paid queries with{" "}
@@ -272,7 +250,7 @@ export function LedgerPanel({ ledger, revenueHistory, rejectionHistory, loading 
 
       {/* Churn recovery + signed attestations */}
       <section
-        className="relative overflow-hidden rounded-xl border border-[#00E5FF]/25 bg-[#050914]/95 p-5 font-mono"
+        className="relative overflow-hidden rounded-xl border border-[#00E5FF]/25 bg-[#050914]/95 p-5 font-mono transform-gpu"
         aria-label="Churn and attestation metrics"
       >
         <div
@@ -296,7 +274,7 @@ export function LedgerPanel({ ledger, revenueHistory, rejectionHistory, loading 
               <div className="text-[10px] text-gray-500 uppercase tracking-widest mb-3">
                 Inbound Friction · trapped-gaps KV
               </div>
-              {trappedLoading && trappedRows.length === 0 ? (
+              {trappedLoading && trappedWindow.length === 0 ? (
                 <p className="text-[11px] uppercase tracking-widest text-gray-600">
                   TRAPPED GAPS INITIALIZING // SYSTEM RUNNING DARK
                 </p>
@@ -304,9 +282,9 @@ export function LedgerPanel({ ledger, revenueHistory, rejectionHistory, loading 
                 <p className="text-[11px] uppercase tracking-widest text-rose-400/80">
                   {trappedError}
                 </p>
-              ) : trappedRows.length > 0 ? (
-                <ul className="space-y-2 text-[11px] max-h-[320px] overflow-y-auto overflow-x-hidden">
-                  {trappedRows.slice(0, 12).map((row, i) => (
+              ) : trappedWindow.length > 0 ? (
+                <ul className="space-y-2 text-[11px] max-h-[320px] overflow-y-auto overflow-x-hidden transform-gpu">
+                  {trappedWindow.map((row, i) => (
                     <li
                       key={`${row.collection}-${row.query}-${i}`}
                       className="border-b border-[#00E5FF]/10 pb-2 last:border-0"
@@ -330,23 +308,7 @@ export function LedgerPanel({ ledger, revenueHistory, rejectionHistory, loading 
                   No trapped gaps — substrate coverage nominal.
                 </p>
               )}
-              {churnLoading && churnRows.length === 0 ? (
-                <p className="text-[10px] text-gray-700 mt-3 border-t border-white/5 pt-2 uppercase tracking-widest">
-                  Churn stream initializing…
-                </p>
-              ) : churnRows.length > 0 ? (
-                <ul className="mt-3 border-t border-white/5 pt-3 space-y-2 text-[10px] max-h-[140px] overflow-y-auto">
-                  {churnRows.slice(0, 8).map((row, i) => (
-                    <li key={`${row.timestamp}-${row.agent_id}-${i}`} className="text-gray-500">
-                      <span className="text-[#00E5FF]">{row.agent_id}</span>
-                      {" · "}
-                      <span className="text-gray-600">{row.code}</span>
-                      {" · "}
-                      <span className="truncate">{row.collection_target}</span>
-                    </li>
-                  ))}
-                </ul>
-              ) : null}
+              <LedgerChurnStream rows={churnRows} loading={churnLoading} />
             </div>
 
             <div className="rounded-lg border-2 border-[#00E5FF]/30 bg-black/40 p-4 min-h-[260px]">

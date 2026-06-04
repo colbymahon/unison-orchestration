@@ -125,11 +125,11 @@ export function OpsPanel({ telemetry, latencyHistory, moat }: Props) {
         </div>
       </section>
 
-      <div className="bg-gray-950 border border-gray-900 rounded-xl p-4">
+      <div className="bg-gray-950 border border-gray-900 rounded-xl p-4 transform-gpu will-change-transform">
         <div className="text-xs font-mono text-gray-500 uppercase tracking-widest mb-3">
           Multi-Node Latency Waveform (ms)
         </div>
-        <ResponsiveContainer width="100%" height={140}>
+        <ResponsiveContainer width="100%" height={140} className="transform-gpu">
           <AreaChart data={multiRegionLatency} margin={{ top: 4, right: 0, bottom: 0, left: 0 }}>
             <defs>
               <linearGradient id="iadGrad" x1="0" y1="0" x2="0" y2="1">

@@ -7,10 +7,10 @@ Frozen engineering baseline: commit `2bc9051` · worker `160ee2ac`.
 ```bash
 cd ~/unison-orchestration
 npx @smithery/cli auth login
-npx @smithery/cli run colbymahon/unison-orchestration-hub
+npx @smithery/cli run crmendeavors/unison-orchestration-hub
 npx @smithery/cli mcp publish \
   "https://unison-edge-gateway.unisonorchestration.workers.dev" \
-  -n colbymahon/unison-orchestration-hub
+  -n crmendeavors/unison-orchestration-hub
 ```
 
 Assets: [`smithery.yaml`](../smithery.yaml) · [`integrations/SMITHERY_SUBMISSION.md`](../integrations/SMITHERY_SUBMISSION.md)

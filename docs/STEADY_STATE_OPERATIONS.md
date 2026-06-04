@@ -45,7 +45,7 @@ Or: `bash scripts/dev-clean.sh` from `~/unison-frontend-local`.
 | LlamaHub | `integrations/LLAMAINDEX_SUBMISSION.md` |
 | Telemetry mirror | `TELEMETRY_REPO_TOKEN` → `unison-data-telemetry` repo |
 
-**Install string:** `npx @smithery/cli run colbymahon/unison-orchestration-hub`
+**Install string:** `npx @smithery/cli run crmendeavors/unison-orchestration-hub`
 
 ## Scheduled automation
 
