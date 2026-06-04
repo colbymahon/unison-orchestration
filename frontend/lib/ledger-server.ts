@@ -2,7 +2,10 @@
  * Aggregates live ledger telemetry from Fly MCP + edge KV trap ledger.
  */
 
-import type { TelemetryData } from "@/components/dashboard/types";
+import type {
+  EdgeAffiliateLedgerTelemetry,
+  TelemetryData,
+} from "@/components/dashboard/types";
 
 export interface TrappedGapRow {
   query: string;
@@ -12,24 +15,6 @@ export interface TrappedGapRow {
   accumulated_lost_revenue: number;
   originating_agent: string;
   tier: string;
-}
-
-export interface AffiliateReferralRow {
-  affiliate_wallet: string;
-  affiliate_referral_usdc: string;
-  query: string;
-  primary_collection: string;
-  composition: string;
-  total_usdc: string;
-  timestamp: string;
-}
-
-export interface AffiliateLedgerTelemetry {
-  total_referral_usdc: number;
-  referral_event_count: number;
-  unique_wallet_count: number;
-  last_event_at: string | null;
-  recent_events: AffiliateReferralRow[];
 }
 
 export interface LedgerTelemetryResponse {
@@ -45,7 +30,7 @@ export interface LedgerTelemetryResponse {
   uptime_seconds: number;
   server_version: string | null;
   fly_telemetry: TelemetryData | null;
-  affiliate_ledger: AffiliateLedgerTelemetry | null;
+  affiliate_ledger: EdgeAffiliateLedgerTelemetry | null;
   churn_logs: Array<{
     agent_id: string;
     dropped_query: string;
@@ -110,7 +95,7 @@ export async function fetchLedgerTelemetry(): Promise<LedgerTelemetryResponse> {
 
   let trapped_gaps: TrappedGapRow[] = [];
   let edgeKvOk = false;
-  let affiliate_ledger: AffiliateLedgerTelemetry | null = null;
+  let affiliate_ledger: EdgeAffiliateLedgerTelemetry | null = null;
   let affiliateKvOk = false;
   let churn_logs: LedgerTelemetryResponse["churn_logs"] = [];
   let churnKvOk = false;
@@ -146,7 +131,7 @@ export async function fetchLedgerTelemetry(): Promise<LedgerTelemetryResponse> {
         signal: AbortSignal.timeout(6_000),
       });
       if (res.ok) {
-        affiliate_ledger = (await res.json()) as AffiliateLedgerTelemetry;
+        affiliate_ledger = (await res.json()) as EdgeAffiliateLedgerTelemetry;
         affiliateKvOk = true;
       }
     } catch {

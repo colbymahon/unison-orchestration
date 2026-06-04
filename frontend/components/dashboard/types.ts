@@ -34,8 +34,8 @@ export interface QdrantStat {
   error?: string;
 }
 
-/** One REVENUE_ROUTING_EVENT affiliate slice from edge KV */
-export interface AffiliateReferralRow {
+/** Edge KV wire shape (affiliate:stats) — used by aggregated ledger-telemetry */
+export interface EdgeAffiliateReferralRow {
   affiliate_wallet: string;
   affiliate_referral_usdc: string;
   query: string;
@@ -45,12 +45,30 @@ export interface AffiliateReferralRow {
   timestamp: string;
 }
 
-export interface AffiliateLedgerTelemetry {
+export interface EdgeAffiliateLedgerTelemetry {
   total_referral_usdc: number;
   referral_event_count: number;
   unique_wallet_count: number;
   last_event_at: string | null;
-  recent_events: AffiliateReferralRow[];
+  recent_events: EdgeAffiliateReferralRow[];
+}
+
+/** Dashboard API `/api/admin/affiliate-ledger` — REVENUE_ROUTING_EVENT slices */
+export interface AffiliateReferralRow {
+  wallet: string;
+  collection: string;
+  composition: string;
+  query: string;
+  timestamp: string;
+  settled_amount: number;
+}
+
+export interface AffiliateLedgerTelemetry {
+  aggregate_referral_usdc: number;
+  total_routing_events: number;
+  unique_routing_nodes: number;
+  last_event_at: string | null;
+  recent_payout_rows: AffiliateReferralRow[];
 }
 
 export interface ChurnLogRow {
@@ -108,7 +126,7 @@ export interface LedgerTelemetryPayload {
   uptime_seconds: number;
   server_version: string | null;
   fly_telemetry: TelemetryData | null;
-  affiliate_ledger: AffiliateLedgerTelemetry | null;
+  affiliate_ledger: EdgeAffiliateLedgerTelemetry | null;
   churn_logs: ChurnLogRow[];
   attestation_reviews: AttestationReviewsBlock | null;
   sources: {

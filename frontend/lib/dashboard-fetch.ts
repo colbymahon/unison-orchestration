@@ -8,5 +8,6 @@ export const DASHBOARD_FETCH_BASE: UseLiveFetchOptions = {
 };
 
 export const LEDGER_POLL_MS = 5_000;
+export const AFFILIATE_POLL_MS = 5_000;
 export const MOAT_POLL_MS = 5_000;
 export const INFRA_POLL_MS = 5_000;

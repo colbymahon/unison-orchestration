@@ -1,10 +1,16 @@
 "use client";
 
 import { useMemo } from "react";
-import { Coins, GitBranch, MessageSquare, ShieldX, TrendingUp, Wallet, Zap } from "lucide-react";
-import type { LedgerTelemetryPayload, HistoryPoint } from "./types";
+import { Coins, GitBranch, MessageSquare, ShieldX, TrendingUp, Wallet } from "lucide-react";
+import type {
+  AffiliateLedgerTelemetry,
+  LedgerTelemetryPayload,
+  HistoryPoint,
+} from "./types";
 import { RevenueEngine } from "./RevenueEngine";
 import { computeRevenueVelocityFromGaps, formatUsdcPerHour, formatUsdcTotal } from "@/lib/revenue-velocity";
+import { useLiveFetch } from "@/lib/use-live-fetch";
+import { AFFILIATE_POLL_MS, DASHBOARD_FETCH_BASE } from "@/lib/dashboard-fetch";
 
 interface Props {
   ledger: LedgerTelemetryPayload | null;
@@ -21,18 +27,22 @@ function shortWallet(addr: string): string {
 export function LedgerPanel({ ledger, revenueHistory, rejectionHistory, loading }: Props) {
   const telemetry = ledger?.fly_telemetry ?? null;
   const gaps = ledger?.trapped_gaps ?? [];
-  const affiliate = ledger?.affiliate_ledger ?? null;
   const churnLogs = ledger?.churn_logs ?? [];
   const reviews = ledger?.attestation_reviews?.reviews ?? [];
 
+  const {
+    data: affiliate,
+    loading: affiliateLoading,
+    error: affiliateError,
+  } = useLiveFetch<AffiliateLedgerTelemetry>("/api/admin/affiliate-ledger", {
+    ...DASHBOARD_FETCH_BASE,
+    pollIntervalMs: AFFILIATE_POLL_MS,
+  });
+
   const velocity = useMemo(() => computeRevenueVelocityFromGaps(gaps), [gaps]);
 
-  const affiliateDisplay = useMemo(() => {
-    const total = affiliate?.total_referral_usdc ?? 0;
-    const events = affiliate?.referral_event_count ?? 0;
-    const wallets = affiliate?.unique_wallet_count ?? 0;
-    return { total, events, wallets };
-  }, [affiliate]);
+  const affiliateInitializing =
+    affiliateLoading && !affiliate && !affiliateError;
 
   return (
     <div className="space-y-6">
@@ -74,10 +84,10 @@ export function LedgerPanel({ ledger, revenueHistory, rejectionHistory, loading 
         </div>
       </div>
 
-      {/* A2A affiliate aggregate — REVENUE_ROUTING_EVENT referral telemetry */}
+      {/* A2A affiliate — live affiliate:stats via dedicated admin route */}
       <section
-        className="relative overflow-hidden rounded-xl border border-[#00E5FF]/30 bg-[#050914]/90 p-5 font-mono"
-        aria-label="Affiliate referral telemetry"
+        className="relative overflow-hidden rounded-xl border-2 border-[#00E5FF]/40 bg-[#050914]/95 p-5 font-mono"
+        aria-label="A2A system feedback and advocacy mesh"
       >
         <div
           className="pointer-events-none absolute inset-0 opacity-40"
@@ -89,104 +99,111 @@ export function LedgerPanel({ ledger, revenueHistory, rejectionHistory, loading 
         />
         <div className="relative z-10">
           <div className="flex flex-wrap items-center justify-between gap-3 mb-4">
-            <div className="flex items-center gap-2">
-              <Zap size={14} className="text-[#00E5FF]" />
-              <h3 className="text-xs font-black uppercase tracking-[0.2em] text-[#00E5FF]">
-                A2A Affiliate · Base L2
-              </h3>
-            </div>
+            <h3 className="text-xs font-black uppercase tracking-[0.22em] text-[#00E5FF]">
+              A2A System Feedback &amp; Advocacy Mesh
+            </h3>
             <span className="text-[10px] uppercase tracking-widest text-gray-500">
-              {ledger?.sources.affiliate_kv
-                ? "REVENUE_ROUTING_EVENT · KV synced"
-                : "affiliate KV pending · set ADMIN_API_SECRET"}
+              {affiliateInitializing
+                ? "AFFILIATE TELEMETRY INITIALIZING // SYSTEM RUNNING DARK"
+                : affiliateError
+                  ? "AFFILIATE ROUTE DEGRADED · CHECK ADMIN_API_SECRET"
+                  : ledger?.sources.affiliate_kv
+                    ? "REVENUE_ROUTING_EVENT · affiliate:stats KV LIVE"
+                    : "affiliate:stats · edge KV pending"}
             </span>
           </div>
 
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-5">
-            <div className="rounded-lg border border-[#00E5FF]/20 bg-black/40 px-4 py-3">
-              <div className="text-[10px] text-gray-500 uppercase tracking-widest">
-                affiliate_referral_usdc
-              </div>
-              <div className="mt-1 text-2xl font-black tabular-nums text-[#00E5FF]">
-                {loading && !ledger
-                  ? "…"
-                  : `$${affiliateDisplay.total.toFixed(6)}`}
-              </div>
-              <div className="text-[10px] text-gray-600 mt-1">20% · $0.001 / paid referral</div>
-            </div>
-            <div className="rounded-lg border border-[#00E5FF]/15 bg-black/30 px-4 py-3">
-              <div className="text-[10px] text-gray-500 uppercase tracking-widest">
-                Referral Events
-              </div>
-              <div className="mt-1 text-xl font-black tabular-nums text-cyan-300/90">
-                {affiliateDisplay.events}
-              </div>
-            </div>
-            <div className="rounded-lg border border-[#00E5FF]/15 bg-black/30 px-4 py-3">
-              <div className="text-[10px] text-gray-500 uppercase tracking-widest">
-                Routing Nodes
-              </div>
-              <div className="mt-1 text-xl font-black tabular-nums text-cyan-300/90">
-                {affiliateDisplay.wallets}
-              </div>
-            </div>
-          </div>
-
-          {(affiliate?.recent_events?.length ?? 0) > 0 ? (
-            <div className="overflow-x-auto rounded-lg border border-white/10 bg-white/[0.02]">
-              <table className="w-full text-left text-[11px]">
-                <thead>
-                  <tr className="border-b border-white/10 text-gray-500 uppercase tracking-wider">
-                    <th className="px-3 py-2 font-semibold">Wallet</th>
-                    <th className="px-3 py-2 font-semibold">affiliate_referral_usdc</th>
-                    <th className="px-3 py-2 font-semibold">Collection</th>
-                    <th className="px-3 py-2 font-semibold">Composition</th>
-                    <th className="px-3 py-2 font-semibold">Query</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {affiliate!.recent_events.slice(0, 12).map((row, i) => (
-                    <tr
-                      key={`${row.timestamp}-${i}`}
-                      className="border-b border-white/5 hover:bg-[#00E5FF]/5 transition-colors"
-                    >
-                      <td className="px-3 py-2 text-[#00E5FF] tabular-nums">
-                        {shortWallet(row.affiliate_wallet)}
-                      </td>
-                      <td className="px-3 py-2 text-emerald-400/90 tabular-nums">
-                        ${row.affiliate_referral_usdc}
-                      </td>
-                      <td className="px-3 py-2 text-gray-400 max-w-[140px] truncate">
-                        {row.primary_collection}
-                      </td>
-                      <td className="px-3 py-2 text-gray-500">
-                        <span className="inline-flex items-center gap-1">
-                          <GitBranch size={10} />
-                          {row.composition}
-                        </span>
-                      </td>
-                      <td className="px-3 py-2 text-gray-600 max-w-[200px] truncate">
-                        {row.query || "—"}
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          ) : (
-            <p className="text-[11px] text-gray-600">
-              No affiliate settlements yet. Paid queries with{" "}
-              <span className="text-[#00E5FF]">X-Unison-Affiliate-ID</span> append to this ledger
-              automatically.
+          {affiliateInitializing ? (
+            <p className="text-[11px] uppercase tracking-widest text-gray-500 py-8 text-center">
+              AFFILIATE TELEMETRY INITIALIZING // SYSTEM RUNNING DARK
             </p>
+          ) : (
+            <>
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-5">
+                <div className="rounded-lg border border-[#00E5FF]/25 bg-black/50 px-4 py-3">
+                  <div className="text-[10px] text-gray-500 uppercase tracking-widest">
+                    Aggregate Referral USDC
+                  </div>
+                  <div className="mt-1 text-2xl font-black tabular-nums text-[#00E5FF]">
+                    ${(affiliate?.aggregate_referral_usdc ?? 0).toFixed(6)}
+                  </div>
+                  <div className="text-[10px] text-gray-600 mt-1">20% · $0.001 / paid referral</div>
+                </div>
+                <div className="rounded-lg border border-[#00E5FF]/20 bg-black/40 px-4 py-3">
+                  <div className="text-[10px] text-gray-500 uppercase tracking-widest">
+                    Routing Events
+                  </div>
+                  <div className="mt-1 text-xl font-black tabular-nums text-cyan-300/90">
+                    {affiliate?.total_routing_events ?? 0}
+                  </div>
+                </div>
+                <div className="rounded-lg border border-[#00E5FF]/20 bg-black/40 px-4 py-3">
+                  <div className="text-[10px] text-gray-500 uppercase tracking-widest">
+                    Unique Machine Nodes
+                  </div>
+                  <div className="mt-1 text-xl font-black tabular-nums text-cyan-300/90">
+                    {affiliate?.unique_routing_nodes ?? 0}
+                  </div>
+                </div>
+              </div>
+
+              {(affiliate?.recent_payout_rows?.length ?? 0) > 0 ? (
+                <div className="overflow-x-auto rounded-lg border border-[#00E5FF]/20 bg-white/[0.02]">
+                  <table className="w-full min-w-[640px] text-left text-[11px]">
+                    <thead>
+                      <tr className="border-b border-[#00E5FF]/20 text-gray-500 uppercase tracking-wider">
+                        <th className="px-3 py-2 font-semibold whitespace-nowrap">Wallet</th>
+                        <th className="px-3 py-2 font-semibold whitespace-nowrap">Settled USDC</th>
+                        <th className="px-3 py-2 font-semibold whitespace-nowrap">Collection</th>
+                        <th className="px-3 py-2 font-semibold whitespace-nowrap">Composition</th>
+                        <th className="px-3 py-2 font-semibold whitespace-nowrap">Query Intent</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {affiliate!.recent_payout_rows.slice(0, 12).map((row, i) => (
+                        <tr
+                          key={`${row.timestamp}-${i}`}
+                          className="border-b border-white/5 hover:bg-[#00E5FF]/5 transition-colors"
+                        >
+                          <td className="px-3 py-2 text-[#00E5FF] tabular-nums whitespace-nowrap">
+                            {shortWallet(row.wallet)}
+                          </td>
+                          <td className="px-3 py-2 text-emerald-400/90 tabular-nums whitespace-nowrap">
+                            ${row.settled_amount.toFixed(6)}
+                          </td>
+                          <td className="px-3 py-2 text-gray-400 max-w-[160px] truncate">
+                            {row.collection}
+                          </td>
+                          <td className="px-3 py-2 text-gray-500 whitespace-nowrap">
+                            <span className="inline-flex items-center gap-1">
+                              <GitBranch size={10} />
+                              {row.composition}
+                            </span>
+                          </td>
+                          <td className="px-3 py-2 text-gray-600 max-w-[240px] truncate">
+                            {row.query || "—"}
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              ) : (
+                <p className="text-[11px] text-gray-600">
+                  No affiliate settlements yet. Paid queries with{" "}
+                  <span className="text-[#00E5FF]">X-Unison-Affiliate-ID</span> append to{" "}
+                  <span className="text-gray-500">affiliate:stats</span> automatically.
+                </p>
+              )}
+            </>
           )}
         </div>
       </section>
 
-      {/* Sprint 3.12 — advocacy mesh + friction + signed reviews */}
+      {/* Churn recovery + signed attestations */}
       <section
-        className="relative overflow-hidden rounded-xl border border-[#00E5FF]/30 bg-[#050914]/95 p-5 font-mono"
-        aria-label="A2A advocacy mesh"
+        className="relative overflow-hidden rounded-xl border border-[#00E5FF]/25 bg-[#050914]/95 p-5 font-mono"
+        aria-label="Churn and attestation metrics"
       >
         <div
           className="pointer-events-none absolute inset-0 opacity-30"
@@ -199,8 +216,8 @@ export function LedgerPanel({ ledger, revenueHistory, rejectionHistory, loading 
         <div className="relative z-10 space-y-4">
           <div className="flex items-center gap-2">
             <MessageSquare size={14} className="text-[#00E5FF]" />
-            <h3 className="text-xs font-black uppercase tracking-[0.2em] text-[#00E5FF]">
-              A2A Advocacy Mesh &amp; Friction Loss Metrics
+            <h3 className="text-xs font-black uppercase tracking-[0.2em] text-[#00E5FF]/80">
+              Friction Loss &amp; Reputation Substrate
             </h3>
           </div>
 
