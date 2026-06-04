@@ -336,6 +336,8 @@ async function proxyToBackend(
       } else if (lineageCtx.outboundToken) {
         extraHeaders[LINEAGE_HEADER] = lineageCtx.outboundToken;
       }
+      extraHeaders["X-Unison-Lineage-Step"] = String(lineageCtx.step);
+      extraHeaders["X-Unison-Lineage-Episode"] = lineageCtx.episodeId;
     }
   }
 

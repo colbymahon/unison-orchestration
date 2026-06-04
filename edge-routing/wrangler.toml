@@ -19,7 +19,7 @@ id = "977472f20ce947fa8cd2f841559aeec9"
 # Paste the returned id below, then: npx wrangler deploy
 [[kv_namespaces]]
 binding = "UNISON_LINEAGE"
-id = "REPLACE_WITH_WRANGLER_KV_NAMESPACE_CREATE_OUTPUT"
+id = "13ee59286b9a42cbaa368699259747d2"
 
 [vars]
 # BACKEND_URL is set via `wrangler secret put BACKEND_URL` (production).
