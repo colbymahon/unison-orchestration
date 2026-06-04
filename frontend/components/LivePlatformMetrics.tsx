@@ -30,8 +30,10 @@ function AnimatedCounter({
   );
 }
 
+const MOAT_LIVE_URL = "/api/v1/data-moat-metrics?fresh=1";
+
 export function LivePlatformMetrics() {
-  const { data: moat } = useLiveFetch<MoatApiResponse>("/api/v1/data-moat-metrics", {
+  const { data: moat, loading } = useLiveFetch<MoatApiResponse>(MOAT_LIVE_URL, {
     pollIntervalMs: 60_000,
     dedupingInterval: 2000,
     revalidateOnFocus: false,
@@ -42,14 +44,14 @@ export function LivePlatformMetrics() {
 
   const items = [
     {
-      stat: liveVectors ?? GLOBAL_METRICS.liveVectors,
+      stat: liveVectors ?? (loading ? 0 : null),
       suffix: "",
       label: "Live Vectors",
       live: liveVectors != null,
       accent: "cyan" as const,
     },
     {
-      stat: verticals ?? GLOBAL_METRICS.verticals,
+      stat: verticals ?? (loading ? 0 : null),
       suffix: "",
       label: "Verticals",
       live: verticals != null,
@@ -85,10 +87,14 @@ export function LivePlatformMetrics() {
           }
         >
           <TelemetryValue>
-            <AnimatedCounter
-              target={typeof stat === "number" ? stat : Number(stat)}
-              suffix={suffix}
-            />
+            {stat === null ? (
+              <span className="font-data text-slate-500">—</span>
+            ) : (
+              <AnimatedCounter
+                target={typeof stat === "number" ? stat : Number(stat)}
+                suffix={suffix}
+              />
+            )}
           </TelemetryValue>
         </TelemetryCard>
       ))}
