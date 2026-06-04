@@ -53,7 +53,8 @@ function normalizePayload(url: string, body: unknown): unknown {
     uptime_seconds: 0,
     server_version: null,
     fly_telemetry: null,
-    sources: { fly_mcp: false, edge_kv: true },
+    affiliate_ledger: null,
+    sources: { fly_mcp: false, edge_kv: true, affiliate_kv: true },
     fetched_at: new Date().toISOString(),
   };
 }

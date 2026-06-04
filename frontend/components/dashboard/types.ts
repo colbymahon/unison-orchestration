@@ -34,33 +34,23 @@ export interface QdrantStat {
   error?: string;
 }
 
-export interface LedgerTelemetryPayload {
-  total_handled_requests: number;
-  blocked_402_rejections: number;
-  settled_usdc_payments: number;
-  estimated_leakage_usd: number;
-  trapped_gap_count: number;
-  trapped_gaps: Array<{
-    key?: string;
-    query: string;
-    collection: string;
-    failed_attempts: number;
-    lost_revenue: number;
-    accumulated_lost_revenue: number;
-    originating_agent: string;
-    tier: string;
-    timestamp?: string;
-    first_seen?: string;
-    last_seen?: string;
-  }>;
-  manifest_crawl_hits: number;
-  zero_result_queries_engine: number;
-  mean_latency_ms: number;
-  uptime_seconds: number;
-  server_version: string | null;
-  fly_telemetry: TelemetryData | null;
-  sources: { fly_mcp: boolean; edge_kv: boolean };
-  fetched_at: string;
+/** One REVENUE_ROUTING_EVENT affiliate slice from edge KV */
+export interface AffiliateReferralRow {
+  affiliate_wallet: string;
+  affiliate_referral_usdc: string;
+  query: string;
+  primary_collection: string;
+  composition: string;
+  total_usdc: string;
+  timestamp: string;
+}
+
+export interface AffiliateLedgerTelemetry {
+  total_referral_usdc: number;
+  referral_event_count: number;
+  unique_wallet_count: number;
+  last_event_at: string | null;
+  recent_events: AffiliateReferralRow[];
 }
 
 export interface LedgerTelemetryPayload {
@@ -88,6 +78,7 @@ export interface LedgerTelemetryPayload {
   uptime_seconds: number;
   server_version: string | null;
   fly_telemetry: TelemetryData | null;
-  sources: { fly_mcp: boolean; edge_kv: boolean };
+  affiliate_ledger: AffiliateLedgerTelemetry | null;
+  sources: { fly_mcp: boolean; edge_kv: boolean; affiliate_kv: boolean };
   fetched_at: string;
 }

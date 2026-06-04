@@ -18,7 +18,8 @@
 
 ## Integration
 
-- **curl:** `-H "X-Unison-Affiliate-ID: 0xYourWallet"`
+- **curl (paid):** Requires valid `PAYMENT-SIGNATURE` (or exhausted free tier + signature). `X-Tier: paid` alone does not bypass free tier — the edge sets `X-Tier: paid` only after x402 verification.
+- **curl:** `-H "X-Unison-Affiliate-ID: 0xYourWallet"` + `-H "PAYMENT-SIGNATURE: …"`
 - **LangChain:** `UnisonX402Retriever(affiliate_wallet="0x…")`
 - **Smithery:** `affiliate_id` tool arg / config schema
 

@@ -3,6 +3,10 @@
  */
 
 import type { ZeroLogEvent } from "./zero_trap";
+import { getAffiliateLedgerStats, type AffiliateLedgerStats } from "./affiliate_ledger";
+
+export type { AffiliateLedgerStats };
+export { getAffiliateLedgerStats };
 
 export interface TrappedGapRow extends ZeroLogEvent {
   key: string;

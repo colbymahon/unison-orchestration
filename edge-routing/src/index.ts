@@ -16,9 +16,11 @@
 
 import {
   authorizeAdmin,
+  getAffiliateLedgerStats,
   listTrappedGaps,
   markPipelineQueued,
 } from "./admin";
+import { scheduleAffiliateLedger } from "./affiliate_ledger";
 import {
   isZeroResultTsv,
   scheduleZeroTrap,
@@ -110,6 +112,15 @@ interface X402VerifyResponse {
 // ---------------------------------------------------------------------------
 // Helpers
 // ---------------------------------------------------------------------------
+
+/** Accept payment-signature, Payment-Signature (case-insensitive), or X-Payment-Signature. */
+function getPaymentSignature(request: Request): string | null {
+  return (
+    request.headers.get("payment-signature") ??
+    request.headers.get("x-payment-signature") ??
+    null
+  );
+}
 
 function withCors(response: Response): Response {
   const patched = new Response(response.body, response);
@@ -392,6 +403,15 @@ async function proxyToBackend(
       if (batch.affiliate_usdc > 0) {
         extraHeaders[AFFILIATE_SETTLED_HEADER] = batch.affiliate_usdc.toFixed(6);
       }
+      scheduleAffiliateLedger(ctx, env.UNISON_ZERO_LOGS, {
+        affiliate_wallet: affiliateWallet,
+        affiliate_referral_usdc: batch.affiliate_usdc.toFixed(6),
+        query: q,
+        primary_collection: collection,
+        composition: "Single-Node",
+        total_usdc: fee.toFixed(4),
+        timestamp: routingEvent.timestamp,
+      });
     }
   }
 
@@ -460,7 +480,7 @@ async function executeMcpSearch(
     );
 
     if (plan.active && plan.legs.length > 1) {
-      const { response } = await executeCompositeSearch(
+      const { response, routingEvent } = await executeCompositeSearch(
         request,
         env,
         plan,
@@ -470,6 +490,20 @@ async function executeMcpSearch(
         mergedTier,
         affiliateWallet
       );
+      if (
+        routingEvent.affiliate_wallet &&
+        routingEvent.affiliate_referral_usdc
+      ) {
+        scheduleAffiliateLedger(ctx, env.UNISON_ZERO_LOGS, {
+          affiliate_wallet: String(routingEvent.affiliate_wallet),
+          affiliate_referral_usdc: String(routingEvent.affiliate_referral_usdc),
+          query: q,
+          primary_collection: collection,
+          composition: String(routingEvent.composition ?? ""),
+          total_usdc: String(routingEvent.total_usdc ?? ""),
+          timestamp: String(routingEvent.timestamp ?? new Date().toISOString()),
+        });
+      }
       return withCors(response);
     }
 
@@ -516,6 +550,30 @@ export default {
       const gaps = await listTrappedGaps(env.UNISON_ZERO_LOGS);
       return withCors(
         new Response(JSON.stringify({ gaps, count: gaps.length }), {
+          status: 200,
+          headers: { "Content-Type": "application/json" },
+        })
+      );
+    }
+
+    if (pathname === "/api/admin/affiliate-ledger") {
+      if (method !== "GET") {
+        return errorResponse(405, "Method Not Allowed. Use GET.");
+      }
+      if (!authorizeAdmin(request, env.ADMIN_API_SECRET)) {
+        return errorResponse(401, "Unauthorized.");
+      }
+      const stats = env.UNISON_ZERO_LOGS
+        ? await getAffiliateLedgerStats(env.UNISON_ZERO_LOGS)
+        : {
+            total_referral_usdc: 0,
+            referral_event_count: 0,
+            unique_wallet_count: 0,
+            last_event_at: null,
+            recent_events: [],
+          };
+      return withCors(
+        new Response(JSON.stringify(stats), {
           status: 200,
           headers: { "Content-Type": "application/json" },
         })
@@ -573,6 +631,23 @@ export default {
       }
 
       const clientId = resolveClientId(request);
+
+      // Paid + affiliate settlement must run even when free-tier quota remains.
+      const signature = getPaymentSignature(request);
+      if (signature) {
+        const isValid = await verifyPaymentSignature(signature, env);
+        if (!isValid) {
+          return paymentRequiredResponse(env, "Invalid or expired payment signature.");
+        }
+        console.log(`Paid request verified (signature): client=${clientId}`);
+        try {
+          return await executeMcpSearch(request, env, ctx, { "X-Tier": "paid" });
+        } catch (searchErr) {
+          console.error("executeMcpSearch uncaught:", searchErr);
+          return errorResponse(502, "Edge search handler error.");
+        }
+      }
+
       const freeTier = await evaluateFreeTierBatched(
         clientId,
         env.FREE_TIER,
@@ -596,27 +671,11 @@ export default {
         }
       }
 
-      const signature = request.headers.get("payment-signature");
-      if (!signature) {
-        return paymentRequiredResponse(
-          env,
-          `Free tier exhausted (${FREE_TIER_LIMIT} queries used). ` +
-            `Attach PAYMENT-SIGNATURE to continue.`
-        );
-      }
-
-      const isValid = await verifyPaymentSignature(signature, env);
-      if (!isValid) {
-        return paymentRequiredResponse(env, "Invalid or expired payment signature.");
-      }
-
-      console.log(`Paid request verified: client=${clientId}`);
-      try {
-        return await executeMcpSearch(request, env, ctx, { "X-Tier": "paid" });
-      } catch (searchErr) {
-        console.error("executeMcpSearch uncaught:", searchErr);
-        return errorResponse(502, "Edge search handler error.");
-      }
+      return paymentRequiredResponse(
+        env,
+        `Free tier exhausted (${FREE_TIER_LIMIT} queries used). ` +
+          `Attach PAYMENT-SIGNATURE to continue.`
+      );
     }
 
     return errorResponse(404, "Not Found.");

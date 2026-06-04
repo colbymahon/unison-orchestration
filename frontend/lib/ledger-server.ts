@@ -14,6 +14,24 @@ export interface TrappedGapRow {
   tier: string;
 }
 
+export interface AffiliateReferralRow {
+  affiliate_wallet: string;
+  affiliate_referral_usdc: string;
+  query: string;
+  primary_collection: string;
+  composition: string;
+  total_usdc: string;
+  timestamp: string;
+}
+
+export interface AffiliateLedgerTelemetry {
+  total_referral_usdc: number;
+  referral_event_count: number;
+  unique_wallet_count: number;
+  last_event_at: string | null;
+  recent_events: AffiliateReferralRow[];
+}
+
 export interface LedgerTelemetryResponse {
   total_handled_requests: number;
   blocked_402_rejections: number;
@@ -27,7 +45,8 @@ export interface LedgerTelemetryResponse {
   uptime_seconds: number;
   server_version: string | null;
   fly_telemetry: TelemetryData | null;
-  sources: { fly_mcp: boolean; edge_kv: boolean };
+  affiliate_ledger: AffiliateLedgerTelemetry | null;
+  sources: { fly_mcp: boolean; edge_kv: boolean; affiliate_kv: boolean };
   fetched_at: string;
 }
 
@@ -61,11 +80,17 @@ export async function fetchLedgerTelemetry(): Promise<LedgerTelemetryResponse> {
 
   let trapped_gaps: TrappedGapRow[] = [];
   let edgeKvOk = false;
+  let affiliate_ledger: AffiliateLedgerTelemetry | null = null;
+  let affiliateKvOk = false;
   const adminSecret = process.env.ADMIN_API_SECRET;
-  if (adminSecret) {
+  const adminHeaders = adminSecret
+    ? { Authorization: `Bearer ${adminSecret}` }
+    : undefined;
+
+  if (adminHeaders) {
     try {
       const res = await fetch(`${EDGE_BASE}/api/admin/trapped-gaps`, {
-        headers: { Authorization: `Bearer ${adminSecret}` },
+        headers: adminHeaders,
         cache: "no-store",
         signal: AbortSignal.timeout(6_000),
       });
@@ -78,6 +103,20 @@ export async function fetchLedgerTelemetry(): Promise<LedgerTelemetryResponse> {
       }
     } catch {
       edgeKvOk = false;
+    }
+
+    try {
+      const res = await fetch(`${EDGE_BASE}/api/admin/affiliate-ledger`, {
+        headers: adminHeaders,
+        cache: "no-store",
+        signal: AbortSignal.timeout(6_000),
+      });
+      if (res.ok) {
+        affiliate_ledger = (await res.json()) as AffiliateLedgerTelemetry;
+        affiliateKvOk = true;
+      }
+    } catch {
+      affiliateKvOk = false;
     }
   }
 
@@ -104,7 +143,8 @@ export async function fetchLedgerTelemetry(): Promise<LedgerTelemetryResponse> {
     uptime_seconds: fly?.uptime_seconds ?? 0,
     server_version: fly?.server_version ?? null,
     fly_telemetry: fly,
-    sources: { fly_mcp: flyOk, edge_kv: edgeKvOk },
+    affiliate_ledger,
+    sources: { fly_mcp: flyOk, edge_kv: edgeKvOk, affiliate_kv: affiliateKvOk },
     fetched_at,
   };
 }

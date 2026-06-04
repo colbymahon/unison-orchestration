@@ -1,7 +1,7 @@
 "use client";
 
 import { useMemo } from "react";
-import { Coins, ShieldX, TrendingUp, Wallet } from "lucide-react";
+import { Coins, GitBranch, ShieldX, TrendingUp, Wallet, Zap } from "lucide-react";
 import type { LedgerTelemetryPayload, HistoryPoint } from "./types";
 import { RevenueEngine } from "./RevenueEngine";
 import { computeRevenueVelocityFromGaps, formatUsdcPerHour, formatUsdcTotal } from "@/lib/revenue-velocity";
@@ -13,11 +13,24 @@ interface Props {
   loading?: boolean;
 }
 
+function shortWallet(addr: string): string {
+  if (addr.length < 12) return addr;
+  return `${addr.slice(0, 6)}…${addr.slice(-4)}`;
+}
+
 export function LedgerPanel({ ledger, revenueHistory, rejectionHistory, loading }: Props) {
   const telemetry = ledger?.fly_telemetry ?? null;
   const gaps = ledger?.trapped_gaps ?? [];
+  const affiliate = ledger?.affiliate_ledger ?? null;
 
   const velocity = useMemo(() => computeRevenueVelocityFromGaps(gaps), [gaps]);
+
+  const affiliateDisplay = useMemo(() => {
+    const total = affiliate?.total_referral_usdc ?? 0;
+    const events = affiliate?.referral_event_count ?? 0;
+    const wallets = affiliate?.unique_wallet_count ?? 0;
+    return { total, events, wallets };
+  }, [affiliate]);
 
   return (
     <div className="space-y-6">
@@ -58,6 +71,115 @@ export function LedgerPanel({ ledger, revenueHistory, rejectionHistory, loading 
           </div>
         </div>
       </div>
+
+      {/* A2A affiliate aggregate — REVENUE_ROUTING_EVENT referral telemetry */}
+      <section
+        className="relative overflow-hidden rounded-xl border border-[#00E5FF]/30 bg-[#050914]/90 p-5 font-mono"
+        aria-label="Affiliate referral telemetry"
+      >
+        <div
+          className="pointer-events-none absolute inset-0 opacity-40"
+          style={{
+            backgroundImage:
+              "linear-gradient(rgba(0,229,255,0.06) 1px, transparent 1px), linear-gradient(90deg, rgba(0,229,255,0.06) 1px, transparent 1px)",
+            backgroundSize: "24px 24px",
+          }}
+        />
+        <div className="relative z-10">
+          <div className="flex flex-wrap items-center justify-between gap-3 mb-4">
+            <div className="flex items-center gap-2">
+              <Zap size={14} className="text-[#00E5FF]" />
+              <h3 className="text-xs font-black uppercase tracking-[0.2em] text-[#00E5FF]">
+                A2A Affiliate · Base L2
+              </h3>
+            </div>
+            <span className="text-[10px] uppercase tracking-widest text-gray-500">
+              {ledger?.sources.affiliate_kv
+                ? "REVENUE_ROUTING_EVENT · KV synced"
+                : "affiliate KV pending · set ADMIN_API_SECRET"}
+            </span>
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-5">
+            <div className="rounded-lg border border-[#00E5FF]/20 bg-black/40 px-4 py-3">
+              <div className="text-[10px] text-gray-500 uppercase tracking-widest">
+                affiliate_referral_usdc
+              </div>
+              <div className="mt-1 text-2xl font-black tabular-nums text-[#00E5FF]">
+                {loading && !ledger
+                  ? "…"
+                  : `$${affiliateDisplay.total.toFixed(6)}`}
+              </div>
+              <div className="text-[10px] text-gray-600 mt-1">20% · $0.001 / paid referral</div>
+            </div>
+            <div className="rounded-lg border border-[#00E5FF]/15 bg-black/30 px-4 py-3">
+              <div className="text-[10px] text-gray-500 uppercase tracking-widest">
+                Referral Events
+              </div>
+              <div className="mt-1 text-xl font-black tabular-nums text-cyan-300/90">
+                {affiliateDisplay.events}
+              </div>
+            </div>
+            <div className="rounded-lg border border-[#00E5FF]/15 bg-black/30 px-4 py-3">
+              <div className="text-[10px] text-gray-500 uppercase tracking-widest">
+                Routing Nodes
+              </div>
+              <div className="mt-1 text-xl font-black tabular-nums text-cyan-300/90">
+                {affiliateDisplay.wallets}
+              </div>
+            </div>
+          </div>
+
+          {(affiliate?.recent_events?.length ?? 0) > 0 ? (
+            <div className="overflow-x-auto rounded-lg border border-white/10 bg-white/[0.02]">
+              <table className="w-full text-left text-[11px]">
+                <thead>
+                  <tr className="border-b border-white/10 text-gray-500 uppercase tracking-wider">
+                    <th className="px-3 py-2 font-semibold">Wallet</th>
+                    <th className="px-3 py-2 font-semibold">affiliate_referral_usdc</th>
+                    <th className="px-3 py-2 font-semibold">Collection</th>
+                    <th className="px-3 py-2 font-semibold">Composition</th>
+                    <th className="px-3 py-2 font-semibold">Query</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {affiliate!.recent_events.slice(0, 12).map((row, i) => (
+                    <tr
+                      key={`${row.timestamp}-${i}`}
+                      className="border-b border-white/5 hover:bg-[#00E5FF]/5 transition-colors"
+                    >
+                      <td className="px-3 py-2 text-[#00E5FF] tabular-nums">
+                        {shortWallet(row.affiliate_wallet)}
+                      </td>
+                      <td className="px-3 py-2 text-emerald-400/90 tabular-nums">
+                        ${row.affiliate_referral_usdc}
+                      </td>
+                      <td className="px-3 py-2 text-gray-400 max-w-[140px] truncate">
+                        {row.primary_collection}
+                      </td>
+                      <td className="px-3 py-2 text-gray-500">
+                        <span className="inline-flex items-center gap-1">
+                          <GitBranch size={10} />
+                          {row.composition}
+                        </span>
+                      </td>
+                      <td className="px-3 py-2 text-gray-600 max-w-[200px] truncate">
+                        {row.query || "—"}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          ) : (
+            <p className="text-[11px] text-gray-600">
+              No affiliate settlements yet. Paid queries with{" "}
+              <span className="text-[#00E5FF]">X-Unison-Affiliate-ID</span> append to this ledger
+              automatically.
+            </p>
+          )}
+        </div>
+      </section>
 
       <RevenueEngine
         telemetry={telemetry}
