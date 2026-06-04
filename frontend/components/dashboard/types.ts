@@ -101,6 +101,75 @@ export interface AttestationReviewsBlock {
   reviews: AttestationReviewRecord[];
 }
 
+/** Live Qdrant moat scan — `/api/v1/data-moat-metrics` */
+export interface DataMoatCollectionRow {
+  name: string;
+  count: number;
+  status: string;
+}
+
+export interface DataMoatTelemetry {
+  collections: DataMoatCollectionRow[];
+  total_vectors: number;
+  collection_count: number;
+  fetched_at?: string;
+}
+
+/** Tokenomics / A2A — `/api/admin/affiliate-ledger` */
+export type TokenomicsLedgerTelemetry = AffiliateLedgerTelemetry;
+
+/** Churn + attestations — ledger-telemetry + admin routes */
+export interface SystemFeedbackChurnRow {
+  timestamp: string;
+  agent_id: string;
+  query: string;
+  target_collection: string;
+  code?: string;
+  outcome?: string;
+}
+
+export interface SystemFeedbackAttestationRow {
+  agent_id: string;
+  score: number;
+  feedback_hash: string;
+  signature: string;
+  timestamp: number;
+  wallet_address?: string;
+  feedback_preview?: string;
+}
+
+export interface SystemFeedbackTelemetry {
+  churn_logs: SystemFeedbackChurnRow[];
+  attestation_reviews: SystemFeedbackAttestationRow[];
+}
+
+/** Regional ops — `/api/v1/infra-health` */
+export interface InfrastructureOpsTelemetry {
+  edge_latency_ms: number;
+  request_count: number;
+  error_rate: number;
+  active_fly_regions: string[];
+  fly_latency_ms?: number | null;
+  qdrant_region?: string;
+  probes?: Array<{ name: string; status: string; latency_ms: number | null }>;
+  geometry?: { edge?: string; fly_mcp?: string; qdrant?: string };
+  fetched_at?: string;
+}
+
+export interface TrappedGapRow {
+  key?: string;
+  query: string;
+  collection: string;
+  failed_attempts: number;
+  lost_revenue: number;
+  accumulated_lost_revenue: number;
+  originating_agent: string;
+  tier: string;
+  timestamp?: string;
+  first_seen?: string;
+  last_seen?: string;
+}
+
 export interface LedgerTelemetryPayload {
   total_handled_requests: number;
   blocked_402_rejections: number;

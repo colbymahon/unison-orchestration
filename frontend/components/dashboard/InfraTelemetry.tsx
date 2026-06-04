@@ -8,10 +8,19 @@ import { Activity, Server, Clock, Zap, Database } from "lucide-react";
 import { cn } from "@/lib/utils";
 import type { TelemetryData, HistoryPoint } from "./types";
 
+interface MoatSnapshot {
+  total_vectors: number;
+  collection_count: number;
+  indexed_total?: number;
+  segments_total?: number;
+}
+
 interface Props {
   telemetry: TelemetryData | null;
   latencyHistory: HistoryPoint[];
   endpointStatuses: Record<string, { status: string; latency: number | null }>;
+  moat?: MoatSnapshot | null;
+  flyMachineCount?: number;
 }
 
 const CYAN   = "#00E5FF";
@@ -32,7 +41,13 @@ function UptimeDisplay({ seconds }: { seconds: number }) {
   );
 }
 
-export function InfraTelemetry({ telemetry, latencyHistory, endpointStatuses }: Props) {
+export function InfraTelemetry({
+  telemetry,
+  latencyHistory,
+  endpointStatuses,
+  moat,
+  flyMachineCount = 2,
+}: Props) {
   const t = telemetry;
 
   const colQueryData = t
@@ -92,8 +107,12 @@ export function InfraTelemetry({ telemetry, latencyHistory, endpointStatuses }: 
           <div className="text-xs font-mono text-gray-500 uppercase tracking-widest mb-2 flex items-center gap-1.5">
             <Server size={11} className="text-amber-400" /> Fly.io Machines
           </div>
-          <div className="font-[var(--font-grotesk)] text-3xl font-black text-amber-400">2</div>
-          <div className="text-xs font-mono text-gray-600 mt-1">iad region · v{t?.server_version ?? "0.1.0"}</div>
+          <div className="font-[var(--font-grotesk)] text-3xl font-black text-amber-400">
+            {flyMachineCount}
+          </div>
+          <div className="text-xs font-mono text-gray-600 mt-1">
+            multi-region · v{t?.server_version ?? "0.1.0"}
+          </div>
         </div>
       </div>
 
@@ -133,9 +152,9 @@ export function InfraTelemetry({ telemetry, latencyHistory, endpointStatuses }: 
           </div>
           <div className="space-y-0">
             {[
-              { name: "EDGE_GATEWAY", url: "unison-edge-gateway.unisonorchestration.workers.dev", role: "Cloudflare Worker · x402" },
-              { name: "FLY_API",      url: "unison-mcp.fly.dev",                                  role: "Rust/Axum · iad · 2 machines" },
-              { name: "LOCAL_API",    url: "localhost:3000",                                        role: "Local dev server" },
+              { name: "EDGE_GATEWAY", url: "unison-edge-gateway…workers.dev", role: "Cloudflare Worker · x402 · manifest probe" },
+              { name: "FLY_API",      url: "unison-mcp.fly.dev/health",       role: "Rust/Axum · iad · 2 machines" },
+              { name: "APP_API",      url: "Qdrant Cloud · collection scan",  role: "Server-side moat-metrics · us-east4" },
             ].map(ep => {
               const st = endpointStatuses[ep.name] ?? { status: "CHECKING", latency: null };
               const color =
@@ -213,6 +232,41 @@ export function InfraTelemetry({ telemetry, latencyHistory, endpointStatuses }: 
           </ResponsiveContainer>
         )}
       </div>
+
+      {moat && (
+        <div className="bg-gray-950 border border-gray-900 rounded-xl p-4">
+          <div className="text-xs font-mono text-gray-500 uppercase tracking-widest mb-3 flex items-center gap-2">
+            <Database size={11} className="text-purple-400" />
+            Qdrant Cluster · Live Scan
+          </div>
+          <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 font-mono text-center">
+            {[
+              { label: "Collections", val: moat.collection_count.toLocaleString(), color: PURPLE },
+              { label: "Total Vectors", val: moat.total_vectors.toLocaleString(), color: CYAN },
+              {
+                label: "Indexed",
+                val: moat.indexed_total != null ? moat.indexed_total.toLocaleString() : "—",
+                color: "#34d399",
+              },
+              {
+                label: "Segments",
+                val: moat.segments_total != null ? moat.segments_total.toLocaleString() : "—",
+                color: "#f59e0b",
+              },
+            ].map((s) => (
+              <div key={s.label} className="bg-gray-900/50 border border-gray-800 p-4 rounded-lg">
+                <div className="text-[10px] text-gray-500 uppercase mb-1">{s.label}</div>
+                <div className="text-2xl font-black font-[var(--font-grotesk)]" style={{ color: s.color }}>
+                  {s.val}
+                </div>
+              </div>
+            ))}
+          </div>
+          <div className="mt-2 text-[10px] font-mono text-gray-600 text-center">
+            us-east4-0.gcp · Cosine · 1536 dims · no mocked RAM/IOPS
+          </div>
+        </div>
+      )}
     </div>
   );
 }

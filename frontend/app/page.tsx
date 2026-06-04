@@ -125,7 +125,7 @@ const moatCards = [
 ];
 
 const SMITHERY_INSTALL =
-  "npx @smithery/cli run colbymahon/unison-orchestration-hub";
+  "npx @smithery/cli run crmendeavors/unison-orchestration-hub";
 
 /* ─── Terminal install commands ──────────────────────────────────────────────── */
 const terminalLines = [

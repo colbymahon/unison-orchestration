@@ -87,11 +87,23 @@ export async function GET(): Promise<NextResponse> {
     probeZkpDigest(),
   ]);
 
+  const activeFlyRegions = (process.env.FLY_ACTIVE_REGIONS ?? "iad,lhr,nrt")
+    .split(",")
+    .map((r) => r.trim())
+    .filter(Boolean);
+
+  const operational = [edge, fly, app].filter((p) => p.status === "OPERATIONAL").length;
+  const error_rate =
+    operational === 0 ? 100 : ((3 - operational) / 3) * 100;
+
   return NextResponse.json(
     {
       probes: [edge, fly, app],
-      edge_latency_ms: edge.latency_ms,
+      edge_latency_ms: edge.latency_ms ?? 0,
       fly_latency_ms: fly.latency_ms,
+      request_count: 0,
+      error_rate,
+      active_fly_regions: activeFlyRegions,
       zkp_integrity: {
         edge_attestation_live: zkp.header_present,
         last_verification_digest: zkp.verification_digest,
@@ -101,14 +113,14 @@ export async function GET(): Promise<NextResponse> {
       fetched_at: new Date().toISOString(),
       geometry: {
         edge: "cloudflare_global",
-        fly_mcp: "iad",
+        fly_mcp: activeFlyRegions[0] ?? "iad",
         qdrant: "us-east4-0.gcp",
       },
     },
     {
       headers: {
         "Cache-Control": "no-store, max-age=0",
-        "X-Unison-Fly-Region": "iad",
+        "X-Unison-Fly-Region": activeFlyRegions[0] ?? "iad",
         "X-Unison-Qdrant-Region": "us-east4",
       },
     }

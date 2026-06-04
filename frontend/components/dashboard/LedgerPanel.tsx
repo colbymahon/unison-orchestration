@@ -9,8 +9,14 @@ import type {
 } from "./types";
 import { RevenueEngine } from "./RevenueEngine";
 import { computeRevenueVelocityFromGaps, formatUsdcPerHour, formatUsdcTotal } from "@/lib/revenue-velocity";
-import { useLiveFetch } from "@/lib/use-live-fetch";
+import { useLiveFetch } from "@/hooks/useLiveFetch";
 import { AFFILIATE_POLL_MS, DASHBOARD_FETCH_BASE } from "@/lib/dashboard-fetch";
+import type { TrappedGapRow } from "./types";
+
+interface TrappedGapsApiResponse {
+  gaps: TrappedGapRow[];
+  count: number;
+}
 
 interface Props {
   ledger: LedgerTelemetryPayload | null;
@@ -38,6 +44,13 @@ export function LedgerPanel({ ledger, revenueHistory, rejectionHistory, loading 
     ...DASHBOARD_FETCH_BASE,
     pollIntervalMs: AFFILIATE_POLL_MS,
   });
+
+  const { data: trappedApi, loading: trappedLoading } = useLiveFetch<TrappedGapsApiResponse>(
+    "/api/admin/trapped-gaps",
+    { ...DASHBOARD_FETCH_BASE, pollIntervalMs: AFFILIATE_POLL_MS }
+  );
+
+  const trappedRows = trappedApi?.gaps ?? gaps;
 
   const velocity = useMemo(() => computeRevenueVelocityFromGaps(gaps), [gaps]);
 
@@ -222,46 +235,59 @@ export function LedgerPanel({ ledger, revenueHistory, rejectionHistory, loading 
           </div>
 
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-            <div className="rounded-lg border border-[#00E5FF]/20 bg-black/40 p-4 min-h-[220px]">
+            <div className="rounded-lg border-2 border-[#00E5FF]/30 bg-black/40 p-4 min-h-[260px]">
               <div className="text-[10px] text-gray-500 uppercase tracking-widest mb-3">
-                Churn Recovery · 402 / Zero-Result
+                Inbound Friction · trapped-gaps KV
               </div>
-              {churnLogs.length > 0 ? (
-                <ul className="space-y-2 text-[11px] max-h-[280px] overflow-y-auto">
-                  {churnLogs.slice(0, 10).map((row, i) => (
+              {trappedLoading && trappedRows.length === 0 ? (
+                <p className="text-[11px] uppercase tracking-widest text-gray-600">
+                  TRAPPED GAPS INITIALIZING // SYSTEM RUNNING DARK
+                </p>
+              ) : trappedRows.length > 0 ? (
+                <ul className="space-y-2 text-[11px] max-h-[320px] overflow-y-auto overflow-x-hidden">
+                  {trappedRows.slice(0, 12).map((row, i) => (
                     <li
-                      key={`${row.timestamp}-${i}`}
-                      className="border-b border-white/5 pb-2 last:border-0"
+                      key={`${row.collection}-${row.query}-${i}`}
+                      className="border-b border-[#00E5FF]/10 pb-2 last:border-0"
                     >
                       <div className="flex justify-between gap-2 text-[#00E5FF]">
-                        <span className="truncate">{row.agent_id}</span>
-                        <span className="text-gray-500 shrink-0">{row.outcome}</span>
+                        <span className="truncate">{row.originating_agent}</span>
+                        <span className="text-rose-400/90 shrink-0 tabular-nums">
+                          ${row.accumulated_lost_revenue.toFixed(4)}
+                        </span>
                       </div>
-                      <div className="text-gray-500 mt-0.5">{row.code}</div>
-                      <div className="text-gray-600 truncate">{row.dropped_query}</div>
-                      <div className="text-gray-600 truncate">{row.collection_target}</div>
+                      <div className="text-gray-500 mt-0.5 truncate">{row.collection}</div>
+                      <div className="text-gray-600 truncate">{row.query}</div>
+                      <div className="text-gray-700 text-[10px]">
+                        attempts {row.failed_attempts} · tier {row.tier}
+                      </div>
                     </li>
                   ))}
                 </ul>
               ) : (
                 <p className="text-[11px] text-gray-600">
-                  {ledger?.sources.churn_kv
-                    ? "No churn events captured yet."
-                    : "Churn KV pending — verify ADMIN_API_SECRET."}
+                  {ledger?.sources.edge_kv
+                    ? "No trapped gaps — substrate coverage nominal."
+                    : "Trapped-gaps KV pending — verify ADMIN_API_SECRET."}
+                </p>
+              )}
+              {churnLogs.length > 0 && (
+                <p className="text-[10px] text-gray-700 mt-3 border-t border-white/5 pt-2">
+                  +{churnLogs.length} churn telemetry events (402 / zero-result)
                 </p>
               )}
             </div>
 
-            <div className="rounded-lg border border-[#00E5FF]/20 bg-black/40 p-4 min-h-[220px]">
+            <div className="rounded-lg border-2 border-[#00E5FF]/30 bg-black/40 p-4 min-h-[260px]">
               <div className="text-[10px] text-gray-500 uppercase tracking-widest mb-3">
                 Verified Attestations · reviews:global
               </div>
               {reviews.length > 0 ? (
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 max-h-[300px] overflow-y-auto pr-1">
+                <div className="space-y-2 max-h-[320px] overflow-y-auto overflow-x-hidden pr-1">
                   {reviews.slice(0, 12).map((r, i) => (
                     <article
                       key={`${r.submitted_at}-${i}`}
-                      className="rounded-md border border-[#00E5FF]/15 bg-[#050914]/80 p-3"
+                      className="rounded-md border border-[#00E5FF]/25 bg-[#050914]/80 p-3"
                     >
                       <div className="flex items-center justify-between gap-2">
                         <span className="text-[#00E5FF] text-[11px] tabular-nums">

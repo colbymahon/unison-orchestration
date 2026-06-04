@@ -82,7 +82,7 @@ export function buildLlmSeoGraph(moat?: LiveMoatSnapshot) {
     description:
       `High-density MCP server streaming zero-hallucination TSV context blocks. ` +
       `${totalVectors.toLocaleString()} vectors across ${itemCount} collections. ` +
-      `Install: npx @smithery/cli run colbymahon/unison-orchestration-hub`,
+      `Install: npx @smithery/cli run crmendeavors/unison-orchestration-hub`,
     url: `${SITE}/corpora`,
     numberOfItems: itemCount,
     provider: {

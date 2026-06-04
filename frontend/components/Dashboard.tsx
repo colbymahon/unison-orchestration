@@ -13,9 +13,10 @@ import {
   MOAT_POLL_MS,
   INFRA_POLL_MS,
 } from "@/lib/dashboard-fetch";
-import { MoatControlRoom } from "./dashboard/MoatControlRoom";
+import { DataMoatPanel } from "./dashboard/DataMoatPanel";
 import { LedgerPanel } from "./dashboard/LedgerPanel";
-import { OverviewTelemetryGrid } from "./dashboard/OverviewTelemetryGrid";
+import { OverviewPanel } from "./dashboard/OverviewPanel";
+import { OpsPanel } from "./dashboard/OpsPanel";
 import { MarketplacePrimitives } from "./dashboard/MarketplacePrimitives";
 import { InfraTelemetry } from "./dashboard/InfraTelemetry";
 import { AgenticDiscovery } from "./dashboard/AgenticDiscovery";
@@ -39,6 +40,8 @@ interface InfraHealthPayload {
   probes: Array<{ name: string; status: string; latency_ms: number | null }>;
   edge_latency_ms: number | null;
   fly_latency_ms: number | null;
+  active_fly_regions?: string[];
+  error_rate?: number;
   zkp_integrity?: {
     edge_attestation_live?: boolean;
     last_verification_digest?: string | null;
@@ -245,7 +248,7 @@ export default function Dashboard() {
         {/* ── TAB 1: OVERVIEW ─────────────────────────────────────────── */}
         {activeTab === "overview" && (
           <div className="space-y-6">
-            <OverviewTelemetryGrid
+            <OverviewPanel
               moatVectors={moatVectors}
               liveCollections={liveCollections}
               moatLive={moatCollectionCount > 0}
@@ -254,6 +257,7 @@ export default function Dashboard() {
               trappedGaps={trappedGaps}
               edgeLatencyMs={edgeLatencyMs}
               endpointStatuses={endpointStatuses}
+              activeFlyRegions={infraHealth?.active_fly_regions ?? ["iad", "lhr", "nrt"]}
             />
 
             <MarketplacePrimitives zkpIntegrity={infraHealth?.zkp_integrity} />
@@ -336,13 +340,13 @@ export default function Dashboard() {
         {/* ── TAB 3: OPS ──────────────────────────────────────────────── */}
         {activeTab === "ops" && (
           <div className="space-y-6">
-            <InfraTelemetry
+            <OpsPanel
               telemetry={telemetry}
               latencyHistory={latencyHistory}
-              endpointStatuses={endpointStatuses}
+              moat={moatSnapshot}
             />
 
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 hidden lg:grid">
               <div className="bg-gray-950 border border-gray-900 p-6 rounded-xl space-y-4">
                 <h3 className="text-xs font-mono text-gray-500 uppercase tracking-wider flex items-center gap-2 border-b border-gray-900 pb-3">
                   <HardDrive className="w-3.5 h-3.5 text-purple-400" />
@@ -461,7 +465,7 @@ export default function Dashboard() {
         )}
 
         {/* ── TAB 5: DATA MOAT ────────────────────────────────────────── */}
-        {activeTab === "moat" && <MoatControlRoom />}
+        {activeTab === "moat" && <DataMoatPanel />}
 
         {/* ── TAB 6: TERMINAL ─────────────────────────────────────────── */}
         {activeTab === "terminal" && <LiveTerminal />}

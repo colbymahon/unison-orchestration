@@ -325,6 +325,7 @@ async function proxyToBackend(
       if (!hitCountZero) {
         tsvZero = isZeroResultTsv(bodyText);
       }
+      extraHeaders["X-Unison-Delivery"] = "tsv-buffered";
     }
 
     const q = incomingUrl.searchParams.get("q")?.trim() ?? "";

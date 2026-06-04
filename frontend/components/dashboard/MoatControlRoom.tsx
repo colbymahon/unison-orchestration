@@ -7,7 +7,7 @@ import {
 } from "recharts";
 import { Database, RefreshCw, CheckCircle2, AlertTriangle, XCircle } from "lucide-react";
 import { COLLECTIONS } from "@/lib/collections";
-import { useLiveFetch } from "@/lib/use-live-fetch";
+import { useLiveFetch } from "@/hooks/useLiveFetch";
 
 interface MoatCollectionMetric {
   name: string;
@@ -47,11 +47,12 @@ function StatusIcon({ status }: { status: string }) {
 
 export function MoatControlRoom() {
   const { data, error, loading, mutate } = useLiveFetch<MoatApiResponse>(
-    "/api/v1/data-moat-metrics",
+    "/api/v1/data-moat-metrics?fresh=1",
     {
       pollIntervalMs: 60_000,
-      dedupingInterval: 2000,
-      revalidateOnFocus: false,
+      dedupingInterval: 0,
+      revalidateOnFocus: true,
+      fetchInit: { credentials: "include" },
     }
   );
 
