@@ -5,7 +5,7 @@ import Link from "next/link";
 import { motion, AnimatePresence } from "framer-motion";
 import { X, Terminal, Database, ChevronRight, Search } from "lucide-react";
 import { COLLECTIONS, type Collection } from "@/lib/collections";
-import { GLOBAL_METRICS, METRIC_DISPLAY } from "@/lib/config/metrics";
+import { GLOBAL_METRICS } from "@/lib/config/metrics";
 
 const categoryColors: Record<string, string> = {
   "Life Sciences":         "text-emerald-400 bg-emerald-400/10 border-emerald-400/20",
@@ -40,6 +40,11 @@ const accentText: Record<Collection["color"], string> = {
 };
 
 const categories = ["All", ...Array.from(new Set(COLLECTIONS.map((c) => c.category))).sort()];
+
+const CORPUS_CATALOG_STATS = {
+  verticals: COLLECTIONS.length,
+  vectors: COLLECTIONS.reduce((sum, c) => sum + c.vectors, 0),
+};
 
 export function CorporaClient() {
   const [selected, setSelected] = useState<Collection | null>(null);
@@ -85,8 +90,10 @@ export function CorporaClient() {
               </span>
             </h1>
             <p className="font-[var(--font-inter)] text-white/45 text-lg max-w-2xl mx-auto mb-8">
-              {GLOBAL_METRICS.verticals} live collections · {METRIC_DISPLAY.liveVectors} vectors ·
-              {GLOBAL_METRICS.dimensions} dimensions · Click any card to inspect raw TSV data.
+              {CORPUS_CATALOG_STATS.verticals} catalogued collections ·{" "}
+              {CORPUS_CATALOG_STATS.vectors.toLocaleString()} vectors (catalog) ·{" "}
+              {GLOBAL_METRICS.dimensions} dimensions · Live counts sync via{" "}
+              <span className="text-cyan-400/80">/api/v1/data-moat-metrics</span>.
             </p>
 
             {/* Search */}
