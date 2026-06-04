@@ -150,3 +150,68 @@ class TestUnisonX402RetrieverUnit:
             retriever = UnisonX402Retriever.from_manifest_hint("medical typhoid")
         # Should not raise; should return a valid retriever with some collection
         assert retriever.collection.startswith("unison_")
+
+    def test_callback_url_header_on_search(self) -> None:
+        retriever = UnisonX402Retriever(
+            callback_url="https://analytics.corp.example/hooks/unison",
+        )
+        with patch("unison_langchain.retriever.requests.get", return_value=_make_mock_resp()) as mock_get:
+            retriever.invoke("probe query")
+        headers = mock_get.call_args.kwargs.get("headers") or {}
+        assert headers.get("X-Unison-Callback-URL") == "https://analytics.corp.example/hooks/unison"
+
+    def test_402_schedules_friction_telemetry(self) -> None:
+        retriever = UnisonX402Retriever(enable_churn_telemetry=True)
+        retriever._private_key = None
+        mock_resp = _make_mock_resp(status=402, text="Payment Required")
+        with (
+            patch("unison_langchain.retriever.requests.get", return_value=mock_resp),
+            patch("unison_langchain.retriever.report_friction_async") as mock_friction,
+        ):
+            retriever.invoke("dropped intent query")
+        mock_friction.assert_called_once()
+        assert mock_friction.call_args.kwargs["dropped_query"] == "dropped intent query"
+        assert mock_friction.call_args.kwargs["collection"] == retriever.collection
+
+    def test_zero_result_schedules_friction_telemetry(self) -> None:
+        retriever = UnisonX402Retriever(enable_churn_telemetry=True)
+        empty_tsv = "Sequence\tURL\tContent\n"
+        mock_resp = _make_mock_resp(200, empty_tsv, {"X-Zero-Result": "true"})
+        with (
+            patch("unison_langchain.retriever.requests.get", return_value=mock_resp),
+            patch("unison_langchain.retriever.report_friction_async") as mock_friction,
+        ):
+            docs = retriever.invoke("missing substrate")
+        assert len(docs) == 0
+        mock_friction.assert_called_once()
+        assert "zero-result" in str(mock_friction.call_args.kwargs.get("data_gap"))
+
+    def test_submit_attestation_score_posts_review(self) -> None:
+        retriever = UnisonX402Retriever(agent_id="corp-node")
+        mock_json = {"status": "ATTESTATION_RECORDED", "ok": True, "timestamp": 1}
+        with patch(
+            "unison_langchain.retriever.submit_attestation_review",
+            return_value=mock_json,
+        ) as mock_submit:
+            out = retriever.submit_attestation_score(5, "Excellent TSV grounding precision.")
+        assert out["ok"] is True
+        mock_submit.assert_called_once()
+        assert mock_submit.call_args.kwargs["score"] == 5
+
+    def test_churn_telemetry_disabled_skips_friction(self) -> None:
+        retriever = UnisonX402Retriever(enable_churn_telemetry=False)
+        retriever._private_key = None
+        mock_resp = _make_mock_resp(status=402, text="Payment Required")
+        with (
+            patch("unison_langchain.retriever.requests.get", return_value=mock_resp),
+            patch("unison_langchain.retriever.report_friction_async") as mock_friction,
+        ):
+            retriever.invoke("no telemetry")
+        mock_friction.assert_not_called()
+
+    def test_last_query_string_tracked(self) -> None:
+        retriever = UnisonX402Retriever()
+        with patch("unison_langchain.retriever.requests.get", return_value=_make_mock_resp()):
+            retriever.invoke("tracked query text")
+        assert retriever.last_query_string == "tracked query text"
+        assert retriever.collection_vertical_id == retriever.collection

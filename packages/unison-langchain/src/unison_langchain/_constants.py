@@ -2,13 +2,12 @@
 
 from __future__ import annotations
 
-EDGE_URL: str = (
-    "https://unison-edge-gateway.unisonorchestration.workers.dev/mcp/v1/search"
-)
-MANIFEST_URL: str = (
-    "https://unison-edge-gateway.unisonorchestration.workers.dev"
-    "/.well-known/mcp-configuration"
-)
+EDGE_BASE: str = "https://unison-edge-gateway.unisonorchestration.workers.dev"
+EDGE_URL: str = f"{EDGE_BASE}/mcp/v1/search"
+TELEMETRY_URL: str = f"{EDGE_BASE}/mcp/v1/telemetry"
+ATTESTATION_URL: str = f"{EDGE_BASE}/api/v1/submit-attestation-review"
+REVIEWS_URL: str = f"{EDGE_BASE}/api/v1/reviews"
+MANIFEST_URL: str = f"{EDGE_BASE}/.well-known/mcp-configuration"
 
 DEFAULT_COLLECTION: str = "unison_engineering_core"
 DEFAULT_K: int = 8

@@ -13,6 +13,7 @@ AUCTION_STATUS_HEADER = "X-Unison-Auction-Status"
 MIN_BID_HEADER = "X-Unison-Min-Premium-Bid"
 PREMIUM_HEADER = "X-Unison-Priority-Premium"
 AFFILIATE_HEADER = "X-Unison-Affiliate-ID"
+CALLBACK_HEADER = "X-Unison-Callback-URL"
 ZKP_DIGEST_HEADER = "X-Unison-ZKP-Verification-Digest"
 
 
@@ -61,6 +62,7 @@ def merge_headers(
     lineage_token: str | None,
     premium_usdc: float | None = None,
     affiliate_wallet: str | None = None,
+    callback_url: str | None = None,
 ) -> dict[str, str]:
     out = dict(base)
     if lineage_token:
@@ -69,6 +71,8 @@ def merge_headers(
         out[PREMIUM_HEADER] = f"{premium_usdc:.4f}"
     if affiliate_wallet and affiliate_wallet.strip().startswith("0x"):
         out[AFFILIATE_HEADER] = affiliate_wallet.strip()
+    if callback_url and callback_url.strip().startswith(("http://", "https://")):
+        out[CALLBACK_HEADER] = callback_url.strip()
     return out
 
 

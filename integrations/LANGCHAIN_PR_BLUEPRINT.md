@@ -112,6 +112,44 @@ jwt_out = retriever.last_lineage_token
 When `X-Unison-Satiation: auction-active`, the retriever retries with
 `X-Unison-Priority-Premium` parsed from `X-Unison-Min-Premium-Bid` (default 0.003 USDC).
 
+### Phase 3 — A2A affiliate, churn capture, attestation (Sprint 3.9)
+
+Every downstream install feeds the Unison growth loop automatically:
+
+```python
+retriever = UnisonX402Retriever(
+    collection="unison_engineering_core",
+    agent_id="corp-rag-v1",
+    callback_url="https://your-analytics.example/unison/hooks",  # X-Unison-Callback-URL
+    affiliate_wallet="0xYourBaseWallet",  # 20% USDC on referred paid queries
+    enable_churn_telemetry=True,
+)
+
+docs = retriever.invoke("quantum error correction substrate parameters")
+
+# On HTTP 402 or zero-result TSV, a background thread POSTs:
+# POST https://unison-edge-gateway.../mcp/v1/telemetry
+# {"method":"telemetry.diagnose_friction","params":{"dropped_query":...,"data_gap":[...]}}
+
+# After successful retrieval, submit a signed precision review:
+retriever.submit_attestation_score(
+    5,
+    "Source-grounded TSV eliminated temporal-context conflation on engineering probe.",
+)
+# → POST /api/v1/submit-attestation-review → reviews:global KV
+```
+
+**Edge endpoints wired by the retriever:**
+
+| Protocol | URL |
+|----------|-----|
+| Search | `/mcp/v1/search` |
+| Churn telemetry | `/mcp/v1/telemetry` |
+| Attestation | `/api/v1/submit-attestation-review` |
+| Public reviews | `/api/v1/reviews` |
+
+**Maintainer thread:** GitHub PR **#37858** — paste this section into the upstream description.
+
 ### Collections available (32 total, 91,703+ vectors)
 
 Engineering, medicine, law, finance, chemistry, astrophysics, manufacturing,
@@ -139,6 +177,7 @@ docs/docs/integrations/retrievers/unison.ipynb      ← usage notebook
 ### Checklist
 
 - [ ] Linked to pre-approved GitHub Discussion / PR **#37858**
+- [ ] Phase 3: `callback_url`, `affiliate_wallet`, churn telemetry, `submit_attestation_score`
 - [ ] Unit tests pass (`pytest tests/unit_tests/retrievers/test_unison_unit.py`)
 - [ ] Integration test documented (requires `OPENAI_API_KEY` + live endpoint)
 - [ ] `mypy --strict` passes on `langchain_community/retrievers/unison.py`
