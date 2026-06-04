@@ -46,7 +46,37 @@ export interface LedgerTelemetryResponse {
   server_version: string | null;
   fly_telemetry: TelemetryData | null;
   affiliate_ledger: AffiliateLedgerTelemetry | null;
-  sources: { fly_mcp: boolean; edge_kv: boolean; affiliate_kv: boolean };
+  churn_logs: Array<{
+    agent_id: string;
+    dropped_query: string;
+    collection_target: string;
+    code: string;
+    callback_url: string | null;
+    timestamp: string;
+    outcome: string;
+    detail?: string;
+  }>;
+  attestation_reviews: {
+    updated_at: string;
+    count: number;
+    reviews: Array<{
+      agent_id: string;
+      score: number;
+      feedback_hash: string;
+      signature: string;
+      wallet_address: string;
+      feedback_preview: string;
+      submitted_at: string;
+      verified: boolean;
+    }>;
+  } | null;
+  sources: {
+    fly_mcp: boolean;
+    edge_kv: boolean;
+    affiliate_kv: boolean;
+    churn_kv: boolean;
+    reviews_kv: boolean;
+  };
   fetched_at: string;
 }
 
@@ -82,6 +112,10 @@ export async function fetchLedgerTelemetry(): Promise<LedgerTelemetryResponse> {
   let edgeKvOk = false;
   let affiliate_ledger: AffiliateLedgerTelemetry | null = null;
   let affiliateKvOk = false;
+  let churn_logs: LedgerTelemetryResponse["churn_logs"] = [];
+  let churnKvOk = false;
+  let attestation_reviews: LedgerTelemetryResponse["attestation_reviews"] = null;
+  let reviewsKvOk = false;
   const adminSecret = process.env.ADMIN_API_SECRET;
   const adminHeaders = adminSecret
     ? { Authorization: `Bearer ${adminSecret}` }
@@ -118,6 +152,34 @@ export async function fetchLedgerTelemetry(): Promise<LedgerTelemetryResponse> {
     } catch {
       affiliateKvOk = false;
     }
+
+    try {
+      const res = await fetch(`${EDGE_BASE}/api/admin/churn-logs`, {
+        headers: adminHeaders,
+        cache: "no-store",
+        signal: AbortSignal.timeout(6_000),
+      });
+      if (res.ok) {
+        const body = (await res.json()) as { logs?: LedgerTelemetryResponse["churn_logs"] };
+        churn_logs = body.logs ?? [];
+        churnKvOk = true;
+      }
+    } catch {
+      churnKvOk = false;
+    }
+  }
+
+  try {
+    const res = await fetch(`${EDGE_BASE}/api/v1/reviews`, {
+      cache: "no-store",
+      signal: AbortSignal.timeout(6_000),
+    });
+    if (res.ok) {
+      attestation_reviews = (await res.json()) as LedgerTelemetryResponse["attestation_reviews"];
+      reviewsKvOk = true;
+    }
+  } catch {
+    reviewsKvOk = false;
   }
 
   const total_handled_requests = fly?.total_queries ?? 0;
@@ -144,7 +206,15 @@ export async function fetchLedgerTelemetry(): Promise<LedgerTelemetryResponse> {
     server_version: fly?.server_version ?? null,
     fly_telemetry: fly,
     affiliate_ledger,
-    sources: { fly_mcp: flyOk, edge_kv: edgeKvOk, affiliate_kv: affiliateKvOk },
+    churn_logs,
+    attestation_reviews,
+    sources: {
+      fly_mcp: flyOk,
+      edge_kv: edgeKvOk,
+      affiliate_kv: affiliateKvOk,
+      churn_kv: churnKvOk,
+      reviews_kv: reviewsKvOk,
+    },
     fetched_at,
   };
 }

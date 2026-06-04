@@ -22,6 +22,17 @@ import {
 } from "./admin";
 import { scheduleAffiliateLedger } from "./affiliate_ledger";
 import {
+  listChurnLogs,
+  markChurnRecovered,
+  scheduleChurnCapture,
+} from "./churn_agent";
+import {
+  appendAttestationReview,
+  getGlobalReviews,
+  parseAttestationBody,
+  verifyAttestationSignature,
+} from "./reviews";
+import {
   isZeroResultTsv,
   scheduleZeroTrap,
 } from "./zero_trap";
@@ -55,6 +66,8 @@ export interface Env {
   FREE_TIER: KVNamespace;
   /** Phase B0 — zero-result SEO gap ledger */
   UNISON_ZERO_LOGS: KVNamespace;
+  /** Sprint 3.6 — churn cache (falls back to UNISON_ZERO_LOGS when unset) */
+  UNISON_CHURN_CACHE?: KVNamespace;
   /** Phase 2a — episodic agent lineage graph */
   UNISON_LINEAGE?: KVNamespace;
   LINEAGE_SESSION_SECRET?: string;
@@ -66,6 +79,8 @@ export interface Env {
   PAYMENT_DEST: string;
   /** Bearer token for /api/admin/* routes (dashboard proxy) */
   ADMIN_API_SECRET?: string;
+  ATTESTATION_RELAXED?: string;
+  ATTESTATION_HMAC_SECRET?: string;
   /** Phase 2b — auction window tuning (optional) */
   AUCTION_WINDOW_MS?: string;
   AUCTION_MAX_PER_WINDOW?: string;
@@ -84,9 +99,9 @@ const CDP_FACILITATOR_URL = "https://api.developer.coinbase.com/x402/verify";
 
 const CORS_HEADERS: Record<string, string> = {
   "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Methods": "GET, OPTIONS",
+  "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
   "Access-Control-Allow-Headers":
-    "Content-Type, Payment-Signature, Authorization, X-Agent-ID, X-Unison-Lineage, X-Unison-Lineage-Version, X-Unison-Priority-Premium, X-Unison-Affiliate-ID",
+    "Content-Type, Payment-Signature, Authorization, X-Agent-ID, X-Unison-Lineage, X-Unison-Lineage-Version, X-Unison-Priority-Premium, X-Unison-Affiliate-ID, X-Unison-Callback-URL, X-Agent-Callback, X-Agent-Webhook",
   "Access-Control-Expose-Headers":
     "X-Unison-Satiation, X-Unison-Auction-Status, X-Unison-Premium-Settled, X-Unison-Min-Premium-Bid, X-Unison-Lineage, X-Unison-Lineage-Step, X-Unison-Lineage-Episode, X-Unison-Router-Composition, X-Unison-Settlement-Split, X-Unison-Revenue-Split, X-Unison-Affiliate-Settled, X-Unison-ZKP-Verification-Digest, X-Unison-ZKP-Chunk-Count, X-Unison-ZKP-Verified-Count, X-Unison-Source-Digest, X-Remaining-Free-Tier",
   "Access-Control-Max-Age": "86400",
@@ -172,6 +187,10 @@ function paymentRequiredResponse(env: Env, reason?: string): Response {
  * so agentic frameworks get their own isolated free tier, not a shared
  * IP-level bucket (e.g. agents behind a corporate NAT).
  */
+function resolveChurnKv(env: Env): KVNamespace | undefined {
+  return env.UNISON_CHURN_CACHE ?? env.UNISON_ZERO_LOGS;
+}
+
 function resolveClientId(request: Request): string {
   const agentId = request.headers.get("x-agent-id");
   if (agentId && agentId.trim().length > 0) {
@@ -316,6 +335,14 @@ async function proxyToBackend(
         agentHeader: request.headers.get("x-agent-id"),
         lineageEpisodeId,
         lineageStep: Number.isFinite(lineageStep) ? lineageStep : undefined,
+      });
+      const churnKv = resolveChurnKv(env);
+      scheduleChurnCapture(ctx, churnKv, env.UNISON_ZERO_LOGS, {
+        request,
+        clientId: resolveClientId(request),
+        query: q,
+        collection,
+        code: "ZERO_RESULT_SUBSTRATE",
       });
       const trapHeaders = new Headers(backendResponse.headers);
       trapHeaders.set("X-Zero-Result", "true");
@@ -556,6 +583,82 @@ export default {
       );
     }
 
+    if (pathname === "/api/admin/churn-logs") {
+      if (method !== "GET") {
+        return errorResponse(405, "Method Not Allowed. Use GET.");
+      }
+      if (!authorizeAdmin(request, env.ADMIN_API_SECRET)) {
+        return errorResponse(401, "Unauthorized.");
+      }
+      const churnKv = resolveChurnKv(env);
+      const logs = churnKv ? await listChurnLogs(churnKv) : [];
+      return withCors(
+        new Response(JSON.stringify({ logs, count: logs.length }), {
+          status: 200,
+          headers: { "Content-Type": "application/json" },
+        })
+      );
+    }
+
+    if (pathname === "/api/v1/reviews") {
+      if (method !== "GET") {
+        return errorResponse(405, "Method Not Allowed. Use GET.");
+      }
+      const block = await getGlobalReviews(env.UNISON_ZERO_LOGS);
+      return withCors(
+        new Response(JSON.stringify(block), {
+          status: 200,
+          headers: {
+            "Content-Type": "application/json",
+            "Cache-Control": "public, max-age=60",
+          },
+        })
+      );
+    }
+
+    if (pathname === "/api/v1/submit-attestation-review") {
+      if (method !== "POST") {
+        return errorResponse(405, "Method Not Allowed. Use POST.");
+      }
+      let body: unknown;
+      try {
+        body = await request.json();
+      } catch {
+        return errorResponse(400, "Invalid JSON body.");
+      }
+      const parsed = parseAttestationBody(body);
+      if (!parsed) {
+        return errorResponse(
+          400,
+          "Invalid attestation schema. Require agent_id, score 1-5, feedback_hash (sha256 hex), signature (0x hex)."
+        );
+      }
+      const verified = await verifyAttestationSignature(parsed, env);
+      if (!verified.ok) {
+        return errorResponse(401, "Attestation signature verification failed.");
+      }
+      const record = {
+        agent_id: parsed.agent_id,
+        score: parsed.score,
+        feedback_hash: parsed.feedback_hash,
+        signature: parsed.signature,
+        wallet_address: verified.wallet,
+        feedback_preview: parsed.feedback_preview ?? "",
+        submitted_at: new Date().toISOString(),
+        verified: true,
+      };
+      const block = await appendAttestationReview(env.UNISON_ZERO_LOGS, record);
+      return withCors(
+        new Response(
+          JSON.stringify({ ok: true, review: record, global: block }),
+          {
+            status: 201,
+            headers: { "Content-Type": "application/json" },
+          }
+        )
+      );
+    }
+
     if (pathname === "/api/admin/affiliate-ledger") {
       if (method !== "GET") {
         return errorResponse(405, "Method Not Allowed. Use GET.");
@@ -637,9 +740,23 @@ export default {
       if (signature) {
         const isValid = await verifyPaymentSignature(signature, env);
         if (!isValid) {
+          const q = url.searchParams.get("q")?.trim() ?? "";
+          const collection =
+            url.searchParams.get("collection")?.trim() ?? "unison_engineering_core";
+          scheduleChurnCapture(ctx, resolveChurnKv(env), env.UNISON_ZERO_LOGS, {
+            request,
+            clientId,
+            query: q,
+            collection,
+            code: "UNFUNDED_OR_MISSING_SUBSTRATE",
+          });
           return paymentRequiredResponse(env, "Invalid or expired payment signature.");
         }
         console.log(`Paid request verified (signature): client=${clientId}`);
+        const q = url.searchParams.get("q")?.trim() ?? "";
+        const collection =
+          url.searchParams.get("collection")?.trim() ?? "unison_engineering_core";
+        await markChurnRecovered(resolveChurnKv(env), clientId, collection, q);
         try {
           return await executeMcpSearch(request, env, ctx, { "X-Tier": "paid" });
         } catch (searchErr) {
@@ -670,6 +787,17 @@ export default {
           return errorResponse(502, "Edge search handler error.");
         }
       }
+
+      const q = url.searchParams.get("q")?.trim() ?? "";
+      const collection =
+        url.searchParams.get("collection")?.trim() ?? "unison_engineering_core";
+      scheduleChurnCapture(ctx, resolveChurnKv(env), env.UNISON_ZERO_LOGS, {
+        request,
+        clientId,
+        query: q,
+        collection,
+        code: "UNFUNDED_OR_MISSING_SUBSTRATE",
+      });
 
       return paymentRequiredResponse(
         env,

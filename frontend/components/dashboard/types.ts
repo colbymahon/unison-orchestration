@@ -53,6 +53,34 @@ export interface AffiliateLedgerTelemetry {
   recent_events: AffiliateReferralRow[];
 }
 
+export interface ChurnLogRow {
+  agent_id: string;
+  dropped_query: string;
+  collection_target: string;
+  code: string;
+  callback_url: string | null;
+  timestamp: string;
+  outcome: string;
+  detail?: string;
+}
+
+export interface AttestationReviewRecord {
+  agent_id: string;
+  score: number;
+  feedback_hash: string;
+  signature: string;
+  wallet_address: string;
+  feedback_preview: string;
+  submitted_at: string;
+  verified: boolean;
+}
+
+export interface AttestationReviewsBlock {
+  updated_at: string;
+  count: number;
+  reviews: AttestationReviewRecord[];
+}
+
 export interface LedgerTelemetryPayload {
   total_handled_requests: number;
   blocked_402_rejections: number;
@@ -79,6 +107,14 @@ export interface LedgerTelemetryPayload {
   server_version: string | null;
   fly_telemetry: TelemetryData | null;
   affiliate_ledger: AffiliateLedgerTelemetry | null;
-  sources: { fly_mcp: boolean; edge_kv: boolean; affiliate_kv: boolean };
+  churn_logs: ChurnLogRow[];
+  attestation_reviews: AttestationReviewsBlock | null;
+  sources: {
+    fly_mcp: boolean;
+    edge_kv: boolean;
+    affiliate_kv: boolean;
+    churn_kv: boolean;
+    reviews_kv: boolean;
+  };
   fetched_at: string;
 }

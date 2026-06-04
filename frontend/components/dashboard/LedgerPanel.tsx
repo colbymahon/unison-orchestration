@@ -1,7 +1,7 @@
 "use client";
 
 import { useMemo } from "react";
-import { Coins, GitBranch, ShieldX, TrendingUp, Wallet, Zap } from "lucide-react";
+import { Coins, GitBranch, MessageSquare, ShieldX, TrendingUp, Wallet, Zap } from "lucide-react";
 import type { LedgerTelemetryPayload, HistoryPoint } from "./types";
 import { RevenueEngine } from "./RevenueEngine";
 import { computeRevenueVelocityFromGaps, formatUsdcPerHour, formatUsdcTotal } from "@/lib/revenue-velocity";
@@ -22,6 +22,8 @@ export function LedgerPanel({ ledger, revenueHistory, rejectionHistory, loading 
   const telemetry = ledger?.fly_telemetry ?? null;
   const gaps = ledger?.trapped_gaps ?? [];
   const affiliate = ledger?.affiliate_ledger ?? null;
+  const churnLogs = ledger?.churn_logs ?? [];
+  const reviews = ledger?.attestation_reviews?.reviews ?? [];
 
   const velocity = useMemo(() => computeRevenueVelocityFromGaps(gaps), [gaps]);
 
@@ -178,6 +180,99 @@ export function LedgerPanel({ ledger, revenueHistory, rejectionHistory, loading 
               automatically.
             </p>
           )}
+        </div>
+      </section>
+
+      {/* Sprint 3.8 — churn + attestation feedback loops */}
+      <section
+        className="relative overflow-hidden rounded-xl border border-[#00E5FF]/25 bg-[#050914]/95 p-5 font-mono"
+        aria-label="A2A system feedback"
+      >
+        <div
+          className="pointer-events-none absolute inset-0 opacity-30"
+          style={{
+            backgroundImage:
+              "linear-gradient(rgba(0,229,255,0.05) 1px, transparent 1px), linear-gradient(90deg, rgba(0,229,255,0.05) 1px, transparent 1px)",
+            backgroundSize: "20px 20px",
+          }}
+        />
+        <div className="relative z-10 space-y-4">
+          <div className="flex items-center gap-2">
+            <MessageSquare size={14} className="text-[#00E5FF]" />
+            <h3 className="text-xs font-black uppercase tracking-[0.2em] text-[#00E5FF]">
+              A2A System Feedback &amp; Attention Loops
+            </h3>
+          </div>
+
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+            <div className="rounded-lg border border-[#00E5FF]/20 bg-black/40 p-4 min-h-[220px]">
+              <div className="text-[10px] text-gray-500 uppercase tracking-widest mb-3">
+                Churn Recovery · 402 / Zero-Result
+              </div>
+              {churnLogs.length > 0 ? (
+                <ul className="space-y-2 text-[11px] max-h-[280px] overflow-y-auto">
+                  {churnLogs.slice(0, 10).map((row, i) => (
+                    <li
+                      key={`${row.timestamp}-${i}`}
+                      className="border-b border-white/5 pb-2 last:border-0"
+                    >
+                      <div className="flex justify-between gap-2 text-[#00E5FF]">
+                        <span className="truncate">{row.agent_id}</span>
+                        <span className="text-gray-500 shrink-0">{row.outcome}</span>
+                      </div>
+                      <div className="text-gray-500 mt-0.5">{row.code}</div>
+                      <div className="text-gray-600 truncate">{row.dropped_query}</div>
+                      <div className="text-gray-600 truncate">{row.collection_target}</div>
+                    </li>
+                  ))}
+                </ul>
+              ) : (
+                <p className="text-[11px] text-gray-600">
+                  {ledger?.sources.churn_kv
+                    ? "No churn events captured yet."
+                    : "Churn KV pending — verify ADMIN_API_SECRET."}
+                </p>
+              )}
+            </div>
+
+            <div className="rounded-lg border border-[#00E5FF]/20 bg-black/40 p-4 min-h-[220px]">
+              <div className="text-[10px] text-gray-500 uppercase tracking-widest mb-3">
+                Verified Attestations · reviews:global
+              </div>
+              {reviews.length > 0 ? (
+                <div className="overflow-x-auto max-h-[280px] overflow-y-auto">
+                  <table className="w-full text-left text-[11px]">
+                    <thead>
+                      <tr className="text-gray-500 uppercase tracking-wider border-b border-white/10">
+                        <th className="py-1 pr-2">Wallet</th>
+                        <th className="py-1 pr-2">Score</th>
+                        <th className="py-1">Feedback</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {reviews.slice(0, 12).map((r, i) => (
+                        <tr key={`${r.submitted_at}-${i}`} className="border-b border-white/5">
+                          <td className="py-1.5 pr-2 text-[#00E5FF] tabular-nums">
+                            {shortWallet(r.wallet_address)}
+                          </td>
+                          <td className="py-1.5 pr-2 text-emerald-400/90">{r.score}/5</td>
+                          <td className="py-1.5 text-gray-600 max-w-[160px] truncate">
+                            {r.feedback_preview || r.feedback_hash.slice(0, 12) + "…"}
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              ) : (
+                <p className="text-[11px] text-gray-600">
+                  {ledger?.sources.reviews_kv
+                    ? "No signed reviews yet. POST /api/v1/submit-attestation-review."
+                    : "Reviews endpoint unreachable."}
+                </p>
+              )}
+            </div>
+          </div>
         </div>
       </section>
 
