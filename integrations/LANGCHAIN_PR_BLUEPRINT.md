@@ -32,7 +32,8 @@ feat(community/retrievers): add UnisonX402Retriever for token-optimized historic
 
 This PR adds `UnisonX402Retriever` to `langchain_community/retrievers/`, a
 `BaseRetriever` that fetches zero-hallucination, source-attributed documents from
-the [Unison MCP Gateway](https://unison-edge-gateway.unisonorchestration.workers.dev/.well-known/mcp-configuration).
+the [Unison MCP Gateway](https://unison-edge-gateway.unisonorchestration.workers.dev/.well-known/mcp-configuration)
+and production discovery surface [unisonorchestration.com](https://unisonorchestration.com/.well-known/ai-plugin.json).
 
 Data is served as multi-line TSV streams rather than JSON, yielding **8.5–9.0% fewer
 tokens per payload** (measured via `tiktoken cl100k_base`). The retriever handles

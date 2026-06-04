@@ -1,9 +1,10 @@
+export const dynamic = "force-dynamic";
+export const revalidate = 0;
+export const maxDuration = 300;
+
 import { NextRequest, NextResponse } from "next/server";
 import { spawn } from "child_process";
 import path from "path";
-
-export const dynamic = "force-dynamic";
-export const maxDuration = 300;
 
 const EDGE_BASE =
   process.env.UNISON_EDGE_GATEWAY_URL ??

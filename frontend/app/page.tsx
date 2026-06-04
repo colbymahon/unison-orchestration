@@ -20,6 +20,7 @@ import {
   Zap,
 } from "lucide-react";
 import Link from "next/link";
+import { LivePlatformMetrics } from "@/components/LivePlatformMetrics";
 
 const ParticleMesh = dynamic(
   () => import("@/components/ParticleMesh").then((m) => m.ParticleMesh),
@@ -123,6 +124,9 @@ const moatCards = [
   },
 ];
 
+const SMITHERY_INSTALL =
+  "npx @smithery/cli run colbymahon/unison-orchestration-hub";
+
 /* ─── Terminal install commands ──────────────────────────────────────────────── */
 const terminalLines = [
   { type: "comment",  text: "# Step 1 — Discover the MCP manifest" },
@@ -151,6 +155,105 @@ const terminalLines = [
   { type: "blank",    text: "" },
   { type: "cursor",   text: "" },
 ];
+
+/* ─── Agent inbound one-liner console (Smithery) ─────────────────────────────── */
+function AgentInstallConsole() {
+  const [copied, setCopied] = useState(false);
+
+  const copyInstall = async () => {
+    await navigator.clipboard.writeText(SMITHERY_INSTALL);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
+  };
+
+  return (
+    <div
+      className="w-full max-w-3xl mx-auto rounded-2xl overflow-hidden border border-cyan-400/20 shadow-[0_0_48px_rgba(0,229,255,0.14)]"
+      style={{ background: "rgba(3,5,10,0.95)" }}
+    >
+      <div className="flex items-center justify-between px-5 py-3 border-b border-white/[0.08] bg-[#0A0F1C]/90">
+        <div className="flex items-center gap-2">
+          <div className="flex gap-1.5" aria-hidden="true">
+            <span className="w-3 h-3 rounded-full bg-red-500/70" />
+            <span className="w-3 h-3 rounded-full bg-amber-400/70" />
+            <span className="w-3 h-3 rounded-full bg-emerald-400/70" />
+          </div>
+          <Terminal className="w-3.5 h-3.5 text-cyan-400/70" aria-hidden="true" />
+          <span className="font-[var(--font-mono)] text-[10px] text-white/40 tracking-widest uppercase">
+            agent-inbound · smithery
+          </span>
+        </div>
+        <button
+          type="button"
+          onClick={copyInstall}
+          className="flex items-center gap-1.5 font-[var(--font-mono)] text-[11px] text-white/35 hover:text-cyan-400 transition-colors"
+          aria-label="Copy install command"
+        >
+          {copied ? (
+            <>
+              <Check className="w-3.5 h-3.5 text-emerald-400" />
+              Copied
+            </>
+          ) : (
+            <>
+              <Copy className="w-3.5 h-3.5" />
+              Copy
+            </>
+          )}
+        </button>
+      </div>
+      <div className="px-5 py-6">
+        <p className="font-[var(--font-mono)] text-[10px] text-white/30 mb-3 tracking-wider">
+          # Quick install — route your swarm through the MCP hub
+        </p>
+        <p className="font-[var(--font-mono)] text-sm sm:text-base text-cyan-300/90 break-all leading-relaxed">
+          <span className="text-cyan-400/50 mr-2">$</span>
+          {SMITHERY_INSTALL}
+        </p>
+      </div>
+    </div>
+  );
+}
+
+function X402PricingLedger() {
+  const tiers = [
+    {
+      tier: "STANDARD",
+      price: "0.005 USDC / call",
+      targets: "Engineering, Linguistics, Agronomy, Architecture",
+      accent: "border-cyan-400/25 bg-cyan-400/[0.04]",
+      label: "text-cyan-400",
+    },
+    {
+      tier: "PREMIUM",
+      price: "0.050 USDC / call",
+      targets: "Astrophysics, Intelligence Core, Cyber Core, Biotech",
+      accent: "border-purple-400/25 bg-purple-400/[0.04]",
+      label: "text-[#B300FF]",
+    },
+  ];
+
+  return (
+    <div className="grid md:grid-cols-2 gap-4 w-full max-w-4xl mx-auto mt-8">
+      {tiers.map((t) => (
+        <div
+          key={t.tier}
+          className={`rounded-xl border p-5 backdrop-blur-xl ${t.accent}`}
+        >
+          <p className={`font-[var(--font-mono)] text-[10px] tracking-[0.2em] uppercase mb-2 ${t.label}`}>
+            [ COMPUTE TIER: {t.tier} ]
+          </p>
+          <p className="font-[var(--font-grotesk)] text-lg font-bold text-white mb-2">
+            ➔ {t.price}
+          </p>
+          <p className="font-[var(--font-mono)] text-[11px] text-white/45 leading-relaxed">
+            ➔ Targets: {t.targets}
+          </p>
+        </div>
+      ))}
+    </div>
+  );
+}
 
 /* ─── Typing terminal component ──────────────────────────────────────────────── */
 function TerminalBlock() {
@@ -305,13 +408,25 @@ export default function StorefrontPage() {
       ═══════════════════════════════════════════════════════════════════ */}
       <section
         ref={heroRef}
-        className="relative min-h-screen flex flex-col items-center justify-center overflow-hidden pt-16"
+        className="relative min-h-screen flex flex-col items-center justify-center overflow-hidden pt-16 bg-[#050914]"
         aria-labelledby="hero-headline"
       >
-        {/* WebGL particle mesh */}
         <ParticleMesh />
 
-        {/* Radial vignette */}
+        {/* Abyssal hex grid */}
+        <div
+          aria-hidden="true"
+          className="absolute inset-0 pointer-events-none opacity-40"
+          style={{
+            backgroundImage: `
+              linear-gradient(#0A0F1C 1px, transparent 1px),
+              linear-gradient(90deg, #0A0F1C 1px, transparent 1px)
+            `,
+            backgroundSize: "48px 48px",
+            maskImage: "radial-gradient(ellipse 80% 70% at 50% 40%, black 20%, transparent 75%)",
+          }}
+        />
+
         <div
           aria-hidden="true"
           className="absolute inset-0 pointer-events-none"
@@ -324,38 +439,33 @@ export default function StorefrontPage() {
 
         <motion.div
           style={{ opacity: heroOpacity, y: heroY }}
-          className="relative z-10 text-center px-6 max-w-5xl mx-auto"
+          className="relative z-10 w-full px-6 max-w-5xl mx-auto py-16"
         >
-          {/* Eyebrow badge */}
           <motion.div
             initial={{ opacity: 0, y: 16 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.55, delay: 0.1 }}
-            className="mb-8"
+            className="text-center mb-8"
           >
             <span
-              className="
-                inline-flex items-center gap-2.5 px-4 py-2 rounded-full
-                border border-cyan-400/20 text-[11px]
-                font-[var(--font-mono)] tracking-[0.2em] text-cyan-400 uppercase
-              "
+              className="inline-flex items-center gap-2.5 px-4 py-2 rounded-full border border-cyan-400/20 text-[11px] font-[var(--font-mono)] tracking-[0.2em] text-cyan-400 uppercase"
               style={{ background: "rgba(0,229,255,0.05)" }}
             >
               <span className="w-1.5 h-1.5 rounded-full bg-cyan-400 live-dot" aria-hidden="true" />
-              A2A Data Marketplace · MCP · x402 · Base L2
+              Agentic SEO · MCP · x402 · 32 Vertical Indices
             </span>
           </motion.div>
 
-          {/* H1 */}
           <motion.h1
             id="hero-headline"
             initial={{ opacity: 0, y: 24 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.65, delay: 0.2 }}
-            className="font-[var(--font-grotesk)] text-[clamp(3rem,8vw,6.5rem)] font-bold leading-[0.95] tracking-tight mb-7"
+            className="font-[var(--font-grotesk)] text-center text-[clamp(1.75rem,5vw,3.25rem)] font-bold leading-tight tracking-tight text-white mb-10"
           >
+            UNISON DATA MOAT:{" "}
             <span
-              className="block"
+              className="block sm:inline mt-2 sm:mt-0"
               style={{
                 background: "linear-gradient(135deg, #00E5FF 0%, #B300FF 100%)",
                 WebkitBackgroundClip: "text",
@@ -363,77 +473,56 @@ export default function StorefrontPage() {
                 backgroundClip: "text",
               }}
             >
-              The Amazon
+              ACHIEVE MACHINE-TO-MACHINE AUTONOMY
             </span>
-            <span className="block text-white/90">for AI.</span>
           </motion.h1>
 
-          {/* Subtext */}
-          <motion.p
+          <motion.div
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.6, delay: 0.35 }}
-            className="
-              font-[var(--font-inter)] text-lg sm:text-xl text-white/45
-              max-w-2xl mx-auto mb-10 leading-relaxed
-            "
           >
-            High-frequency, token-optimized data vectors for autonomous reasoning engines.
-            Powered by the{" "}
-            <span className="text-cyan-400/90">x402 protocol</span>.
-          </motion.p>
+            <AgentInstallConsole />
+            <X402PricingLedger />
+          </motion.div>
 
-          {/* CTA row */}
           <motion.div
             initial={{ opacity: 0, y: 16 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.55, delay: 0.5 }}
-            className="flex flex-col sm:flex-row items-center justify-center gap-4"
+            className="flex flex-col sm:flex-row items-center justify-center gap-4 mt-10"
           >
-            {/* Primary CTA */}
             <Link
               href="/docs"
-              className="
-                group relative inline-flex items-center gap-2.5
-                px-8 py-4 rounded-xl text-sm font-semibold
-                font-[var(--font-grotesk)] tracking-wide uppercase
-                text-[#050914] bg-cyan-400
-                hover:bg-cyan-300
-                transition-all duration-200
-                shadow-[0_0_40px_rgba(0,229,255,0.4),0_4px_16px_rgba(0,0,0,0.3)]
-                hover:shadow-[0_0_55px_rgba(0,229,255,0.55),0_4px_20px_rgba(0,0,0,0.4)]
-              "
+              prefetch
+              className="group inline-flex items-center gap-2.5 px-8 py-4 rounded-xl text-sm font-semibold font-[var(--font-grotesk)] tracking-wide uppercase text-[#050914] bg-cyan-400 hover:bg-cyan-300 transition-all shadow-[0_0_40px_rgba(0,229,255,0.4)]"
             >
-              Initialize Connection
-              <Zap
-                className="w-4 h-4 group-hover:translate-x-0.5 transition-transform"
-                aria-hidden="true"
-              />
+              Integration Docs
+              <Zap className="w-4 h-4 group-hover:translate-x-0.5 transition-transform" aria-hidden="true" />
             </Link>
-
-            {/* Secondary CTA */}
             <Link
               href="/corpora"
-              className="
-                inline-flex items-center gap-2 px-7 py-4 rounded-xl
-                text-sm font-medium font-[var(--font-grotesk)] tracking-wide
-                text-white/65 border border-white/[0.12]
-                hover:text-white/90 hover:border-cyan-400/25 hover:bg-cyan-400/[0.04]
-                transition-all duration-200
-              "
+              prefetch
+              className="inline-flex items-center gap-2 px-7 py-4 rounded-xl text-sm font-medium font-[var(--font-grotesk)] tracking-wide text-white/65 border border-white/[0.12] hover:text-white/90 hover:border-cyan-400/25 transition-all"
             >
-              Browse the Vault
+              32 Collections
               <ChevronRight className="w-4 h-4" aria-hidden="true" />
             </Link>
+            <a
+              href="/.well-known/ai-plugin.json"
+              className="inline-flex items-center gap-2 px-7 py-4 rounded-xl text-sm font-[var(--font-mono)] text-purple-300/80 border border-purple-400/20 hover:border-purple-400/40 transition-all"
+            >
+              ai-plugin.json
+              <ExternalLink className="w-4 h-4" aria-hidden="true" />
+            </a>
           </motion.div>
         </motion.div>
 
-        {/* Scroll hint */}
         <motion.div
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           transition={{ delay: 1.4 }}
-          className="absolute bottom-10 left-1/2 -translate-x-1/2 flex flex-col items-center gap-2"
+          className="absolute bottom-10 left-1/2 -translate-x-1/2"
           aria-hidden="true"
         >
           <div className="w-px h-12 bg-gradient-to-b from-white/20 to-transparent" />
@@ -489,47 +578,7 @@ export default function StorefrontPage() {
           STATS BANNER
       ═══════════════════════════════════════════════════════════════════ */}
       <section className="py-20 px-6" aria-label="Platform statistics">
-        <motion.div
-          initial={{ opacity: 0, y: 24 }}
-          whileInView={{ opacity: 1, y: 0 }}
-          viewport={{ once: true }}
-          transition={{ duration: 0.6 }}
-          className="max-w-5xl mx-auto grid grid-cols-2 md:grid-cols-4 gap-px"
-          style={{
-            background: "rgba(0,229,255,0.06)",
-            borderRadius: "1.25rem",
-            border: "1px solid rgba(0,229,255,0.1)",
-            overflow: "hidden",
-          }}
-        >
-          {[
-            { stat: GLOBAL_METRICS.liveVectors,  suffix: "",   label: "Live Vectors"   },
-            { stat: GLOBAL_METRICS.verticals,    suffix: "",   label: "Verticals"      },
-            { stat: GLOBAL_METRICS.dimensions,   suffix: "D",  label: "Embeddings"     },
-            { stat: GLOBAL_METRICS.latencyMs,    suffix: "ms", label: "Median Latency" },
-          ].map(({ stat, suffix, label }) => (
-            <div
-              key={label}
-              className="text-center py-10 px-4"
-              style={{ background: "#050914" }}
-            >
-              <div
-                className="text-4xl sm:text-5xl font-bold font-[var(--font-grotesk)] mb-2"
-                style={{
-                  background: "linear-gradient(135deg,#00E5FF,#B300FF)",
-                  WebkitBackgroundClip: "text",
-                  WebkitTextFillColor: "transparent",
-                  backgroundClip: "text",
-                }}
-              >
-                <AnimatedCounter target={stat} suffix={suffix} />
-              </div>
-              <div className="text-xs font-[var(--font-mono)] text-white/30 tracking-widest uppercase">
-                {label}
-              </div>
-            </div>
-          ))}
-        </motion.div>
+        <LivePlatformMetrics />
       </section>
 
       {/* ═══════════════════════════════════════════════════════════════════

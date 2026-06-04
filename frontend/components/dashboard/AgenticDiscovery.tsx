@@ -2,13 +2,14 @@
 
 import { useMemo } from "react";
 import { Globe, SearchX, Radio, ExternalLink, CheckCircle2, Clock } from "lucide-react";
-import type { TelemetryData } from "./types";
+import type { TelemetryData, LedgerTelemetryPayload } from "./types";
 
 const CYAN   = "#00E5FF";
 const PURPLE = "#B300FF";
 
 interface Props {
   telemetry: TelemetryData | null;
+  trappedGaps: LedgerTelemetryPayload["trapped_gaps"];
 }
 
 const KNOWN_REGISTRIES = [
@@ -42,25 +43,36 @@ const KNOWN_REGISTRIES = [
   },
 ];
 
-const QUERY_ARCHETYPES = [
-  { pattern: "surgical complication risk stratification", collection: "unison_medical_core",    icon: "🔬" },
-  { pattern: "statutory compliance matrix commercial contracts", collection: "unison_legal_core",   icon: "⚖️" },
-  { pattern: "structural tolerance material fatigue index", collection: "unison_engineering_core", icon: "⚙️" },
-  { pattern: "orbital mechanics escape velocity moon", collection: "unison_astrophysics_core",   icon: "🪐" },
-  { pattern: "Grimm's Law PIE consonant shift table", collection: "unison_linguistics_core",    icon: "📚" },
-];
-
-export function AgenticDiscovery({ telemetry }: Props) {
+export function AgenticDiscovery({ telemetry, trappedGaps }: Props) {
   const t = telemetry;
 
   const crawlRate = useMemo(() => {
-    if (!t || t.uptime_seconds < 60) return 0;
+    if (!t || t.uptime_seconds < 60) return "0.00";
     return (t.manifest_crawl_hits / (t.uptime_seconds / 3_600)).toFixed(2);
   }, [t]);
 
+  const topCollections = useMemo(() => {
+    if (!t?.collection_queries) return [];
+    return Object.entries(t.collection_queries)
+      .sort((a, b) => b[1] - a[1])
+      .slice(0, 8)
+      .map(([name, count]) => ({
+        collection: name,
+        count,
+        label: name.replace("unison_", "").replace(/_/g, " "),
+      }));
+  }, [t]);
+
+  const liveGapSignals = useMemo(
+    () =>
+      [...trappedGaps]
+        .sort((a, b) => b.accumulated_lost_revenue - a.accumulated_lost_revenue)
+        .slice(0, 8),
+    [trappedGaps]
+  );
+
   return (
     <div className="p-6 space-y-6">
-      {/* Crawler metrics */}
       <div className="grid grid-cols-2 lg:grid-cols-3 gap-4">
         <div className="bg-gray-950 border border-gray-900 rounded-xl p-5" style={{ borderLeftColor: CYAN, borderLeftWidth: 3 }}>
           <div className="text-xs font-mono text-gray-500 uppercase tracking-widest mb-2 flex items-center gap-1.5">
@@ -89,29 +101,31 @@ export function AgenticDiscovery({ telemetry }: Props) {
         <div className="bg-gray-950 border border-gray-900 rounded-xl p-5" style={{ borderLeftColor: "#ef4444", borderLeftWidth: 3 }}>
           <div className="text-xs font-mono text-gray-500 uppercase tracking-widest mb-2 flex items-center gap-1.5">
             <SearchX size={11} className="text-red-400" />
-            Zero-Result Queries
+            KV Trapped Gaps
           </div>
           <div className="font-[var(--font-grotesk)] text-3xl font-black text-red-400">
-            {t?.zero_result_queries?.toLocaleString() ?? "0"}
+            {trappedGaps.length.toLocaleString()}
           </div>
-          <div className="text-xs font-mono text-gray-600 mt-1">ingestion gap signals</div>
+          <div className="text-xs font-mono text-gray-600 mt-1">
+            Fly zero-result counter: {t?.zero_result_queries?.toLocaleString() ?? "0"}
+          </div>
         </div>
       </div>
 
-      {/* Registry status */}
       <div className="bg-gray-950 border border-gray-900 rounded-xl p-5">
         <div className="text-xs font-mono text-gray-500 uppercase tracking-widest mb-4 flex items-center gap-2">
           <Globe size={11} className="text-cyan-400" />
           Registry Submission Status
         </div>
         <div className="space-y-3">
-          {KNOWN_REGISTRIES.map(r => (
+          {KNOWN_REGISTRIES.map((r) => (
             <div key={r.name} className="flex items-start gap-3 p-3 bg-gray-900/30 border border-gray-900 rounded-lg">
               <div className="shrink-0 mt-0.5">
-                {r.status === "submitted"
-                  ? <CheckCircle2 size={14} className="text-emerald-400" />
-                  : <Clock size={14} className="text-gray-600" />
-                }
+                {r.status === "submitted" ? (
+                  <CheckCircle2 size={14} className="text-emerald-400" />
+                ) : (
+                  <Clock size={14} className="text-gray-600" />
+                )}
               </div>
               <div className="flex-1 min-w-0">
                 <div className="flex items-center gap-2">
@@ -126,8 +140,12 @@ export function AgenticDiscovery({ telemetry }: Props) {
                       Organic Discovery
                     </span>
                   )}
-                  <a href={r.url} target="_blank" rel="noopener noreferrer"
-                    className="text-gray-600 hover:text-gray-400 transition-colors ml-auto shrink-0">
+                  <a
+                    href={r.url}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-gray-600 hover:text-gray-400 transition-colors ml-auto shrink-0"
+                  >
                     <ExternalLink size={11} />
                   </a>
                 </div>
@@ -138,55 +156,66 @@ export function AgenticDiscovery({ telemetry }: Props) {
         </div>
       </div>
 
-      {/* Zero-result gap analysis */}
       <div className="bg-gray-950 border border-gray-900 rounded-xl p-5">
         <div className="text-xs font-mono text-gray-500 uppercase tracking-widest mb-4 flex items-center gap-2">
           <SearchX size={11} className="text-red-400" />
-          Ingestion Gap Signals — Next Target Collections
+          Ingestion Gap Signals — Live KV
         </div>
-        <div className="text-xs font-mono text-gray-600 mb-3">
-          Zero-result queries from agents indicate gaps in your data moat.
-          Each miss is potential revenue left on the table. Candidate expansion targets:
-        </div>
-        <div className="space-y-2">
-          {[
-            { gap: "19th-century hydrodynamics",          target: "unison_engineering_core",   priority: "HIGH" },
-            { gap: "Renaissance architectural treatises", target: "unison_architecture_core",  priority: "MED"  },
-            { gap: "Pre-1900 naval shipbuilding specs",   target: "unison_manufacturing_core", priority: "MED"  },
-            { gap: "Ancient Greek astronomical tables",   target: "unison_astrophysics_core",  priority: "LOW"  },
-          ].map(g => (
-            <div key={g.gap} className="flex items-center gap-3 p-2.5 border border-gray-900 rounded bg-gray-900/20 font-mono text-xs">
-              <span className={`px-1.5 py-0.5 rounded text-[10px] font-bold ${
-                g.priority === "HIGH" ? "bg-red-500/15 text-red-400 border border-red-500/20" :
-                g.priority === "MED"  ? "bg-amber-500/15 text-amber-400 border border-amber-500/20" :
-                                        "bg-gray-800 text-gray-500 border border-gray-700"
-              }`}>{g.priority}</span>
-              <span className="text-gray-300 flex-1">"{g.gap}"</span>
-              <span className="text-gray-600 shrink-0">{g.target.replace("unison_", "").replace("_core", "")}</span>
-            </div>
-          ))}
-        </div>
-        <div className="mt-3 text-[10px] font-mono text-gray-700">
-          Live zero-result query log populates here as agents miss queries. Run more queries to surface real gaps.
-        </div>
+        {liveGapSignals.length === 0 ? (
+          <div className="text-xs font-mono text-gray-600 py-4 text-center">
+            No trapped gaps in UNISON_ZERO_LOGS. Zero-hit probes will populate this list.
+          </div>
+        ) : (
+          <div className="space-y-2">
+            {liveGapSignals.map((g) => (
+              <div
+                key={g.key ?? `${g.collection}:${g.query}`}
+                className="flex items-center gap-3 p-2.5 border border-gray-900 rounded bg-gray-900/20 font-mono text-xs"
+              >
+                <span
+                  className={`px-1.5 py-0.5 rounded text-[10px] font-bold ${
+                    g.failed_attempts >= 3
+                      ? "bg-red-500/15 text-red-400 border border-red-500/20"
+                      : g.failed_attempts >= 2
+                        ? "bg-amber-500/15 text-amber-400 border border-amber-500/20"
+                        : "bg-gray-800 text-gray-500 border border-gray-700"
+                  }`}
+                >
+                  {g.failed_attempts}×
+                </span>
+                <span className="text-gray-300 flex-1 truncate">&quot;{g.query}&quot;</span>
+                <span className="text-rose-400 shrink-0">${g.accumulated_lost_revenue.toFixed(3)}</span>
+                <span className="text-gray-600 shrink-0">
+                  {g.collection.replace("unison_", "").replace("_core", "")}
+                </span>
+              </div>
+            ))}
+          </div>
+        )}
       </div>
 
-      {/* Active query archetypes */}
       <div className="bg-gray-950 border border-gray-900 rounded-xl p-5">
         <div className="text-xs font-mono text-gray-500 uppercase tracking-widest mb-4">
-          Swarm Query Archetypes — Dry-Run Patterns
+          Query Distribution — Live Fly Telemetry
         </div>
-        <div className="space-y-2">
-          {QUERY_ARCHETYPES.map(q => (
-            <div key={q.pattern} className="flex items-center gap-3 p-2.5 border border-gray-900 rounded bg-gray-900/20 font-mono text-xs">
-              <span className="text-base shrink-0">{q.icon}</span>
-              <span className="text-gray-300 flex-1 truncate">"{q.pattern}"</span>
-              <span className="text-cyan-400/60 text-[10px] shrink-0">
-                {q.collection.replace("unison_", "").replace("_core", "")}
-              </span>
-            </div>
-          ))}
-        </div>
+        {topCollections.length === 0 ? (
+          <div className="text-xs font-mono text-gray-600 py-4 text-center">
+            No collection query volume yet. Dispatch searches to populate archetypes.
+          </div>
+        ) : (
+          <div className="space-y-2">
+            {topCollections.map((q) => (
+              <div
+                key={q.collection}
+                className="flex items-center gap-3 p-2.5 border border-gray-900 rounded bg-gray-900/20 font-mono text-xs"
+              >
+                <span className="text-cyan-400 font-bold shrink-0 w-8 text-right">{q.count}</span>
+                <span className="text-gray-300 flex-1">{q.label}</span>
+                <span className="text-cyan-400/60 text-[10px] shrink-0">{q.collection}</span>
+              </div>
+            ))}
+          </div>
+        )}
       </div>
     </div>
   );

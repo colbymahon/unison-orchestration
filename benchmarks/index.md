@@ -1,5 +1,8 @@
 # Unison Daily Hallucination Audit — Rolling Index
 
+**Production storefront:** https://unisonorchestration.com · **Live moat:** 91,663 vectors · 32 collections  
+**Agent install:** `npx @smithery/cli run colbymahon/unison-orchestration-hub`
+
 Deterministic probes run nightly at 03:00 UTC by `benchmark_bot.py`.
 Fidelity Index = % of ground-truth tokens present in model response (temperature=0.0).
 Token Δ = TSV vs equivalent JSON payload overhead reduction (tiktoken cl100k_base).
@@ -26,6 +29,4 @@ model's ungrounded assertion did not contain any ground-truth tokens.
 
 ---
 
-*Source: [Unison MCP Gateway](https://unison-edge-gateway.unisonorchestration.workers.dev/.well-known/mcp-configuration)
-· [Retriever integration](../integrations/langchain/unison_retriever.py)
-· [LangChain PR Blueprint](../integrations/LANGCHAIN_PR_BLUEPRINT.md)*
+*Source: [Storefront](https://unisonorchestration.com) · [AI plugin](https://unisonorchestration.com/.well-known/ai-plugin.json) · [MCP manifest](https://unison-edge-gateway.unisonorchestration.workers.dev/.well-known/mcp-configuration) · [Retriever](../integrations/langchain/unison_retriever.py) · [LangChain PR](../integrations/LANGCHAIN_PR_BLUEPRINT.md)*

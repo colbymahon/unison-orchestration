@@ -39,6 +39,10 @@ EDGE_URL = os.getenv(
     "UNISON_EDGE_URL",
     "https://unison-edge-gateway.unisonorchestration.workers.dev",
 )
+STOREFRONT_URL = os.getenv(
+    "STOREFRONT_URL",
+    "https://unisonorchestration.com",
+).rstrip("/")
 MODELS = [
     m.strip()
     for m in os.getenv("BENCHMARK_MODELS", "gpt-4o,gpt-4o-mini").split(",")
@@ -309,6 +313,20 @@ def render_markdown(results: dict) -> str:
     return "\n".join(lines)
 
 
+def fetch_production_moat() -> dict | None:
+    """Live vector totals from public storefront API (no auth)."""
+    try:
+        res = requests.get(
+            f"{STOREFRONT_URL}/api/v1/data-moat-metrics",
+            timeout=20,
+        )
+        if res.ok:
+            return res.json()
+    except requests.RequestException:
+        pass
+    return None
+
+
 def update_index(report_path: Path, date: str, summary: dict) -> None:
     index_path = Path("benchmarks/index.md")
     models     = [k for k in summary if k != "token_overhead_reduction_pct"]
@@ -358,6 +376,13 @@ if __name__ == "__main__":
     report_md   = render_markdown(results)
     report_path.write_text(report_md, encoding="utf-8")
     print(f"\nReport written: {report_path}")
+
+    moat = fetch_production_moat()
+    if moat:
+        print(
+            f"Production moat: {moat.get('total_vectors')} vectors, "
+            f"{moat.get('collection_count')} collections"
+        )
 
     # Update rolling index
     update_index(report_path, results["run_date_s"], results["summary"])

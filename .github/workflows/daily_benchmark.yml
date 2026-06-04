@@ -37,8 +37,23 @@ jobs:
         env:
           OPENAI_API_KEY:       ${{ secrets.OPENAI_API_KEY }}
           UNISON_EDGE_URL:      "https://unison-edge-gateway.unisonorchestration.workers.dev"
+          STOREFRONT_URL:       "https://unisonorchestration.com"
           BENCHMARK_MODELS:     ${{ inputs.models || 'gpt-4o,gpt-4o-mini' }}
         run: python3 benchmarks/benchmark_bot.py
+
+      - name: Mirror telemetry to public repo (optional)
+        if: ${{ secrets.TELEMETRY_REPO_TOKEN }}
+        env:
+          TELEMETRY_REPO_TOKEN: ${{ secrets.TELEMETRY_REPO_TOKEN }}
+        run: |
+          git clone "https://x-access-token:${TELEMETRY_REPO_TOKEN}@github.com/colbymahon/unison-data-telemetry.git" /tmp/telemetry
+          cp benchmarks/index.md /tmp/telemetry/README.md
+          cd /tmp/telemetry
+          git config user.name "Unison Benchmark Bot"
+          git config user.email "benchmarks@unisonorchestration.workers.dev"
+          git add README.md
+          git diff --cached --quiet || git commit -m "chore: nightly telemetry $(date -u +%Y-%m-%d)"
+          git push
 
       - name: Commit benchmark report
         run: |

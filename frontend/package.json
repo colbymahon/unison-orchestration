@@ -2,10 +2,15 @@
   "name": "frontend",
   "version": "0.1.0",
   "private": true,
+  "engines": {
+    "node": ">=20.0.0 <23.0.0"
+  },
   "scripts": {
-    "dev": "next dev",
+    "dev": "bash scripts/dev-local-cache.sh",
+    "dev:raw": "next dev",
     "build": "next build",
-    "start": "next start",
+    "start": "next start -H 0.0.0.0",
+    "serve": "bash scripts/serve-production.sh",
     "lint": "eslint"
   },
   "dependencies": {

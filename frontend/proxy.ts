@@ -17,10 +17,12 @@ import type { NextRequest } from "next/server";
 export function proxy(req: NextRequest) {
   const { pathname } = req.nextUrl;
 
-  // Protect dashboard and the Qdrant stats API — all public routes pass through
+  // Dashboard + ops APIs only — moat-metrics stays public for storefront / agents
   const isProtected =
     pathname.startsWith("/dashboard") ||
     pathname.startsWith("/api/qdrant-stats") ||
+    pathname.startsWith("/api/v1/ledger-telemetry") ||
+    pathname.startsWith("/api/v1/infra-health") ||
     pathname.startsWith("/api/admin");
 
   if (!isProtected) {
@@ -97,6 +99,8 @@ export const config = {
   matcher: [
     "/dashboard/:path*",
     "/api/qdrant-stats/:path*",
+    "/api/v1/ledger-telemetry",
+    "/api/v1/infra-health",
     "/api/admin/:path*",
   ],
 };

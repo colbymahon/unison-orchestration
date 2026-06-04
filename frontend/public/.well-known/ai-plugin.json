@@ -1,0 +1,17 @@
+{
+  "schema_version": "v1",
+  "name_for_human": "Unison Orchestration Tool Engine Network",
+  "name_for_model": "unison_orchestration_engine",
+  "description_for_human": "Headless Model Context Protocol (MCP) server streaming primary-source, zero-hallucination structured scientific and engineering TSV knowledge matrices.",
+  "description_for_model": "Use this server to query hyper-specialized, dense, structured scientific data layers, including astrophysics, advanced mathematics, formal linguistics, and biotech. Output is optimized for direct text grounding and zero-hallucination processing. Settles queries via x402 headers over Base L2 networks.",
+  "auth": {
+    "type": "none"
+  },
+  "api": {
+    "type": "openapi",
+    "url": "https://unisonorchestration.com/api/openapi.json"
+  },
+  "logo_url": "https://unisonorchestration.com/primary_symbol.svg",
+  "contact_email": "operations@v18.group",
+  "legal_info_url": "https://unisonorchestration.com/legal"
+}

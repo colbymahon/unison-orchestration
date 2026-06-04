@@ -1,0 +1,12 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128" role="img" aria-label="Unison Orchestration">
+  <defs>
+    <linearGradient id="u" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#00E5FF"/>
+      <stop offset="100%" stop-color="#B300FF"/>
+    </linearGradient>
+  </defs>
+  <rect width="128" height="128" rx="28" fill="#050914"/>
+  <circle cx="64" cy="64" r="44" fill="none" stroke="url(#u)" stroke-width="4"/>
+  <path d="M64 28 L64 64 L92 80" fill="none" stroke="url(#u)" stroke-width="5" stroke-linecap="round" stroke-linejoin="round"/>
+  <circle cx="64" cy="64" r="8" fill="#00E5FF"/>
+</svg>
