@@ -36,6 +36,7 @@ import {
   executeCompositeSearch,
   resolveCompositionPlan,
 } from "./routers";
+import { evaluateFreeTierBatched } from "./free_tier_batch";
 import { mergeZkpHeaders, verifyAndAttachZkp } from "./zkp";
 
 // ---------------------------------------------------------------------------
@@ -170,67 +171,6 @@ function resolveClientId(request: Request): string {
   return `ip:${ip}`;
 }
 
-interface FreeTierStatus {
-  /** Queries used before this request */
-  used: number;
-  /** Queries remaining after crediting this request */
-  remaining: number;
-  /** Whether this request is covered by the free tier */
-  isFree: boolean;
-}
-
-/**
- * Atomically read, evaluate, and increment the client's usage counter.
- *
- * Note: Cloudflare KV is eventually consistent. In high-concurrency
- * bursts the effective free tier may slightly exceed FREE_TIER_LIMIT.
- * This is an acceptable trade-off for the low-friction onboarding goal.
- */
-async function evaluateFreeTier(
-  clientId: string,
-  kv: KVNamespace
-): Promise<FreeTierStatus> {
-  let used = 0;
-  try {
-    const raw = await kv.get(clientId);
-    used = raw !== null ? parseInt(raw, 10) : 0;
-    if (!Number.isFinite(used) || used < 0) used = 0;
-  } catch (err) {
-    console.warn(
-      JSON.stringify({
-        event: "FREE_TIER_KV_READ_DEGRADED",
-        error: err instanceof Error ? err.message : String(err),
-      })
-    );
-    used = 0;
-  }
-
-  const isFree = used < FREE_TIER_LIMIT;
-
-  if (isFree) {
-    try {
-      await kv.put(clientId, String(used + 1), {
-        expirationTtl: FREE_TIER_TTL_SECONDS,
-      });
-    } catch (err) {
-      // CF daily KV write cap — fail-open so /mcp/v1/search never 1101s
-      console.warn(
-        JSON.stringify({
-          event: "FREE_TIER_KV_PUT_DEGRADED",
-          client_id: clientId,
-          error: err instanceof Error ? err.message : String(err),
-          action: "allow_request_without_increment",
-        })
-      );
-    }
-  }
-
-  return {
-    used,
-    remaining: Math.max(0, FREE_TIER_LIMIT - used - (isFree ? 1 : 0)),
-    isFree,
-  };
-}
 
 // ---------------------------------------------------------------------------
 // x402 verification
@@ -590,7 +530,13 @@ export default {
       }
 
       const clientId = resolveClientId(request);
-      const freeTier = await evaluateFreeTier(clientId, env.FREE_TIER);
+      const freeTier = await evaluateFreeTierBatched(
+        clientId,
+        env.FREE_TIER,
+        FREE_TIER_LIMIT,
+        FREE_TIER_TTL_SECONDS,
+        ctx
+      );
 
       if (freeTier.isFree) {
         console.log(

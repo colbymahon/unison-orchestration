@@ -146,6 +146,9 @@ export async function recordChunkDigestInKv(
   }
 ): Promise<void> {
   if (!kv) return;
+  if (await lookupChunkDigest(kv, digest)) {
+    return;
+  }
   const payload = JSON.stringify({
     digest,
     collection: meta.collection,
@@ -189,9 +192,16 @@ export async function appendRingEntry(
       ring = [];
     }
   }
+  if (ring.includes(verificationDigest)) {
+    return;
+  }
   ring.push(verificationDigest);
   if (ring.length > 32) ring = ring.slice(-32);
-  await kv.put(key, JSON.stringify(ring), { expirationTtl: KV_TTL_SECONDS });
+  try {
+    await kv.put(key, JSON.stringify(ring), { expirationTtl: KV_TTL_SECONDS });
+  } catch {
+    /* KV daily cap — ring append skipped */
+  }
 }
 
 /**
@@ -216,17 +226,20 @@ export async function verifyAndAttachZkp(
       );
       chunkDigests.push(digest);
       const known = await lookupChunkDigest(kv, digest);
-      if (known) verifiedCount += 1;
-      try {
-        await recordChunkDigestInKv(kv, digest, {
-          collection,
-          sequence: row.sequence,
-          url: row.url,
-          episodeId,
-          source: known ? "kv_hit" : "edge_materialize",
-        });
-      } catch (kvErr) {
-        console.warn("ZKP KV record skipped:", kvErr);
+      if (known) {
+        verifiedCount += 1;
+      } else {
+        try {
+          await recordChunkDigestInKv(kv, digest, {
+            collection,
+            sequence: row.sequence,
+            url: row.url,
+            episodeId,
+            source: "edge_materialize",
+          });
+        } catch (kvErr) {
+          console.warn("ZKP KV record skipped:", kvErr);
+        }
       }
     }
 
