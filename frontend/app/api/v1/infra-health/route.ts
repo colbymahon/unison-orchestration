@@ -51,11 +51,40 @@ async function probeQdrant(): Promise<{
   };
 }
 
+async function probeZkpDigest(): Promise<{
+  header_present: boolean;
+  verification_digest: string | null;
+  chunk_count: string | null;
+}> {
+  const url = `${EDGE}/mcp/v1/search?q=zkp+integrity+probe&collection=unison_engineering_core`;
+  try {
+    const res = await fetch(url, {
+      method: "GET",
+      cache: "no-store",
+      headers: { "X-Agent-ID": "dashboard-zkp-probe" },
+      signal: AbortSignal.timeout(12_000),
+    });
+    return {
+      header_present: res.headers.has("x-unison-zkp-verification-digest"),
+      verification_digest:
+        res.headers.get("x-unison-zkp-verification-digest"),
+      chunk_count: res.headers.get("x-unison-zkp-chunk-count"),
+    };
+  } catch {
+    return {
+      header_present: false,
+      verification_digest: null,
+      chunk_count: null,
+    };
+  }
+}
+
 export async function GET(): Promise<NextResponse> {
-  const [edge, fly, app] = await Promise.all([
+  const [edge, fly, app, zkp] = await Promise.all([
     probe("EDGE_GATEWAY", `${EDGE}/.well-known/mcp-configuration`),
     probe("FLY_API", `${FLY}/health`),
     probeQdrant(),
+    probeZkpDigest(),
   ]);
 
   return NextResponse.json(
@@ -63,6 +92,12 @@ export async function GET(): Promise<NextResponse> {
       probes: [edge, fly, app],
       edge_latency_ms: edge.latency_ms,
       fly_latency_ms: fly.latency_ms,
+      zkp_integrity: {
+        edge_attestation_live: zkp.header_present,
+        last_verification_digest: zkp.verification_digest,
+        last_chunk_count: zkp.chunk_count,
+        probed_at: new Date().toISOString(),
+      },
       fetched_at: new Date().toISOString(),
       geometry: {
         edge: "cloudflare_global",

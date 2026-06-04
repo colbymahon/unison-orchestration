@@ -29,3 +29,14 @@ export interface VerifiedVectorBundle {
   sourceDigest: SourceDigestRecord;
   attestation?: ZkpAttestationSnippet;
 }
+
+/** Edge MCP response — merged hash chain over delivered TSV chunks */
+export interface ZkpVerificationDigestHeader {
+  digest: string;
+  chunkCount: number;
+  verifiedAgainstKv: number;
+  schema: "unison-zkp-v1";
+}
+
+export const ZKP_VERIFICATION_DIGEST_HEADER =
+  "X-Unison-ZKP-Verification-Digest" as const;

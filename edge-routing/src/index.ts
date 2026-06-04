@@ -36,6 +36,7 @@ import {
   executeCompositeSearch,
   resolveCompositionPlan,
 } from "./routers";
+import { mergeZkpHeaders, verifyAndAttachZkp } from "./zkp";
 
 // ---------------------------------------------------------------------------
 // Environment bindings
@@ -79,7 +80,7 @@ const CORS_HEADERS: Record<string, string> = {
   "Access-Control-Allow-Headers":
     "Content-Type, Payment-Signature, Authorization, X-Agent-ID, X-Unison-Lineage, X-Unison-Lineage-Version, X-Unison-Priority-Premium",
   "Access-Control-Expose-Headers":
-    "X-Unison-Satiation, X-Unison-Auction-Status, X-Unison-Premium-Settled, X-Unison-Min-Premium-Bid, X-Unison-Lineage, X-Unison-Lineage-Step, X-Unison-Lineage-Episode, X-Unison-Router-Composition, X-Unison-Settlement-Split, X-Unison-Revenue-Split, X-Remaining-Free-Tier",
+    "X-Unison-Satiation, X-Unison-Auction-Status, X-Unison-Premium-Settled, X-Unison-Min-Premium-Bid, X-Unison-Lineage, X-Unison-Lineage-Step, X-Unison-Lineage-Episode, X-Unison-Router-Composition, X-Unison-Settlement-Split, X-Unison-Revenue-Split, X-Unison-ZKP-Verification-Digest, X-Unison-ZKP-Chunk-Count, X-Unison-ZKP-Verified-Count, X-Unison-Source-Digest, X-Remaining-Free-Tier",
   "Access-Control-Max-Age": "86400",
 };
 
@@ -351,6 +352,16 @@ async function proxyToBackend(
       }
       extraHeaders["X-Unison-Lineage-Step"] = String(lineageCtx.step);
       extraHeaders["X-Unison-Lineage-Episode"] = lineageCtx.episodeId;
+    }
+
+    if (bodyText) {
+      const zkp = await verifyAndAttachZkp(
+        env.UNISON_LINEAGE,
+        bodyText,
+        collection,
+        lineageEpisodeId
+      );
+      mergeZkpHeaders(extraHeaders, zkp);
     }
   }
 

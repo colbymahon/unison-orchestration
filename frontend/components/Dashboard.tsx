@@ -39,6 +39,11 @@ interface InfraHealthPayload {
   probes: Array<{ name: string; status: string; latency_ms: number | null }>;
   edge_latency_ms: number | null;
   fly_latency_ms: number | null;
+  zkp_integrity?: {
+    edge_attestation_live?: boolean;
+    last_verification_digest?: string | null;
+    last_chunk_count?: string | null;
+  };
 }
 
 // ── Configuration ────────────────────────────────────────────────────────────
@@ -251,7 +256,7 @@ export default function Dashboard() {
               endpointStatuses={endpointStatuses}
             />
 
-            <MarketplacePrimitives />
+            <MarketplacePrimitives zkpIntegrity={infraHealth?.zkp_integrity} />
 
             {/* Infra status strip */}
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">

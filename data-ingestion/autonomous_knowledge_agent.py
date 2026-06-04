@@ -26,6 +26,7 @@ from __future__ import annotations
 
 import argparse
 import asyncio
+import hashlib
 import json
 import logging
 import os
@@ -104,6 +105,23 @@ def format_tsv_row(sequence: str, url: str, content: str) -> str:
     )
 
 
+def compute_tsv_chunk_digest(sequence: str, url: str, content: str) -> str:
+    """
+    Phase 2d — immutable SHA-256 over canonical Sequence+URL+Content (edge-aligned).
+    """
+    canonical = format_tsv_row(sequence, url, content)
+    return hashlib.sha256(canonical.encode("utf-8")).hexdigest()
+
+
+def format_tsv_row_with_digest(
+    sequence: str, url: str, content: str
+) -> tuple[str, str]:
+    """Return (tsv_row, sha256_hex_digest)."""
+    row = format_tsv_row(sequence, url, content)
+    digest = compute_tsv_chunk_digest(sequence, url, content)
+    return row, digest
+
+
 def chunk_from_tsv_row(sequence: str, url: str, content: str) -> TextChunk:
     """Build embeddable chunk; payload.sequence stores the human label."""
     clean_content = sanitize_tsv_field(content)
@@ -143,6 +161,12 @@ def upsert_with_sequence_labels(
                     "is_structured": chunk.is_structured,
                     "ingested_by": "autonomous_knowledge_agent",
                     "ingested_at": datetime.now(timezone.utc).isoformat(),
+                    "source_digest": compute_tsv_chunk_digest(
+                        label, chunk.source_url, chunk.text
+                    ),
+                    "tsv_canonical": format_tsv_row(
+                        label, chunk.source_url, chunk.text
+                    ),
                 },
             )
             for (chunk, vector), label in zip(batch, labels)
@@ -160,9 +184,15 @@ class AgentTelemetry:
     updated_at: str = ""
     cycles_completed: int = 0
     vectors_upserted_total: int = 0
+    digests_computed_total: int = 0
+    last_digest_sample: str = ""
     last_cycle: dict[str, Any] = field(default_factory=dict)
     collections_touched: list[str] = field(default_factory=list)
     errors: list[str] = field(default_factory=list)
+
+    def record_digest(self, digest: str) -> None:
+        self.digests_computed_total += 1
+        self.last_digest_sample = digest[:16] + "…" if len(digest) > 16 else digest
 
     def to_dict(self) -> dict[str, Any]:
         return asdict(self)
@@ -301,6 +331,11 @@ def process_arxiv_category(
         return 0
 
     chunks, skus = papers_to_chunks(papers, category, domain)
+    for chunk, sku in zip(chunks, skus):
+        asset_id = sku.get("asset_id") or str(chunk.chunk_id)
+        url = sku.get("source_uri") or chunk.source_url
+        sku["source_digest"] = compute_tsv_chunk_digest(asset_id, url, chunk.text)
+        sku["tsv_canonical"] = format_tsv_row(asset_id, url, chunk.text)
     ensure_collection(qdrant_client, collection, log)
     embedded = embed_chunks(chunks, openai_client, log)
     upsert_with_sku(embedded, skus, qdrant_client, collection)
@@ -377,7 +412,7 @@ async def process_github_lane(
                 continue
 
             seq = f"GH-{collection.replace('unison_', '').upper()[:8]}-{uuid.uuid4().hex[:6]}"
-            row = format_tsv_row(seq, html_url, content)
+            row, digest = format_tsv_row_with_digest(seq, html_url, content)
             try:
                 chunk = chunk_from_tsv_row(seq, html_url, content)
             except ValueError:
@@ -386,6 +421,8 @@ async def process_github_lane(
             ensure_collection(qdrant_client, collection, log)
             embedded = embed_chunks([chunk], openai_client, log)
             upsert_with_sequence_labels(embedded, [seq], qdrant_client, collection)
+            telemetry.record_digest(digest)
+            log.info("[ZKP] Ingest digest %s → %s", digest[:16], collection)
             log.info("[GITHUB] Upserted %s → %s (%d chars)", full_name, collection, len(row))
             upserted += 1
             await asyncio.sleep(2.0)

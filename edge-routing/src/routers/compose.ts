@@ -10,6 +10,7 @@ import {
   resolveLineageSessionSecret,
 } from "../lineage";
 import type { CompositionLeg, CompositionPlan } from "./registry";
+import { mergeZkpHeaders, verifyAndAttachZkp } from "../zkp";
 
 export const ROUTER_COMPOSITION_HEADER = "X-Unison-Router-Composition";
 export const SETTLEMENT_SPLIT_HEADER = "X-Unison-Settlement-Split";
@@ -188,6 +189,14 @@ export async function executeCompositeSearch(
     "X-Qdrant-Result-Count": String(totalHits),
     "X-Unison-Lineage-Step": String(compositionStep),
   };
+
+  const zkp = await verifyAndAttachZkp(
+    env.UNISON_LINEAGE,
+    combinedBody,
+    primaryCollection,
+    lineageCtx?.episodeId
+  );
+  mergeZkpHeaders(responseHeaders, zkp);
 
   if (env.UNISON_LINEAGE && lineageCtx) {
     const sessionSecret = resolveLineageSessionSecret(env);
