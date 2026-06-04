@@ -59,6 +59,23 @@ const nextConfig: NextConfig = {
 
   // Ensure Three.js / React Three Fiber transpiles correctly
   transpilePackages: ["three"],
+
+  async rewrites() {
+    return {
+      afterFiles: [
+        {
+          source: "/.well-known/mcp-configuration",
+          destination:
+            "https://unison-edge-gateway.unisonorchestration.workers.dev/.well-known/mcp-configuration",
+        },
+        {
+          source: "/.well-known/ai-plugin.json",
+          destination:
+            "https://unison-edge-gateway.unisonorchestration.workers.dev/.well-known/ai-plugin.json",
+        },
+      ],
+    };
+  },
 };
 
 export default nextConfig;
