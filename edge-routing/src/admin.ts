@@ -12,6 +12,7 @@ export async function listTrappedGaps(kv: KVNamespace): Promise<TrappedGapRow[]>
   const rows: TrappedGapRow[] = [];
   let cursor: string | undefined;
 
+  try {
   do {
     const page = await kv.list({ prefix: "miss:", cursor, limit: 100 });
     for (const entry of page.keys) {
@@ -32,6 +33,15 @@ export async function listTrappedGaps(kv: KVNamespace): Promise<TrappedGapRow[]>
       (b.accumulated_lost_revenue ?? 0) - (a.accumulated_lost_revenue ?? 0)
   );
   return rows;
+  } catch (err) {
+    console.warn(
+      JSON.stringify({
+        event: "ADMIN_LIST_GAPS_DEGRADED",
+        error: err instanceof Error ? err.message : String(err),
+      })
+    );
+    return [];
+  }
 }
 
 export function authorizeAdmin(request: Request, secret: string | undefined): boolean {

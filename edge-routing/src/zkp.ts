@@ -155,7 +155,11 @@ export async function recordChunkDigestInKv(
     source: meta.source ?? "edge_search",
     recordedAt: new Date().toISOString(),
   });
-  await kv.put(chunkKvKey(digest), payload, { expirationTtl: KV_TTL_SECONDS });
+  try {
+    await kv.put(chunkKvKey(digest), payload, { expirationTtl: KV_TTL_SECONDS });
+  } catch {
+    /* KV daily cap — digest verification still returns headers */
+  }
 }
 
 export async function lookupChunkDigest(

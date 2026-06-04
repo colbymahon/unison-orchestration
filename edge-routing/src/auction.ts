@@ -127,7 +127,17 @@ export async function trackCollectionVelocity(
   const cutoff = now - cfg.windowMs;
   record.ts = record.ts.filter((t) => t >= cutoff);
   record.ts.push(now);
-  await saveVelocity(kv, collection, record, Math.ceil(cfg.windowMs / 1000) + 60);
+  try {
+    await saveVelocity(kv, collection, record, Math.ceil(cfg.windowMs / 1000) + 60);
+  } catch (err) {
+    console.warn(
+      JSON.stringify({
+        event: "AUCTION_VELOCITY_KV_DEGRADED",
+        collection,
+        error: err instanceof Error ? err.message : String(err),
+      })
+    );
+  }
 
   const count = record.ts.length;
   const overload = count > cfg.maxPerWindow;

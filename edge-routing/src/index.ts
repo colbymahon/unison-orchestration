@@ -190,21 +190,44 @@ async function evaluateFreeTier(
   clientId: string,
   kv: KVNamespace
 ): Promise<FreeTierStatus> {
-  const raw = await kv.get(clientId);
-  const used = raw !== null ? parseInt(raw, 10) : 0;
+  let used = 0;
+  try {
+    const raw = await kv.get(clientId);
+    used = raw !== null ? parseInt(raw, 10) : 0;
+    if (!Number.isFinite(used) || used < 0) used = 0;
+  } catch (err) {
+    console.warn(
+      JSON.stringify({
+        event: "FREE_TIER_KV_READ_DEGRADED",
+        error: err instanceof Error ? err.message : String(err),
+      })
+    );
+    used = 0;
+  }
+
   const isFree = used < FREE_TIER_LIMIT;
 
   if (isFree) {
-    // Increment counter; reset TTL on each call so active users
-    // don't lose their remaining trial due to clock drift
-    await kv.put(clientId, String(used + 1), {
-      expirationTtl: FREE_TIER_TTL_SECONDS,
-    });
+    try {
+      await kv.put(clientId, String(used + 1), {
+        expirationTtl: FREE_TIER_TTL_SECONDS,
+      });
+    } catch (err) {
+      // CF daily KV write cap — fail-open so /mcp/v1/search never 1101s
+      console.warn(
+        JSON.stringify({
+          event: "FREE_TIER_KV_PUT_DEGRADED",
+          client_id: clientId,
+          error: err instanceof Error ? err.message : String(err),
+          action: "allow_request_without_increment",
+        })
+      );
+    }
   }
 
   return {
     used,
-    remaining: Math.max(0, FREE_TIER_LIMIT - used - 1),
+    remaining: Math.max(0, FREE_TIER_LIMIT - used - (isFree ? 1 : 0)),
     isFree,
   };
 }
