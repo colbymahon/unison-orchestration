@@ -31,6 +31,11 @@ import {
   prepareLineageForSearch,
   resolveLineageSessionSecret,
 } from "./lineage";
+import {
+  ROUTER_COMPOSITION_HEADER,
+  executeCompositeSearch,
+  resolveCompositionPlan,
+} from "./routers";
 
 // ---------------------------------------------------------------------------
 // Environment bindings
@@ -74,7 +79,7 @@ const CORS_HEADERS: Record<string, string> = {
   "Access-Control-Allow-Headers":
     "Content-Type, Payment-Signature, Authorization, X-Agent-ID, X-Unison-Lineage, X-Unison-Lineage-Version, X-Unison-Priority-Premium",
   "Access-Control-Expose-Headers":
-    "X-Unison-Satiation, X-Unison-Auction-Status, X-Unison-Premium-Settled, X-Unison-Min-Premium-Bid, X-Unison-Lineage, X-Unison-Lineage-Step, X-Unison-Lineage-Episode, X-Remaining-Free-Tier",
+    "X-Unison-Satiation, X-Unison-Auction-Status, X-Unison-Premium-Settled, X-Unison-Min-Premium-Bid, X-Unison-Lineage, X-Unison-Lineage-Step, X-Unison-Lineage-Episode, X-Unison-Router-Composition, X-Unison-Settlement-Split, X-Unison-Revenue-Split, X-Remaining-Free-Tier",
   "Access-Control-Max-Age": "86400",
 };
 
@@ -404,6 +409,27 @@ async function executeMcpSearch(
   }
 
   const mergedTier = { ...tierHeaders, ...gate.responseHeaders };
+  const plan = resolveCompositionPlan(
+    q,
+    collection,
+    url.searchParams,
+    env.PAYMENT_DEST
+  );
+
+  if (plan.active && plan.legs.length > 1) {
+    const { response } = await executeCompositeSearch(
+      request,
+      env,
+      plan,
+      q,
+      collection,
+      lineageCtx,
+      mergedTier
+    );
+    return withCors(response);
+  }
+
+  mergedTier[ROUTER_COMPOSITION_HEADER] = "Single-Node";
   return proxyToBackend(request, env, ctx, mergedTier, lineageCtx);
 }
 

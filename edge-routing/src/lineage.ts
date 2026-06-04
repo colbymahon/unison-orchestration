@@ -301,3 +301,21 @@ export function resolveLineageSessionSecret(env: {
 }): string | undefined {
   return env.LINEAGE_SESSION_SECRET ?? env.ADMIN_API_SECRET;
 }
+
+/** Mint outbound token at an explicit step (composite multi-leg advance). */
+export async function mintOutboundLineageToken(
+  ctx: LineageSearchContext,
+  step: number,
+  collections: string[],
+  sessionSecret?: string
+): Promise<string | null> {
+  return sealLineageClaims(
+    {
+      episodeId: ctx.episodeId,
+      step: Math.min(step, LINEAGE_MAX_STEPS),
+      principalId: ctx.principalId,
+      collections,
+    },
+    sessionSecret
+  );
+}

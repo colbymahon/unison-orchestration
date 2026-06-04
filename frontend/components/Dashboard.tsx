@@ -16,6 +16,7 @@ import {
 import { MoatControlRoom } from "./dashboard/MoatControlRoom";
 import { LedgerPanel } from "./dashboard/LedgerPanel";
 import { OverviewTelemetryGrid } from "./dashboard/OverviewTelemetryGrid";
+import { MarketplacePrimitives } from "./dashboard/MarketplacePrimitives";
 import { InfraTelemetry } from "./dashboard/InfraTelemetry";
 import { AgenticDiscovery } from "./dashboard/AgenticDiscovery";
 import { LiveTerminal } from "./dashboard/LiveTerminal";
@@ -77,10 +78,13 @@ export default function Dashboard() {
     pollIntervalMs: LEDGER_POLL_MS,
   });
 
-  const { data: moat } = useLiveFetch<MoatApiPayload>("/api/v1/data-moat-metrics", {
-    ...DASHBOARD_FETCH_BASE,
-    pollIntervalMs: MOAT_POLL_MS,
-  });
+  const { data: moat } = useLiveFetch<MoatApiPayload>(
+    "/api/v1/data-moat-metrics?fresh=1",
+    {
+      ...DASHBOARD_FETCH_BASE,
+      pollIntervalMs: MOAT_POLL_MS,
+    }
+  );
 
   const { data: infraHealth } = useLiveFetch<InfraHealthPayload>("/api/v1/infra-health", {
     ...DASHBOARD_FETCH_BASE,
@@ -246,6 +250,8 @@ export default function Dashboard() {
               edgeLatencyMs={edgeLatencyMs}
               endpointStatuses={endpointStatuses}
             />
+
+            <MarketplacePrimitives />
 
             {/* Infra status strip */}
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
