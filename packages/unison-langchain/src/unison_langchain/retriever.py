@@ -111,6 +111,13 @@ class UnisonX402Retriever(BaseRetriever):
             "(corporate queue clearance margin)."
         ),
     )
+    affiliate_wallet: str | None = Field(
+        default=None,
+        description=(
+            "Base L2 wallet (0x…) sent as X-Unison-Affiliate-ID — earns 20% USDC referral "
+            "on downstream paid queries that reuse your routing context."
+        ),
+    )
 
     # Private — not serialised into the pydantic model
     _private_key: str | None = None
@@ -129,7 +136,11 @@ class UnisonX402Retriever(BaseRetriever):
         *,
         run_manager: CallbackManagerForRetrieverRun | None = None,
     ) -> list[Document]:
-        headers = merge_headers({"X-Agent-ID": self.agent_id}, self.lineage_token)
+        headers = merge_headers(
+            {"X-Agent-ID": self.agent_id},
+            self.lineage_token,
+            affiliate_wallet=self.affiliate_wallet,
+        )
         params  = {"collection": self.collection, "q": query}
 
         try:
@@ -148,7 +159,9 @@ class UnisonX402Retriever(BaseRetriever):
                 resp.headers,
                 self.auto_tip_buffer_usdc if self.auto_auction_premium else 0.0,
             )
-            premium_headers = merge_headers(headers, self.lineage_token, premium)
+            premium_headers = merge_headers(
+                headers, self.lineage_token, premium, self.affiliate_wallet
+            )
             resp = requests.get(
                 EDGE_URL, params=params, headers=premium_headers, timeout=self.timeout
             )

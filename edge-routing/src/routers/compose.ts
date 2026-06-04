@@ -10,6 +10,11 @@ import {
   resolveLineageSessionSecret,
 } from "../lineage";
 import type { CompositionLeg, CompositionPlan } from "./registry";
+import {
+  AFFILIATE_SETTLED_HEADER,
+  applyAffiliateSplit,
+  normalizeHexWallet,
+} from "../affiliate";
 import { mergeZkpHeaders, verifyAndAttachZkp } from "../zkp";
 
 export const ROUTER_COMPOSITION_HEADER = "X-Unison-Router-Composition";
@@ -90,30 +95,23 @@ async function fetchLeg(
   return { leg, body, hitCount: Number.isFinite(hitCount) ? hitCount : 0, status: res.status };
 }
 
-const HEX_WALLET = /^0x[a-fA-F0-9]{40}$/;
-
-function normalizeWallet(addr: string): string {
-  const t = addr.trim();
-  if (!HEX_WALLET.test(t)) return t;
-  return t.toLowerCase();
-}
-
 export function buildRevenueRoutingEvent(
   query: string,
   primaryCollection: string,
   plan: CompositionPlan,
   legResults: LegFetchResult[],
   lineageCtx: LineageSearchContext | null,
-  treasuryWallet: string
+  treasuryWallet: string,
+  affiliateWallet: string | null = null
 ): Record<string, unknown> {
   const partnerMargins = plan.legs
     .filter((l) => l.providerId !== "unison_core")
     .map((l) => ({
-      beneficiary: `provider:${normalizeWallet(l.baseWalletAddress)}`,
+      beneficiary: `provider:${normalizeHexWallet(l.baseWalletAddress)}`,
       amountUsdc: l.baseUSDCFee,
       providerId: l.providerId,
       settlementLabel: l.settlementLabel,
-      walletAddress: normalizeWallet(l.baseWalletAddress),
+      walletAddress: normalizeHexWallet(l.baseWalletAddress),
     }));
 
   const treasuryPremium =
@@ -130,7 +128,7 @@ export function buildRevenueRoutingEvent(
     const gross = Number(leg.baseUSDCFee);
     if (!Number.isFinite(gross) || gross <= 0) continue;
     allocations.push({
-      address: normalizeWallet(leg.baseWalletAddress),
+      address: normalizeHexWallet(leg.baseWalletAddress),
       gross_usdc: gross,
       providerId: leg.providerId,
       settlementLabel: leg.settlementLabel,
@@ -138,12 +136,20 @@ export function buildRevenueRoutingEvent(
   }
 
   const premium = Number(treasuryPremium);
-  if (Number.isFinite(premium) && premium > 0 && HEX_WALLET.test(treasuryWallet.trim())) {
+  if (Number.isFinite(premium) && premium > 0) {
     allocations.push({
-      address: normalizeWallet(treasuryWallet),
+      address: normalizeHexWallet(treasuryWallet),
       gross_usdc: premium,
       settlementLabel: "treasury",
     });
+  }
+
+  let affiliate_usdc = 0;
+  if (affiliateWallet && allocations.length > 0) {
+    const split = applyAffiliateSplit(allocations, affiliateWallet);
+    allocations.length = 0;
+    allocations.push(...split.allocations);
+    affiliate_usdc = split.affiliate_usdc;
   }
 
   return {
@@ -160,11 +166,14 @@ export function buildRevenueRoutingEvent(
       baseUSDCFee: r.leg.baseUSDCFee,
       settlementLabel: r.leg.settlementLabel,
       hitCount: r.hitCount,
-      walletAddress: normalizeWallet(r.leg.baseWalletAddress),
+      walletAddress: normalizeHexWallet(r.leg.baseWalletAddress),
     })),
     treasury_premium_usdc: treasuryPremium,
     partner_settlement_margins: partnerMargins,
-    treasury_wallet: normalizeWallet(treasuryWallet),
+    treasury_wallet: normalizeHexWallet(treasuryWallet),
+    affiliate_wallet: affiliateWallet ?? undefined,
+    affiliate_referral_usdc: affiliate_usdc > 0 ? affiliate_usdc.toFixed(6) : undefined,
+    affiliate_referral_bps: affiliateWallet ? 2000 : undefined,
     total_usdc: plan.totalUsdc.toFixed(4),
     timestamp: new Date().toISOString(),
     settlement_batch: {
@@ -192,7 +201,8 @@ export async function executeCompositeSearch(
   query: string,
   primaryCollection: string,
   lineageCtx: LineageSearchContext | null,
-  extraHeaders: Record<string, string>
+  extraHeaders: Record<string, string>,
+  affiliateWallet: string | null = null
 ): Promise<CompositeSearchResult> {
   const legResults = await Promise.all(
     plan.legs.map((leg) => fetchLeg(env.BACKEND_URL, request, leg, query))
@@ -206,10 +216,15 @@ export async function executeCompositeSearch(
     plan,
     legResults,
     lineageCtx,
-    env.PAYMENT_DEST
+    env.PAYMENT_DEST,
+    affiliateWallet
   );
 
   console.log(JSON.stringify(routingEvent));
+
+  if (affiliateWallet && routingEvent.affiliate_referral_usdc) {
+    extraHeaders[AFFILIATE_SETTLED_HEADER] = String(routingEvent.affiliate_referral_usdc);
+  }
 
   const compositionStep = lineageCtx
     ? Math.min(64, lineageCtx.step + plan.legs.length)

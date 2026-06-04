@@ -16,6 +16,11 @@
       "default": "smithery-instantiated-swarm",
       "minLength": 1,
       "description": "Isolates the 50-query free tier per Smithery install."
+    },
+    "affiliate_id": {
+      "type": "string",
+      "title": "Affiliate wallet (X-Unison-Affiliate-ID)",
+      "description": "Optional Base L2 address (0x…) — earns 20% USDC on referred paid queries."
     }
   },
   "required": []

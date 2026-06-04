@@ -50,6 +50,9 @@ export interface SettlementAllocation {
   settlementLabel?: string;
 }
 
+/** Default A2A referral — 20% of query fee to affiliate wallet */
+export const AFFILIATE_REFERRAL_BPS = 2000;
+
 /** Attachable batch payload — links REVENUE_ROUTING_EVENT to Base L2 tx */
 export interface SettlementBatch {
   tx_hash: string;
@@ -104,6 +107,10 @@ export interface RevenueRoutingEvent {
   partner_settlement_margins: RevenueSplitLeg[];
   total_usdc: UsdcAmount;
   timestamp: string;
+  /** Referring agent Base L2 wallet (X-Unison-Affiliate-ID) */
+  affiliate_wallet?: string;
+  affiliate_referral_usdc?: UsdcAmount;
+  affiliate_referral_bps?: number;
   /** Gas-optimized multi-split contract input (tx_hash empty until settled) */
   settlement_batch: SettlementBatch;
 }
@@ -162,6 +169,52 @@ export function buildSettlementBatch(
     network: "base",
     chain_id: 8453,
   };
+}
+
+/**
+ * Scale provider allocations to (100% - referralBps) and append affiliate line.
+ */
+export function applyAffiliateSplitToBatch(
+  allocations: SettlementAllocation[],
+  affiliateWallet: string,
+  referralBps = AFFILIATE_REFERRAL_BPS
+): { allocations: SettlementAllocation[]; affiliate_usdc: number } {
+  const affiliate = normalizeHexWallet(affiliateWallet);
+  const total = allocations.reduce((s, a) => s + a.gross_usdc, 0);
+  if (total <= 0) {
+    return {
+      allocations: [
+        { address: affiliate, gross_usdc: 0, settlementLabel: "affiliate_referral" },
+      ],
+      affiliate_usdc: 0,
+    };
+  }
+  const affiliateUsdc =
+    Math.round(((total * referralBps) / 10_000) * 1_000_000) / 1_000_000;
+  const scale = (total - affiliateUsdc) / total;
+  const scaled = allocations.map((a) => ({
+    ...a,
+    gross_usdc: Math.round(a.gross_usdc * scale * 1_000_000) / 1_000_000,
+  }));
+  scaled.push({
+    address: affiliate,
+    gross_usdc: affiliateUsdc,
+    settlementLabel: "affiliate_referral",
+  });
+  return { allocations: scaled, affiliate_usdc: affiliateUsdc };
+}
+
+/** Compile settlement batch with optional 80/20 affiliate split on total fee. */
+export function compileSettlementBatch(
+  baseAllocations: SettlementAllocation[],
+  affiliateWallet: string | null | undefined,
+  txHash = ""
+): SettlementBatch {
+  if (affiliateWallet && isHexWalletAddress(affiliateWallet)) {
+    const split = applyAffiliateSplitToBatch(baseAllocations, affiliateWallet);
+    return buildSettlementBatch(split.allocations, txHash);
+  }
+  return buildSettlementBatch(baseAllocations, txHash);
 }
 
 /** Serialize for Worker console.log / PM2 log tail (single JSON line). */

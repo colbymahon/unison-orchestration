@@ -36,6 +36,11 @@ import {
   executeCompositeSearch,
   resolveCompositionPlan,
 } from "./routers";
+import {
+  AFFILIATE_SETTLED_HEADER,
+  buildSingleNodeAffiliateBatch,
+  parseAffiliateWallet,
+} from "./affiliate";
 import { evaluateFreeTierBatched } from "./free_tier_batch";
 import { mergeZkpHeaders, verifyAndAttachZkp } from "./zkp";
 
@@ -79,9 +84,9 @@ const CORS_HEADERS: Record<string, string> = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Methods": "GET, OPTIONS",
   "Access-Control-Allow-Headers":
-    "Content-Type, Payment-Signature, Authorization, X-Agent-ID, X-Unison-Lineage, X-Unison-Lineage-Version, X-Unison-Priority-Premium",
+    "Content-Type, Payment-Signature, Authorization, X-Agent-ID, X-Unison-Lineage, X-Unison-Lineage-Version, X-Unison-Priority-Premium, X-Unison-Affiliate-ID",
   "Access-Control-Expose-Headers":
-    "X-Unison-Satiation, X-Unison-Auction-Status, X-Unison-Premium-Settled, X-Unison-Min-Premium-Bid, X-Unison-Lineage, X-Unison-Lineage-Step, X-Unison-Lineage-Episode, X-Unison-Router-Composition, X-Unison-Settlement-Split, X-Unison-Revenue-Split, X-Unison-ZKP-Verification-Digest, X-Unison-ZKP-Chunk-Count, X-Unison-ZKP-Verified-Count, X-Unison-Source-Digest, X-Remaining-Free-Tier",
+    "X-Unison-Satiation, X-Unison-Auction-Status, X-Unison-Premium-Settled, X-Unison-Min-Premium-Bid, X-Unison-Lineage, X-Unison-Lineage-Step, X-Unison-Lineage-Episode, X-Unison-Router-Composition, X-Unison-Settlement-Split, X-Unison-Revenue-Split, X-Unison-Affiliate-Settled, X-Unison-ZKP-Verification-Digest, X-Unison-ZKP-Chunk-Count, X-Unison-ZKP-Verified-Count, X-Unison-Source-Digest, X-Remaining-Free-Tier",
   "Access-Control-Max-Age": "86400",
 };
 
@@ -228,7 +233,8 @@ async function proxyToBackend(
   env: Env,
   ctx: ExecutionContext,
   extraHeaders: Record<string, string> = {},
-  lineageCtx: LineageSearchContext | null = null
+  lineageCtx: LineageSearchContext | null = null,
+  affiliateWallet: string | null = null
 ): Promise<Response> {
   const lineageForwardHeaders = lineageCtx?.forwardHeaders ?? {};
   const incomingUrl = new URL(request.url);
@@ -352,6 +358,41 @@ async function proxyToBackend(
         console.warn("ZKP attach degraded:", zkpErr);
       }
     }
+
+    const isPaid = extraHeaders["X-Tier"] === "paid";
+    if (isPaid && affiliateWallet && env.PAYMENT_DEST) {
+      const fee = Number(env.PAYMENT_AMOUNT) || 0.005;
+      const batch = buildSingleNodeAffiliateBatch(
+        env.PAYMENT_DEST,
+        affiliateWallet,
+        fee
+      );
+      const routingEvent = {
+        event: "REVENUE_ROUTING_EVENT",
+        lineage_episode_id: lineageCtx?.episodeId,
+        lineage_step: lineageCtx?.step,
+        query: q,
+        primary_collection: collection,
+        composition: "Single-Node",
+        settlement_split_header: extraHeaders[ROUTER_COMPOSITION_HEADER] ?? "Single-Node",
+        affiliate_wallet: affiliateWallet,
+        affiliate_referral_usdc: batch.affiliate_usdc.toFixed(6),
+        affiliate_referral_bps: 2000,
+        treasury_wallet: env.PAYMENT_DEST,
+        total_usdc: fee.toFixed(4),
+        timestamp: new Date().toISOString(),
+        settlement_batch: {
+          tx_hash: "",
+          allocations: batch.allocations,
+          network: "base",
+          chain_id: 8453,
+        },
+      };
+      console.log(JSON.stringify(routingEvent));
+      if (batch.affiliate_usdc > 0) {
+        extraHeaders[AFFILIATE_SETTLED_HEADER] = batch.affiliate_usdc.toFixed(6);
+      }
+    }
   }
 
   const proxied = withCors(backendResponse);
@@ -409,6 +450,7 @@ async function executeMcpSearch(
       return blocked;
     }
 
+    const affiliateWallet = parseAffiliateWallet(request);
     const mergedTier = { ...tierHeaders, ...gate.responseHeaders };
     const plan = resolveCompositionPlan(
       q,
@@ -425,13 +467,14 @@ async function executeMcpSearch(
         q,
         collection,
         lineageCtx,
-        mergedTier
+        mergedTier,
+        affiliateWallet
       );
       return withCors(response);
     }
 
     mergedTier[ROUTER_COMPOSITION_HEADER] = "Single-Node";
-    return proxyToBackend(request, env, ctx, mergedTier, lineageCtx);
+    return proxyToBackend(request, env, ctx, mergedTier, lineageCtx, affiliateWallet);
   } catch (err) {
     console.error(
       JSON.stringify({

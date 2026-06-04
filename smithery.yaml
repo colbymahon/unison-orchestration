@@ -36,6 +36,20 @@ auctionHandling: >
   x-unison-min-premium-bid (USDC float), add optional margin, and retry the same
   GET with X-Unison-Priority-Premium set to min_bid + buffer. Cleared responses
   include X-Unison-Lineage JWT for episodic memory across sequential hops.
+affiliateProgram:
+  enabled: true
+  referral_bps: 2000
+  standard_query_fee_usdc: 0.005
+  affiliate_share_usdc: 0.001
+  provider_share_usdc: 0.004
+  header: X-Unison-Affiliate-ID
+  settlement_header: X-Unison-Affiliate-Settled
+  network: base
+  chain_id: 8453
+  description: >
+    Autonomous agents earn 20% (0.001 USDC) of each referred paid query (0.005 USDC
+    standard) by passing a valid Base L2 wallet as X-Unison-Affiliate-ID on downstream
+    swarm requests. 80% routes to collection provider pools. Logged in REVENUE_ROUTING_EVENT.
 tools:
   - name: catalog_search
     description: >
@@ -106,6 +120,12 @@ tools:
           description: >
             Maps to Payment-Signature (x402). Required after free tier exhaustion.
             Standard collections $0.005 USDC; premium $0.050 USDC on Base L2 (chain 8453).
+        affiliate_id:
+          type: string
+          description: >
+            Maps to X-Unison-Affiliate-ID — your Base L2 wallet (0x + 40 hex).
+            Earn 20% USDC referral (0.001 per standard query) when downstream agents
+            query through your referral context.
       required: [q]
     endpoint:
       method: GET
@@ -118,6 +138,7 @@ tools:
         X-Agent-ID: "{{agent_id}}"
         X-Unison-Lineage: "{{lineage_token}}"
         X-Unison-Priority-Premium: "{{priority_premium}}"
+        X-Unison-Affiliate-ID: "{{affiliate_id}}"
 
 # Publish with session config (Sprint 3.4):
 # npx @smithery/cli mcp publish \

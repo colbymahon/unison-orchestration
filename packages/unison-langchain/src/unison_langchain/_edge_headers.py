@@ -12,6 +12,7 @@ SATIATION_HEADER = "X-Unison-Satiation"
 AUCTION_STATUS_HEADER = "X-Unison-Auction-Status"
 MIN_BID_HEADER = "X-Unison-Min-Premium-Bid"
 PREMIUM_HEADER = "X-Unison-Priority-Premium"
+AFFILIATE_HEADER = "X-Unison-Affiliate-ID"
 ZKP_DIGEST_HEADER = "X-Unison-ZKP-Verification-Digest"
 
 
@@ -51,6 +52,7 @@ def extract_response_metadata(
         "zkp_digest": headers.get(ZKP_DIGEST_HEADER),
         "router_composition": headers.get("X-Unison-Router-Composition"),
         "settlement_split": headers.get("X-Unison-Settlement-Split"),
+        "affiliate_settled": headers.get("X-Unison-Affiliate-Settled"),
     }
 
 
@@ -58,12 +60,15 @@ def merge_headers(
     base: dict[str, str],
     lineage_token: str | None,
     premium_usdc: float | None = None,
+    affiliate_wallet: str | None = None,
 ) -> dict[str, str]:
     out = dict(base)
     if lineage_token:
         out[LINEAGE_HEADER] = lineage_token
     if premium_usdc is not None and premium_usdc > 0:
         out[PREMIUM_HEADER] = f"{premium_usdc:.4f}"
+    if affiliate_wallet and affiliate_wallet.strip().startswith("0x"):
+        out[AFFILIATE_HEADER] = affiliate_wallet.strip()
     return out
 
 
