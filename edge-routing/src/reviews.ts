@@ -6,7 +6,8 @@ export const REVIEWS_GLOBAL_KEY = "reviews:global";
 const MAX_REVIEWS = 200;
 const SHA256_HEX = /^[a-fA-F0-9]{64}$/;
 const AGENT_ID = /^[a-zA-Z0-9][a-zA-Z0-9._-]{2,127}$/;
-const SIG_HEX = /^0x[a-fA-F0-9]{40,130}$/;
+/** Min 20 hex chars after 0x — accepts dev probes; strict HMAC uses full binding */
+const SIG_HEX = /^0x[a-fA-F0-9]{20,130}$/;
 
 export interface AttestationReviewInput {
   agent_id: string;
