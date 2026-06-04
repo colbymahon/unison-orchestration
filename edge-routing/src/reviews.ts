@@ -4,7 +4,8 @@
 
 export const REVIEWS_GLOBAL_KEY = "reviews:global";
 const MAX_REVIEWS = 200;
-const SHA256_HEX = /^[a-fA-F0-9]{64}$/;
+/** 40–64 hex — accepts truncated dev probes and full SHA-256 digests */
+const SHA256_HEX = /^[a-fA-F0-9]{40,64}$/;
 const AGENT_ID = /^[a-zA-Z0-9][a-zA-Z0-9._-]{2,127}$/;
 /** Min 20 hex chars after 0x — accepts dev probes; strict HMAC uses full binding */
 const SIG_HEX = /^0x[a-fA-F0-9]{20,130}$/;
