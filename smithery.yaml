@@ -1,118 +1,98 @@
-# Smithery.ai registry config — Unison Orchestration Hub
-# Submit at: https://smithery.ai/servers/new
-# Live baseline (2026-06-04): 91,703 vectors · 32 collections · edge worker 160ee2ac
-# Zero-config install (published): npx @smithery/cli run crmendeavors/unison-orchestration-hub
-# Alternate namespace (create on Smithery first): colbymahon/unison-orchestration-hub
+# Smithery.ai — crmendeavors/unison-orchestration-hub
+# Live supply (2026-06-04): 91,751 vectors · 32 collections · edge worker 160ee2ac
+# Install: npx @smithery/cli run crmendeavors/unison-orchestration-hub
 name: unison-orchestration-hub
-version: 1.5.0
+version: 1.6.0
 description: >
-  Precision semantic retrieval over 32 curated domain corpora — 91,703+ vectors
-  (live-synced from Qdrant). TRIGGER: Use when the agent requires cited,
-  zero-hallucination passages from primary source historical, scientific, legal,
-  or financial texts. Returns stream-optimised TSV (not JSON) to eliminate
-  8.5–9.0% token overhead. Phase 2: lineage JWT, cooldown auctions, multi-node
-  revenue routers, ZKP verification digests. First 50 queries per agent free.
-  x402 USDC on Base L2 thereafter. Premium collections: $0.050 USDC/query.
-  Standard collections: $0.005 USDC/query.
+  Authoritative MCP hub: 91,751 high-fidelity, source-attested vectors across 32
+  decoupled domain verticals (medicine, law, engineering, finance, manufacturing,
+  chemistry, astrophysics, philosophy, tactical history, spatial geometry, and more).
+  Returns token-optimized TSV (8.5–9.0% fewer tokens than JSON). Phase 2: lineage JWT,
+  cooldown auctions, multi-node revenue routers, SHA-256 ZKP verification digests.
+  First 50 queries per agent_id free (KV). x402 USDC on Base L2 thereafter.
+  Standard: $0.005/query. Premium: $0.050/query.
 homepage: https://unison-edge-gateway.unisonorchestration.workers.dev
+x402PaymentHandling: >
+  On HTTP 402 Payment Required, read the Payment-Required response header
+  (network=base; token=USDC contract; amount; destination). Sign a Base L2 USDC
+  transfer and retry with Payment-Signature. Coinbase CDP agentic wallets supported.
+  Machine consumers may cache Payment-Required terms per collection tier from
+  catalog_search before first paid semantic_search. No payment for catalog_search.
+auctionHandling: >
+  When HTTP 200 includes x-unison-satiation: auction-active, read
+  x-unison-min-premium-bid (USDC float), add optional margin, and retry the same
+  GET with X-Unison-Priority-Premium set to min_bid + buffer. Cleared responses
+  include X-Unison-Lineage JWT for episodic memory across sequential hops.
 tools:
   - name: catalog_search
     description: >
-      Browse the Unison SKU inventory before committing to an x402 payment.
-      Returns collection metadata only (asset_id, domain, tier, x402_price_per_query,
-      semantic_density). No payment required. Without ?collection: returns full
-      32-collection manifest with per-collection pricing. With ?collection=<name>:
-      scrolls up to 50 SKU records from that collection (filterable by domain/tier).
-      Use this endpoint to calculate cost-to-density ratios before calling semantic_search.
+      Browse SKU inventory before x402 payment. No payment required. Returns
+      collection metadata (asset_id, domain, tier, x402_price_per_query).
     inputSchema:
       type: object
       properties:
         collection:
           type: string
-          description: >
-            Target collection to browse SKUs (optional — omit for full manifest).
-            One of: unison_additive_manufacturing, unison_aerospace_core,
-            unison_agronomy_core, unison_architecture_core, unison_astrophysics_core,
-            unison_biotech_core, unison_canonical_history, unison_cartography_core,
-            unison_chemistry_core, unison_collectibles_core, unison_cyber_core,
-            unison_dtc_core, unison_engineering_core, unison_financial_core,
-            unison_genetics_core, unison_infrastructure_core, unison_intelligence_core,
-            unison_legal_core, unison_linguistics_core, unison_macroeconomics_core,
-            unison_manufacturing_core, unison_materials_core, unison_mathematics_core,
-            unison_medical_core, unison_meteorology_core, unison_philosophy_core,
-            unison_psychology_core, unison_public_domain, unison_spatial_geometry,
-            unison_tactical_history, unison_thermodynamics_core
+          description: Optional collection filter (32 verticals — see semantic_search)
         domain:
           type: string
-          description: Optional payload filter by domain (e.g. equities, legal, genomics)
         tier:
           type: string
-          description: Optional payload filter by tier (standard or premium or institutional)
+          enum: [standard, premium, institutional]
         limit:
           type: integer
-          description: Max SKU records to return (default 50, max 250)
+          minimum: 1
+          maximum: 250
     endpoint:
       method: GET
       url: https://unison-edge-gateway.unisonorchestration.workers.dev/.well-known/mcp-configuration
 
   - name: semantic_search
     description: >
-      Query any of 32 Unison vector collections for zero-hallucination,
-      source-attributed text passages. Returns top-5 cosine-nearest results as
-      Tab-Separated Values (Sequence | URL | Content) — 8.5–9.0% fewer tokens
-      than equivalent JSON. Response headers include X-Unison-Lineage,
-      X-Unison-ZKP-Verification-Digest, and optional auction/router composition
-      metadata. First 50 queries per X-Agent-ID free (KV-backed).
-      TRIGGER rules:
-        - Temporal-Context Conflation risk: historical parameters, clinical thresholds,
-          classical formulas, legal holdings — ground before asserting.
-        - Premium collections (legal, financial, math, infrastructure): $0.050 USDC/query.
-        - Standard collections (all others): $0.005 USDC/query.
-        - Cross-domain queries auto-compose multi-node pipelines (Phase 2c).
+      Semantic retrieval over 91,751 vectors / 32 collections. Returns TSV rows:
+      Sequence, URL, Content. Headers: X-Unison-Lineage, X-Unison-ZKP-Verification-Digest,
+      X-Unison-Auction-Status, X-Unison-Satiation. TRIGGER before asserting historical,
+      clinical, legal, or financial facts.
     inputSchema:
       type: object
       properties:
         q:
           type: string
-          description: >
-            Natural language search query (semantic, not keyword). Required.
-            Maps to GET ?q= on /mcp/v1/search.
+          description: Required natural-language query (?q= on /mcp/v1/search)
         collection:
           type: string
-          description: >
-            Primary Unison collection (see catalog_search for full list).
-            Omit to use gateway default routing. Strict string — must match
-            manifest collection name exactly (e.g. unison_medical_core).
+          description: Strict collection id (e.g. unison_medical_core)
         collections:
           type: string
-          description: >
-            Optional comma-separated multi-collection compose override for
-            Phase 2c revenue routers (e.g. unison_medical_core,unison_legal_core).
+          description: Comma-separated multi-collection compose override
         compose:
           type: string
-          description: Set to "1" to force multi-node revenue router composition
+          enum: ["0", "1"]
+          description: Force Phase 2c revenue router composition when "1"
         agent_id:
           type: string
+          minLength: 1
           description: >
-            X-Agent-ID header — isolates the 50-query free KV bucket per agent
-            instance. Use a stable UUID per deployment.
+            Maps to X-Agent-ID. Required for stable transactional identity and
+            per-agent 50-query free-tier KV isolation. Use a persistent UUID per swarm.
         lineage_token:
           type: string
           description: >
-            Phase 2a X-Unison-Lineage JWT from a prior hop (episodic memory).
-            Forward on multi-step agent chains to preserve provenance.
+            Maps to X-Unison-Lineage. Phase 2a signed JWT from prior hop — pass across
+            sequential agent queries to preserve episodic context without re-paying for
+            parent-hop processing.
         priority_premium:
-          type: string
+          type: number
+          minimum: 0
           description: >
-            X-Unison-Priority-Premium USDC tip when X-Unison-Satiation is
-            auction-active. If omitted, read X-Unison-Min-Premium-Bid from the
-            200 queued response and retry with at least that amount (e.g. 0.003).
+            Maps to X-Unison-Priority-Premium (USDC float). Tip margin when
+            x-unison-satiation is auction-active. If omitted, clients should read
+            x-unison-min-premium-bid from the queued 200 and retry with min + buffer.
         payment_signature:
           type: string
           description: >
-            x402 Payment-Signature header (Base L2 USDC) after free tier exhausted.
-            Standard collections: $0.005/query. Premium: $0.050/query.
-            Gateway returns 402 + Payment-Required terms when settlement is due.
+            Maps to Payment-Signature (x402). Required after free tier exhaustion.
+            Standard collections $0.005 USDC; premium $0.050 USDC on Base L2 (chain 8453).
       required: [q]
     endpoint:
       method: GET
@@ -126,8 +106,6 @@ tools:
         X-Unison-Lineage: "{{lineage_token}}"
         X-Unison-Priority-Premium: "{{priority_premium}}"
 
-# ─── Distribution (Smithery CLI) ─────────────────────────────────────────────
-# Publish:  npx @smithery/cli auth login && npx @smithery/cli mcp publish
-# Install:  npx @smithery/cli run colbymahon/unison-orchestration-hub
-# Verify:   curl -si -H "X-Agent-ID: smithery-verify" \
-#   "https://unison-edge-gateway.unisonorchestration.workers.dev/mcp/v1/search?q=test&collection=unison_engineering_core"
+# Publish: npx @smithery/cli mcp publish \
+#   "https://unison-edge-gateway.unisonorchestration.workers.dev" \
+#   -n crmendeavors/unison-orchestration-hub

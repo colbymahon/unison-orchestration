@@ -101,7 +101,41 @@ class TestUnisonX402RetrieverUnit:
         assert len(docs) == 2
         assert mock_get.call_count == 2
         second_headers = mock_get.call_args_list[1].kwargs.get("headers") or {}
-        assert "X-Unison-Priority-Premium" in second_headers
+        assert second_headers.get("X-Unison-Priority-Premium") == "0.0030"
+
+    def test_auction_min_bid_plus_buffer_on_retry(self) -> None:
+        retriever = UnisonX402Retriever(
+            auto_auction_premium=True,
+            auto_tip_buffer_usdc=0.002,
+        )
+        queued = _make_mock_resp(
+            200,
+            MOCK_TSV,
+            {
+                "X-Unison-Satiation": "auction-active",
+                "X-Unison-Min-Premium-Bid": "0.0100 USDC",
+            },
+        )
+        cleared = _make_mock_resp(200, MOCK_TSV)
+        with patch(
+            "unison_langchain.retriever.requests.get",
+            side_effect=[queued, cleared],
+        ) as mock_get:
+            retriever.invoke("burst load")
+        second_headers = mock_get.call_args_list[1].kwargs.get("headers") or {}
+        assert second_headers.get("X-Unison-Priority-Premium") == "0.0120"
+
+    def test_auction_disabled_skips_second_request(self) -> None:
+        retriever = UnisonX402Retriever(auto_auction_premium=False)
+        queued = _make_mock_resp(
+            200,
+            MOCK_TSV,
+            {"X-Unison-Satiation": "auction-active", "X-Unison-Min-Premium-Bid": "0.003"},
+        )
+        with patch("unison_langchain.retriever.requests.get", return_value=queued) as mock_get:
+            docs = retriever.invoke("no auto tip")
+        assert len(docs) == 2
+        assert mock_get.call_count == 1
 
     def test_list_collections_returns_registry(self) -> None:
         from unison_langchain._constants import COLLECTION_REGISTRY

@@ -15,6 +15,15 @@ PREMIUM_HEADER = "X-Unison-Priority-Premium"
 ZKP_DIGEST_HEADER = "X-Unison-ZKP-Verification-Digest"
 
 
+def premium_usdc_with_buffer(
+    headers: requests.structures.CaseInsensitiveDict[str],
+    buffer_usdc: float = 0.0,
+) -> float:
+    """MIN_BID from auction headers plus optional enterprise tip buffer."""
+    min_bid = parse_min_premium_usdc(headers) or 0.003
+    return round(min_bid + max(0.0, buffer_usdc), 6)
+
+
 def parse_min_premium_usdc(headers: requests.structures.CaseInsensitiveDict[str]) -> float | None:
     raw = headers.get(MIN_BID_HEADER) or headers.get("x-unison-min-premium-bid")
     if not raw:

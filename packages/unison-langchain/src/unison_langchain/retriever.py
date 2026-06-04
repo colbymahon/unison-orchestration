@@ -24,7 +24,7 @@ from unison_langchain._edge_headers import (
     extract_response_metadata,
     is_auction_active,
     merge_headers,
-    parse_min_premium_usdc,
+    premium_usdc_with_buffer,
 )
 from unison_langchain._tsv import tsv_to_documents
 
@@ -102,6 +102,15 @@ class UnisonX402Retriever(BaseRetriever):
         default=True,
         description="When auction-active, auto-apply X-Unison-Priority-Premium from min bid header.",
     )
+    auto_tip_buffer_usdc: float = Field(
+        default=0.0,
+        ge=0.0,
+        le=1.0,
+        description=(
+            "Added to X-Unison-Min-Premium-Bid when x-unison-satiation is auction-active "
+            "(corporate queue clearance margin)."
+        ),
+    )
 
     # Private — not serialised into the pydantic model
     _private_key: str | None = None
@@ -135,8 +144,11 @@ class UnisonX402Retriever(BaseRetriever):
             return self._handle_payment(query, params, headers, resp)
 
         if resp.status_code == 200 and is_auction_active(resp.headers) and self.auto_auction_premium:
-            min_bid = parse_min_premium_usdc(resp.headers) or 0.003
-            premium_headers = merge_headers(headers, self.lineage_token, min_bid)
+            premium = premium_usdc_with_buffer(
+                resp.headers,
+                self.auto_tip_buffer_usdc if self.auto_auction_premium else 0.0,
+            )
+            premium_headers = merge_headers(headers, self.lineage_token, premium)
             resp = requests.get(
                 EDGE_URL, params=params, headers=premium_headers, timeout=self.timeout
             )
