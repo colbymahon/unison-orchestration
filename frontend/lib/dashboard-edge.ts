@@ -80,23 +80,42 @@ export function normalizeAffiliateLedgerPayload(body: unknown): unknown {
 
 let edgeBearerPromise: Promise<string | null> | null = null;
 
-/** Ops JWT from HttpOnly cookie via same-origin edge-bearer (never ADMIN_API_SECRET). */
-export async function getEdgeSessionBearer(): Promise<string | null> {
-  if (!edgeBearerPromise) {
-    edgeBearerPromise = fetch("/api/auth/edge-bearer", {
+async function fetchEdgeBearerFromOrigin(): Promise<string | null> {
+  try {
+    const res = await fetch("/api/auth/edge-bearer", {
       credentials: "include",
       cache: "no-store",
-    })
-      .then(async (res) => {
-        if (!res.ok) return null;
-        const body = (await res.json()) as { token?: string };
-        return body.token ?? null;
-      })
-      .catch(() => null);
+    });
+    if (!res.ok) {
+      return null;
+    }
+    const body = (await res.json()) as { token?: string };
+    const token = body.token?.trim() ?? "";
+    return token.length > 0 ? token : null;
+  } catch {
+    return null;
+  }
+}
+
+/** Ops transport JWT via same-origin edge-bearer (never ADMIN_API_SECRET). */
+export async function getEdgeSessionBearer(forceRefresh = false): Promise<string | null> {
+  if (forceRefresh) {
+    edgeBearerPromise = null;
+  }
+  if (!edgeBearerPromise) {
+    edgeBearerPromise = fetchEdgeBearerFromOrigin().then((token) => {
+      if (!token) edgeBearerPromise = null;
+      return token;
+    });
   }
   return edgeBearerPromise;
 }
 
 export function clearEdgeSessionBearerCache(): void {
   edgeBearerPromise = null;
+}
+
+export function isDirectEdgeAdminPath(path: string | null): boolean {
+  if (!path) return false;
+  return resolveDashboardApiUrl(path).directEdge;
 }

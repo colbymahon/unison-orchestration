@@ -3,17 +3,25 @@
 /**
  * Dashboard live-fetch hook.
  * Hot /api/admin/* reads bypass Vercel serverless and hit Anycast worker admin-telemetry.
- * Auth: ops JWT via /api/auth/edge-bearer (never ADMIN_API_SECRET in browser).
+ * Auth: transport JWT via /api/auth/edge-bearer (never ADMIN_API_SECRET in browser).
  */
 
-import { useCallback, useMemo } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import {
   useLiveFetch as useLiveFetchBase,
   type UseLiveFetchOptions,
 } from "@/lib/use-live-fetch";
-import { getEdgeSessionBearer, resolveDashboardApiUrl } from "@/lib/dashboard-edge";
+import {
+  clearEdgeSessionBearerCache,
+  getEdgeSessionBearer,
+  isDirectEdgeAdminPath,
+  resolveDashboardApiUrl,
+} from "@/lib/dashboard-edge";
 
 export type { UseLiveFetchOptions };
+
+const SESSION_ENCLAVE_ERROR =
+  "SESSION_ENCLAVE_REQUIRED // Re-authenticate via Touch ID";
 
 function buildDashboardFetchInit(
   url: string,
@@ -52,38 +60,96 @@ async function dashboardFetcher(
 
   if (directEdge) {
     const token = await getEdgeSessionBearer();
-    if (token) {
-      headers.set("Authorization", `Bearer ${token}`);
+    if (!token) {
+      clearEdgeSessionBearerCache();
+      return new Response(
+        JSON.stringify({ error: SESSION_ENCLAVE_ERROR }),
+        {
+          status: 401,
+          headers: { "Content-Type": "application/json" },
+        }
+      );
     }
+    headers.set("Authorization", `Bearer ${token}`);
   }
 
-  return fetch(url, {
+  const res = await fetch(url, {
     ...init,
     headers,
     credentials: directEdge ? "omit" : init?.credentials,
   });
+
+  if (directEdge && res.status === 401) {
+    clearEdgeSessionBearerCache();
+  }
+
+  return res;
 }
 
 export function useLiveFetch<T>(
   url: string | null,
   options: UseLiveFetchOptions = {}
-): ReturnType<typeof useLiveFetchBase<T>> {
+): ReturnType<typeof useLiveFetchBase<T>> & { authBlocked: boolean } {
   const { fetchInit, ...rest } = options;
+  const needsEdgeJwt = isDirectEdgeAdminPath(url);
 
-  const resolvedUrl = useMemo(
-    () => (url ? resolveDashboardApiUrl(url).url : null),
-    [url]
-  );
+  const [bearerReady, setBearerReady] = useState(!needsEdgeJwt);
+  const [hasBearer, setHasBearer] = useState(false);
 
-  const resolvedInit = resolvedUrl
-    ? buildDashboardFetchInit(url!, fetchInit)
+  useEffect(() => {
+    if (!url || !needsEdgeJwt) {
+      setBearerReady(true);
+      setHasBearer(false);
+      return;
+    }
+
+    let cancelled = false;
+    setBearerReady(false);
+
+    void getEdgeSessionBearer(true).then((token) => {
+      if (cancelled) return;
+      setHasBearer(!!token);
+      setBearerReady(true);
+      if (!token) clearEdgeSessionBearerCache();
+    });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [url, needsEdgeJwt]);
+
+  const resolvedUrl = useMemo(() => {
+    if (!url) return null;
+    const { url: target, directEdge } = resolveDashboardApiUrl(url);
+    if (directEdge && (!bearerReady || !hasBearer)) return null;
+    return target;
+  }, [url, bearerReady, hasBearer]);
+
+  const authBlocked = needsEdgeJwt && bearerReady && !hasBearer;
+
+  const resolvedInit = url
+    ? buildDashboardFetchInit(url, fetchInit)
     : fetchInit;
 
   const fetcher = useCallback(dashboardFetcher, []);
 
-  return useLiveFetchBase<T>(resolvedUrl, {
+  const result = useLiveFetchBase<T>(resolvedUrl, {
     ...rest,
     fetchInit: resolvedInit,
     fetcher,
   });
+
+  const error =
+    authBlocked
+      ? SESSION_ENCLAVE_ERROR
+      : result.error?.includes("Security Enclave Violation")
+        ? "CRYPTO_MESH_MISMATCH // Re-login after WEBAUTHN_SESSION_SECRET sync"
+        : result.error;
+
+  return {
+    ...result,
+    error,
+    loading: authBlocked ? false : result.loading || (needsEdgeJwt && !bearerReady),
+    authBlocked,
+  };
 }
