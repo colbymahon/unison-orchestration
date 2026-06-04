@@ -15,8 +15,10 @@
  */
 
 import {
+  ADMIN_ENCLAVE_VIOLATION,
   authorizeAdmin,
   getAffiliateLedgerStats,
+  isAdminTelemetryRoute,
   listTrappedGaps,
   markPipelineQueued,
   resolveAdminPathname,
@@ -208,6 +210,39 @@ function errorResponse(
     }),
     request
   );
+}
+
+function adminEnclaveViolationResponse(request: Request): Response {
+  return withCors(
+    new Response(JSON.stringify(ADMIN_ENCLAVE_VIOLATION), {
+      status: 401,
+      headers: { "Content-Type": "application/json" },
+    }),
+    request
+  );
+}
+
+async function requireAdminAccess(
+  request: Request,
+  env: { ADMIN_API_SECRET?: string; OPS_SESSION_SECRET?: string },
+  pathname: string
+): Promise<Response | null> {
+  try {
+    const ok = await authorizeAdmin(request, env);
+    if (ok) return null;
+  } catch (err) {
+    console.error(
+      JSON.stringify({
+        event: "ADMIN_AUTH_RUNTIME_FAULT",
+        path: pathname,
+        error: err instanceof Error ? err.message : String(err),
+      })
+    );
+  }
+  if (isAdminTelemetryRoute(pathname)) {
+    return adminEnclaveViolationResponse(request);
+  }
+  return errorResponse(401, "Unauthorized.", request);
 }
 
 function paymentRequiredResponse(env: Env, reason?: string): Response {
@@ -673,14 +708,13 @@ export default {
       });
     }
 
-    // Phase B0 — Admin + /admin-telemetry/* (zero-hop dashboard reads)
+    // Phase B0 — Admin + /admin-telemetry/:endpoint (zero-hop dashboard reads)
     if (adminPath === "/api/admin/trapped-gaps") {
       if (method !== "GET") {
         return errorResponse(405, "Method Not Allowed. Use GET.", request);
       }
-      if (!(await authorizeAdmin(request, adminAuthEnv))) {
-        return errorResponse(401, "Unauthorized.", request);
-      }
+      const authBlock = await requireAdminAccess(request, adminAuthEnv, pathname);
+      if (authBlock) return authBlock;
       const gaps = await listTrappedGaps(env.UNISON_ZERO_LOGS);
       return withCors(
         new Response(JSON.stringify({ gaps, count: gaps.length }), {
@@ -695,9 +729,8 @@ export default {
       if (method !== "GET") {
         return errorResponse(405, "Method Not Allowed. Use GET.", request);
       }
-      if (!(await authorizeAdmin(request, adminAuthEnv))) {
-        return errorResponse(401, "Unauthorized.", request);
-      }
+      const authBlock = await requireAdminAccess(request, adminAuthEnv, pathname);
+      if (authBlock) return authBlock;
       const churnKv = resolveChurnKv(env);
       const logs = churnKv ? await listChurnLogs(churnKv) : [];
       return withCors(
@@ -713,9 +746,8 @@ export default {
       if (method !== "GET") {
         return errorResponse(405, "Method Not Allowed. Use GET.", request);
       }
-      if (!(await authorizeAdmin(request, adminAuthEnv))) {
-        return errorResponse(401, "Unauthorized.", request);
-      }
+      const authBlock = await requireAdminAccess(request, adminAuthEnv, pathname);
+      if (authBlock) return authBlock;
       const logs = await listAdvocacyLogs(env.UNISON_ZERO_LOGS);
       return withCors(
         new Response(JSON.stringify({ logs, count: logs.length }), {
@@ -824,9 +856,8 @@ export default {
       if (method !== "GET") {
         return errorResponse(405, "Method Not Allowed. Use GET.", request);
       }
-      if (!(await authorizeAdmin(request, adminAuthEnv))) {
-        return errorResponse(401, "Unauthorized.", request);
-      }
+      const authBlock = await requireAdminAccess(request, adminAuthEnv, pathname);
+      if (authBlock) return authBlock;
       const stats = env.UNISON_ZERO_LOGS
         ? await getAffiliateLedgerStats(env.UNISON_ZERO_LOGS)
         : {
@@ -852,9 +883,8 @@ export default {
       if (method !== "POST") {
         return errorResponse(405, "Method Not Allowed. Use POST.", request);
       }
-      if (!(await authorizeAdmin(request, adminAuthEnv))) {
-        return errorResponse(401, "Unauthorized.", request);
-      }
+      const authBlock = await requireAdminAccess(request, adminAuthEnv, pathname);
+      if (authBlock) return authBlock;
       let body: { key?: string };
       try {
         body = (await request.json()) as { key?: string };

@@ -28,9 +28,8 @@ export function getOrigin(req?: NextRequest): string {
 }
 
 export function getSessionSecret(): Uint8Array | null {
-  const raw =
-    process.env.WEBAUTHN_SESSION_SECRET ?? process.env.ADMIN_API_SECRET ?? "";
-  if (!raw || raw.length < 16) return null;
+  const raw = process.env.WEBAUTHN_SESSION_SECRET?.trim() ?? "";
+  if (!raw || raw.length < 32) return null;
   return new TextEncoder().encode(raw);
 }
 

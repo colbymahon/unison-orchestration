@@ -54,11 +54,19 @@ export interface AdminAuthEnv {
   OPS_SESSION_SECRET?: string;
 }
 
+const MIN_OPS_SESSION_SECRET_CHARS = 32;
+
+export const ADMIN_ENCLAVE_VIOLATION = {
+  error: "Security Enclave Violation // Token Corrupted",
+} as const;
+
 async function verifyOpsSessionBearer(
   token: string,
   sessionSecret: string | undefined
 ): Promise<boolean> {
-  if (!sessionSecret || sessionSecret.length < 16) return false;
+  if (!sessionSecret || sessionSecret.length < MIN_OPS_SESSION_SECRET_CHARS) {
+    return false;
+  }
   try {
     const key = new TextEncoder().encode(sessionSecret);
     const { payload } = await jwtVerify(token, key);
@@ -66,6 +74,10 @@ async function verifyOpsSessionBearer(
   } catch {
     return false;
   }
+}
+
+export function isAdminTelemetryRoute(pathname: string): boolean {
+  return pathname.startsWith("/admin-telemetry/");
 }
 
 /** Service secret (server) or dashboard ops JWT (direct browser → worker). */
