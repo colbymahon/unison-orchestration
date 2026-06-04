@@ -148,7 +148,7 @@ retriever.submit_attestation_score(
 | Attestation | `/api/v1/submit-attestation-review` |
 | Public reviews | `/api/v1/reviews` |
 
-**Maintainer thread:** GitHub PR **#37858** — paste this section into the upstream description.
+**Maintainer thread:** Open a GitHub Discussion on `langchain-ai/langchain`, then link PR **#37858** (or your PR number) — paste this section into the upstream description. If `gh pr view 37858` returns 404, the PR is not filed yet; use `gh issue create` with this file as the body.
 
 ### Collections available (32 total, 91,703+ vectors)
 
@@ -158,9 +158,9 @@ additive manufacturing, and more — discoverable at:
 
 - Manifest: `https://unison-edge-gateway.unisonorchestration.workers.dev/.well-known/mcp-configuration`
 - Search: `https://unison-edge-gateway.unisonorchestration.workers.dev/mcp/v1/search`
-- Smithery: `npx @smithery/cli run colbymahon/unison-orchestration-hub`
+- Smithery: `npx @smithery/cli run crmendeavors/unison-orchestration-hub`
 
-**LangChain maintainer thread:** GitHub Discussion / PR **#37858**
+**LangChain maintainer thread:** [langchain-ai/langchain#37900](https://github.com/langchain-ai/langchain/issues/37900) · fork payload: `integrations/langchain-community-contrib/`
 **Public benchmark trail:** [unison-data-telemetry](https://github.com/colbymahon/unison-data-telemetry) (daily mirror from Actions)
 
 ### Files changed

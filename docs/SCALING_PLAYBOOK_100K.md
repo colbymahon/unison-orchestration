@@ -6,7 +6,7 @@ Frozen edge: worker `1920a51d` · commit `187a509` (batched free-tier + read-hea
 
 | Milestone | Channel A (Smithery) | Channel B (LangChain) | Channel C (SEO) |
 |-----------|----------------------|----------------------|-----------------|
-| **20k** | `crmendeavors/unison-orchestration-hub` + config schema | PR **#37858** via `integrations/LANGCHAIN_PR_BLUEPRINT.md` | `[CATALOG] Revalidated storefront` in crawler logs |
+| **20k** | `crmendeavors/unison-orchestration-hub` + config schema | Issue **#37900** + `integrations/langchain-community-contrib/` via `integrations/LANGCHAIN_PR_BLUEPRINT.md` | `[CATALOG] Revalidated storefront` in crawler logs |
 | **100k** | Auto `agent_id` defaults + edge URL in setup | `auto_tip_buffer_usdc` enterprise retriever | Moat `?fresh=1` + per-collection JSON-LD |
 
 ## Sprint 3.4 — Smithery zero-config
