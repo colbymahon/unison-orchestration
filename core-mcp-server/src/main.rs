@@ -41,15 +41,18 @@ use thiserror::Error;
 use tower_http::cors::{AllowHeaders, AllowMethods, AllowOrigin, CorsLayer, ExposeHeaders};
 use tracing::{info, instrument};
 
+mod retrieval;
+
+use retrieval::{EmbedService, QdrantPool};
+use retrieval::qdrant::QdrantScoredPoint;
+
 // ---------------------------------------------------------------------------
 // Constants
 // ---------------------------------------------------------------------------
 
 const COLLECTION: &str = "unison_public_domain";
-const EMBEDDING_MODEL: &str = "text-embedding-3-small";
 const SERVER_VERSION: &str = env!("CARGO_PKG_VERSION");
 const TOP_K: usize = 5;
-const OPENAI_EMBED_URL: &str = "https://api.openai.com/v1/embeddings";
 const TRACEPARENT_HEADER: &str = "traceparent";
 const TRACESTATE_HEADER: &str = "tracestate";
 const PAYMENT_SIGNATURE_HEADER: &str = "payment-signature";
@@ -69,10 +72,8 @@ const MAX_TRACKED_AGENTS: usize = 500;
 // ---------------------------------------------------------------------------
 
 struct AppState {
-    openai_key: String,
-    qdrant_url: String,
-    qdrant_key: String,
-    http: reqwest::Client,
+    embed: EmbedService,
+    qdrant: Arc<QdrantPool>,
     start_time: Instant,
 
     // ── Core counters (zero-allocation AtomicU64) ──────────────────────────
@@ -520,55 +521,6 @@ struct TelemetryResponse {
 }
 
 // ---------------------------------------------------------------------------
-// OpenAI types
-// ---------------------------------------------------------------------------
-
-#[derive(Serialize)]
-struct EmbedRequest<'a> {
-    model: &'a str,
-    input: &'a str,
-    encoding_format: &'a str,
-}
-
-#[derive(Deserialize)]
-struct EmbedResponse {
-    data: Vec<EmbedData>,
-}
-
-#[derive(Deserialize)]
-struct EmbedData {
-    embedding: Vec<f32>,
-}
-
-// ---------------------------------------------------------------------------
-// Qdrant REST types
-// ---------------------------------------------------------------------------
-
-#[derive(Serialize)]
-struct QdrantSearchRequest {
-    vector: Vec<f32>,
-    limit: usize,
-    with_payload: bool,
-}
-
-#[derive(Deserialize)]
-struct QdrantSearchResponse {
-    result: Vec<QdrantScoredPoint>,
-}
-
-#[derive(Deserialize)]
-struct QdrantScoredPoint {
-    payload: Option<QdrantPayload>,
-}
-
-#[derive(Deserialize)]
-struct QdrantPayload {
-    text: Option<String>,
-    source_url: Option<String>,
-    sequence: Option<serde_json::Value>,
-}
-
-// ---------------------------------------------------------------------------
 // Query param
 // ---------------------------------------------------------------------------
 
@@ -592,92 +544,6 @@ fn extract_trace_context(headers: &HeaderMap) -> (Option<String>, Option<String>
         .and_then(|v| v.to_str().ok())
         .map(str::to_owned);
     (traceparent, tracestate)
-}
-
-// ---------------------------------------------------------------------------
-// Embedding
-// ---------------------------------------------------------------------------
-
-#[instrument(skip(state))]
-async fn embed(state: &AppState, text: &str) -> Result<Vec<f32>, McpError> {
-    info!("Embedding query ({} chars)", text.len());
-    let resp = state
-        .http
-        .post(OPENAI_EMBED_URL)
-        .bearer_auth(&state.openai_key)
-        .json(&EmbedRequest {
-            model: EMBEDDING_MODEL,
-            input: text,
-            encoding_format: "float",
-        })
-        .send()
-        .await
-        .map_err(|e| McpError::OpenAi(e.to_string()))?;
-
-    if !resp.status().is_success() {
-        let status = resp.status();
-        let body = resp.text().await.unwrap_or_default();
-        return Err(McpError::OpenAi(format!("HTTP {status}: {body}")));
-    }
-
-    let parsed: EmbedResponse = resp
-        .json()
-        .await
-        .map_err(|e| McpError::OpenAi(format!("Parse error: {e}")))?;
-
-    parsed
-        .data
-        .into_iter()
-        .next()
-        .map(|d| d.embedding)
-        .ok_or_else(|| McpError::OpenAi("Empty embedding response".into()))
-}
-
-// ---------------------------------------------------------------------------
-// Qdrant REST search
-// ---------------------------------------------------------------------------
-
-#[instrument(skip(state, vector), fields(collection = %collection))]
-async fn qdrant_search(
-    state: &AppState,
-    vector: Vec<f32>,
-    collection: &str,
-) -> Result<Vec<QdrantScoredPoint>, McpError> {
-    let url = format!(
-        "{}/collections/{}/points/search",
-        state.qdrant_url.trim_end_matches('/'),
-        collection
-    );
-    info!("Searching collection '{}' (top-{})", collection, TOP_K);
-    let resp = state
-        .http
-        .post(&url)
-        .header("api-key", &state.qdrant_key)
-        .json(&QdrantSearchRequest {
-            vector,
-            limit: TOP_K,
-            with_payload: true,
-        })
-        .send()
-        .await
-        .map_err(|e| McpError::Qdrant(e.to_string()))?;
-
-    if resp.status() == reqwest::StatusCode::NOT_FOUND {
-        return Err(McpError::InvalidCollection);
-    }
-    if !resp.status().is_success() {
-        let status = resp.status();
-        let body = resp.text().await.unwrap_or_default();
-        return Err(McpError::Qdrant(format!("HTTP {status}: {body}")));
-    }
-
-    let parsed: QdrantSearchResponse = resp
-        .json()
-        .await
-        .map_err(|e| McpError::Qdrant(format!("Parse error: {e}")))?;
-
-    info!("Qdrant returned {} hits", parsed.result.len());
-    Ok(parsed.result)
 }
 
 // ---------------------------------------------------------------------------
@@ -758,8 +624,22 @@ async fn search_handler(
         }
     }
 
-    let vector = embed(&state, &q).await?;
-    let hits = qdrant_search(&state, vector, collection).await?;
+    let (vector, embed_timings) = state
+        .embed
+        .embed(&q)
+        .await
+        .map_err(McpError::OpenAi)?;
+    let (hits, qdrant_timings) = state
+        .qdrant
+        .search(vector, collection)
+        .await
+        .map_err(|e| {
+            if e.contains("invalid collection") {
+                McpError::InvalidCollection
+            } else {
+                McpError::Qdrant(e)
+            }
+        })?;
 
     // Track zero-result queries as agentic SEO gap signals
     if hits.is_empty() {
@@ -796,6 +676,24 @@ async fn search_handler(
     if let Ok(val) = HeaderValue::from_str(&hits.len().to_string()) {
         resp_headers.insert(HeaderName::from_static("x-qdrant-result-count"), val);
     }
+    if let Ok(val) = HeaderValue::from_str(&embed_timings.latency_ms.to_string()) {
+        resp_headers.insert(HeaderName::from_static("x-unison-embed-ms"), val);
+    }
+    if let Ok(val) = HeaderValue::from_str(&qdrant_timings.latency_ms.to_string()) {
+        resp_headers.insert(HeaderName::from_static("x-unison-qdrant-ms"), val);
+    }
+    if let Ok(val) = HeaderValue::from_str(if embed_timings.cache_hit { "1" } else { "0" }) {
+        resp_headers.insert(HeaderName::from_static("x-unison-embed-cache-hit"), val);
+    }
+    // Fly.io sets FLY_REGION per machine (iad / lhr / nrt).
+    let fly_region = env::var("FLY_REGION").unwrap_or_else(|_| "iad".to_string());
+    if let Ok(val) = HeaderValue::from_str(&fly_region) {
+        resp_headers.insert(HeaderName::from_static("x-unison-fly-region"), val);
+    }
+    resp_headers.insert(
+        HeaderName::from_static("x-unison-delivery"),
+        HeaderValue::from_static("tsv-buffered"),
+    );
 
     Ok(response)
 }
@@ -913,16 +811,50 @@ async fn main() -> anyhow::Result<()> {
         format!("{}:6333", qdrant_url.trim_end_matches('/'))
     };
 
-    let http = reqwest::Client::builder()
-        .use_rustls_tls()
-        .build()
-        .map_err(|e| anyhow::anyhow!("HTTP client init failed: {e}"))?;
+    let pool_idle = env::var("HTTP_POOL_MAX_IDLE")
+        .ok()
+        .and_then(|s| s.parse().ok())
+        .unwrap_or(32);
+    let embed_timeout = env::var("EMBED_HTTP_TIMEOUT_MS")
+        .ok()
+        .and_then(|s| s.parse().ok())
+        .unwrap_or(8_000);
+    let qdrant_timeout = env::var("QDRANT_HTTP_TIMEOUT_MS")
+        .ok()
+        .and_then(|s| s.parse().ok())
+        .unwrap_or(5_000);
+    let cache_entries = env::var("EMBED_CACHE_MAX_ENTRIES")
+        .ok()
+        .and_then(|s| s.parse().ok())
+        .unwrap_or(10_000);
+    let cache_ttl = env::var("EMBED_CACHE_TTL_SECS")
+        .ok()
+        .and_then(|s| s.parse().ok())
+        .unwrap_or(3600);
+
+    let embed_http = retrieval::qdrant::build_embed_http(pool_idle, embed_timeout)
+        .map_err(|e| anyhow::anyhow!("embed HTTP client: {e}"))?;
+    let qdrant_http = retrieval::qdrant::build_qdrant_http(pool_idle, qdrant_timeout)
+        .map_err(|e| anyhow::anyhow!("qdrant HTTP client: {e}"))?;
+
+    let embed = EmbedService::new(openai_key, embed_http, cache_entries, cache_ttl);
+    let qdrant = QdrantPool::new(qdrant_url, qdrant_key, qdrant_http, TOP_K);
+
+    if env::var("QDRANT_WARMUP").ok().as_deref() == Some("1") {
+        if let Err(e) = qdrant.warmup().await {
+            tracing::warn!("Qdrant warmup skipped: {e}");
+        }
+    }
+    embed.warmup().await;
+
+    info!(
+        "Retrieval pool: embed_cache_entries={cache_entries} pool_idle={pool_idle} qdrant_url={}",
+        qdrant.search_url(COLLECTION)
+    );
 
     let state = Arc::new(AppState {
-        openai_key,
-        qdrant_url,
-        qdrant_key,
-        http,
+        embed,
+        qdrant,
         start_time: Instant::now(),
         total_queries:        AtomicU64::new(0),
         total_402_rejections: AtomicU64::new(0),

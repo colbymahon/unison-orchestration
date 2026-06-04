@@ -1,5 +1,15 @@
 # Changelog
 
+## [0.2.0] — 2026-06-04
+
+### Added
+- Phase 3: `callback_url`, `affiliate_wallet`, churn telemetry (`enable_churn_telemetry`)
+- `submit_attestation_score()` for edge attestation ledger
+- Auction premium retry via `X-Unison-Priority-Premium`
+
+### Changed
+- Smithery canonical install: `crmendeavors/unison-orchestration-hub`
+
 ## [0.1.0] — 2026-06-02
 
 ### Added

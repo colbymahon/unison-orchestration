@@ -18,10 +18,14 @@ tower-http = { version = "0.5", features = ["cors"] }
 # Async runtime
 tokio = { version = "1", features = ["full"] }
 
-# HTTP client (OpenAI embedding calls)
+# HTTP client (OpenAI + Qdrant — separate pooled clients)
 reqwest = { version = "0.12", features = ["json", "rustls-tls"], default-features = false }
 
-# Qdrant Cloud vector DB — REST API called directly via reqwest
+# Embedding cache (lock-free async LRU/TTL)
+moka = { version = "0.12", features = ["future"] }
+blake3 = "1"
+
+# Qdrant Cloud vector DB — REST over pooled keep-alive (optional private VPC URL)
 
 # Serialization
 serde = { version = "1", features = ["derive"] }
