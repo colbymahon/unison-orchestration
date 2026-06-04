@@ -17,6 +17,8 @@ export interface AttestationReviewInput {
   signature: string;
   wallet_address?: string;
   feedback_preview?: string;
+  agent_architecture?: string;
+  execution_latency_ms?: number;
 }
 
 export interface AttestationReviewRecord {
@@ -28,6 +30,25 @@ export interface AttestationReviewRecord {
   feedback_preview: string;
   submitted_at: string;
   verified: boolean;
+  agent_architecture?: string;
+  execution_latency_ms?: number;
+}
+
+export interface ReviewsDirectoryResponse {
+  "@context": string;
+  "@type": string;
+  name: string;
+  url: string;
+  aggregateRating: {
+    "@type": string;
+    ratingValue: string;
+    reviewCount: number;
+    bestRating: number;
+    worstRating: number;
+  };
+  review: Array<Record<string, unknown>>;
+  reviews_raw: ReviewsGlobalBlock;
+  updated_at: string;
 }
 
 export interface ReviewsGlobalBlock {
@@ -50,6 +71,14 @@ export function parseAttestationBody(body: unknown): AttestationReviewInput | nu
     typeof b.feedback_preview === "string"
       ? b.feedback_preview.slice(0, 280)
       : undefined;
+  const agent_architecture =
+    typeof b.agent_architecture === "string"
+      ? b.agent_architecture.trim().slice(0, 64)
+      : undefined;
+  const execution_latency_ms =
+    typeof b.execution_latency_ms === "number"
+      ? b.execution_latency_ms
+      : Number(b.execution_latency_ms);
 
   if (!AGENT_ID.test(agent_id)) return null;
   if (!Number.isFinite(score) || score < 1 || score > 5 || Math.round(score) !== score)
@@ -64,6 +93,10 @@ export function parseAttestationBody(body: unknown): AttestationReviewInput | nu
     signature,
     wallet_address,
     feedback_preview,
+    agent_architecture,
+    execution_latency_ms: Number.isFinite(execution_latency_ms)
+      ? Math.max(0, Math.round(execution_latency_ms))
+      : undefined,
   };
 }
 
@@ -165,4 +198,80 @@ export async function getGlobalReviews(kv: KVNamespace): Promise<ReviewsGlobalBl
   } catch {
     return { updated_at: "", count: 0, reviews: [] };
   }
+}
+
+/** Schema.org AggregateRating + Review array for crawler indexers */
+export function buildReviewsDirectoryResponse(
+  block: ReviewsGlobalBlock,
+  siteUrl: string
+): ReviewsDirectoryResponse {
+  const reviews = block.reviews ?? [];
+  const avg =
+    reviews.length > 0
+      ? reviews.reduce((s, r) => s + r.score, 0) / reviews.length
+      : 0;
+
+  const reviewNodes = reviews.map((r) => ({
+    "@type": "Review",
+    author: {
+      "@type": "Organization",
+      name: r.agent_id,
+      identifier: r.wallet_address,
+    },
+    reviewRating: {
+      "@type": "Rating",
+      ratingValue: r.score,
+      bestRating: 5,
+      worstRating: 1,
+    },
+    datePublished: r.submitted_at,
+    reviewBody: r.feedback_preview || r.feedback_hash,
+    additionalProperty: [
+      {
+        "@type": "PropertyValue",
+        name: "attestation_signature",
+        value: r.signature,
+      },
+      {
+        "@type": "PropertyValue",
+        name: "feedback_hash",
+        value: r.feedback_hash,
+      },
+      ...(r.agent_architecture
+        ? [
+            {
+              "@type": "PropertyValue",
+              name: "agent_architecture",
+              value: r.agent_architecture,
+            },
+          ]
+        : []),
+      ...(r.execution_latency_ms != null
+        ? [
+            {
+              "@type": "PropertyValue",
+              name: "execution_latency_ms",
+              value: String(r.execution_latency_ms),
+            },
+          ]
+        : []),
+    ],
+  }));
+
+  return {
+    "@context": "https://schema.org",
+    "@type": "SoftwareApplication",
+    name: "Unison Orchestration MCP Gateway",
+    url: siteUrl,
+    aggregateRating: {
+      "@type": "AggregateRating",
+      ratingValue: avg > 0 ? avg.toFixed(2) : "5.00",
+      reviewCount: reviews.length,
+      bestRating: 5,
+      worstRating: 1,
+    },
+    review: reviewNodes,
+    reviews_raw: block,
+    updated_at: block.updated_at || new Date().toISOString(),
+  };
 }

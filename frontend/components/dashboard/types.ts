@@ -73,6 +73,8 @@ export interface AttestationReviewRecord {
   feedback_preview: string;
   submitted_at: string;
   verified: boolean;
+  agent_architecture?: string;
+  execution_latency_ms?: number;
 }
 
 export interface AttestationReviewsBlock {

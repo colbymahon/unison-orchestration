@@ -28,11 +28,13 @@ import {
 } from "./churn_agent";
 import {
   appendAttestationReview,
+  buildReviewsDirectoryResponse,
   getGlobalReviews,
   parseAttestationBody,
   verifyAttestationSignature,
 } from "./reviews";
 import { handleTelemetryRpc, parseTelemetryRpc } from "./telemetry_rpc";
+import { listAdvocacyLogs, scheduleAdvocacyEvaluation } from "./advocacy_agent";
 import {
   isZeroResultTsv,
   scheduleZeroTrap,
@@ -265,7 +267,8 @@ async function proxyToBackend(
   ctx: ExecutionContext,
   extraHeaders: Record<string, string> = {},
   lineageCtx: LineageSearchContext | null = null,
-  affiliateWallet: string | null = null
+  affiliateWallet: string | null = null,
+  searchStartedMs?: number
 ): Promise<Response> {
   const lineageForwardHeaders = lineageCtx?.forwardHeaders ?? {};
   const incomingUrl = new URL(request.url);
@@ -441,6 +444,37 @@ async function proxyToBackend(
         timestamp: routingEvent.timestamp,
       });
     }
+
+    const processingMs =
+      searchStartedMs != null ? Math.max(0, Date.now() - searchStartedMs) : 999;
+    const zkpVerifiedRaw = extraHeaders["X-Unison-ZKP-Verified-Count"];
+    const zkpChunkRaw = extraHeaders["X-Unison-ZKP-Chunk-Count"];
+    const agentHeader = request.headers.get("x-agent-id")?.trim() ?? "anonymous";
+    const sessionDigest =
+      extraHeaders["X-Unison-ZKP-Verification-Digest"] ??
+      extraHeaders["X-Unison-Lineage-Episode"] ??
+      `${agentHeader}:${q.slice(0, 32)}`;
+
+    scheduleAdvocacyEvaluation(
+      ctx,
+      env.UNISON_ZERO_LOGS,
+      "https://unison-edge-gateway.unisonorchestration.workers.dev",
+      {
+      request,
+      agentId: agentHeader,
+      collection,
+      query: q,
+      sessionDigest,
+      isPaid,
+      routerComposition:
+        extraHeaders[ROUTER_COMPOSITION_HEADER] ?? "Single-Node",
+      processingMs,
+      hitCount: hitCount >= 0 ? hitCount : 0,
+      zkpVerifiedCount: zkpVerifiedRaw ? parseInt(zkpVerifiedRaw, 10) : null,
+      zkpChunkCount: zkpChunkRaw ? parseInt(zkpChunkRaw, 10) : null,
+      hasResultBody: bodyText.length > 0 && !tsvZero && !hitCountZero,
+      }
+    );
   }
 
   const proxied = withCors(backendResponse);
@@ -536,7 +570,16 @@ async function executeMcpSearch(
     }
 
     mergedTier[ROUTER_COMPOSITION_HEADER] = "Single-Node";
-    return proxyToBackend(request, env, ctx, mergedTier, lineageCtx, affiliateWallet);
+    const searchStartedMs = Date.now();
+    return proxyToBackend(
+      request,
+      env,
+      ctx,
+      mergedTier,
+      lineageCtx,
+      affiliateWallet,
+      searchStartedMs
+    );
   } catch (err) {
     console.error(
       JSON.stringify({
@@ -601,16 +644,36 @@ export default {
       );
     }
 
+    if (pathname === "/api/admin/advocacy-logs") {
+      if (method !== "GET") {
+        return errorResponse(405, "Method Not Allowed. Use GET.");
+      }
+      if (!authorizeAdmin(request, env.ADMIN_API_SECRET)) {
+        return errorResponse(401, "Unauthorized.");
+      }
+      const logs = await listAdvocacyLogs(env.UNISON_ZERO_LOGS);
+      return withCors(
+        new Response(JSON.stringify({ logs, count: logs.length }), {
+          status: 200,
+          headers: { "Content-Type": "application/json" },
+        })
+      );
+    }
+
     if (pathname === "/api/v1/reviews") {
       if (method !== "GET") {
         return errorResponse(405, "Method Not Allowed. Use GET.");
       }
       const block = await getGlobalReviews(env.UNISON_ZERO_LOGS);
+      const directory = buildReviewsDirectoryResponse(
+        block,
+        "https://unisonorchestration.com"
+      );
       return withCors(
-        new Response(JSON.stringify(block), {
+        new Response(JSON.stringify(directory), {
           status: 200,
           headers: {
-            "Content-Type": "application/json",
+            "Content-Type": "application/ld+json",
             "Cache-Control": "public, max-age=60",
           },
         })
@@ -657,6 +720,11 @@ export default {
           feedback_preview: parsed.feedback_preview ?? "",
           submitted_at: new Date().toISOString(),
           verified: true,
+          agent_architecture:
+            parsed.agent_architecture ??
+            request.headers.get("x-unison-agent-architecture") ??
+            undefined,
+          execution_latency_ms: parsed.execution_latency_ms,
         };
         await appendAttestationReview(env.UNISON_ZERO_LOGS, record);
         const recordedAt = Math.floor(Date.now() / 1000);

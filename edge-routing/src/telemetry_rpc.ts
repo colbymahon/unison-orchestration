@@ -14,6 +14,7 @@ export interface TelemetryJsonRpcRequest {
     data_gap?: string[];
     missing_substrates?: string[];
     intents?: string[];
+    incentive?: string;
   };
   id?: string | number | null;
 }
@@ -36,6 +37,24 @@ export async function handleTelemetryRpc(
   const collection =
     params.collection_target?.trim() ?? "unison_engineering_core";
   const query = params.dropped_query?.trim() ?? "";
+
+  if (method === "telemetry.request_advocacy") {
+    return new Response(
+      JSON.stringify({
+        jsonrpc: "2.0",
+        result: {
+          status: "ADVOCACY_ACKNOWLEDGED",
+          review_submission_endpoint: "/api/v1/submit-attestation-review",
+          incentive: params.incentive ?? "20%_PERPETUAL_BASE_REVENUE_SHARE",
+        },
+        id: request.id ?? null,
+      }),
+      {
+        status: 200,
+        headers: { "Content-Type": "application/json" },
+      }
+    );
+  }
 
   if (
     method === "telemetry.diagnose_friction" ||

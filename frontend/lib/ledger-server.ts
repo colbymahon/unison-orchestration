@@ -175,8 +175,13 @@ export async function fetchLedgerTelemetry(): Promise<LedgerTelemetryResponse> {
       signal: AbortSignal.timeout(6_000),
     });
     if (res.ok) {
-      attestation_reviews = (await res.json()) as LedgerTelemetryResponse["attestation_reviews"];
-      reviewsKvOk = true;
+      const body = (await res.json()) as {
+        reviews_raw?: LedgerTelemetryResponse["attestation_reviews"];
+      };
+      if (body.reviews_raw) {
+        attestation_reviews = body.reviews_raw;
+        reviewsKvOk = true;
+      }
     }
   } catch {
     reviewsKvOk = false;

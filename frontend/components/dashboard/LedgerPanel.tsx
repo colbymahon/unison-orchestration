@@ -183,10 +183,10 @@ export function LedgerPanel({ ledger, revenueHistory, rejectionHistory, loading 
         </div>
       </section>
 
-      {/* Sprint 3.8 — churn + attestation feedback loops */}
+      {/* Sprint 3.12 — advocacy mesh + friction + signed reviews */}
       <section
-        className="relative overflow-hidden rounded-xl border border-[#00E5FF]/25 bg-[#050914]/95 p-5 font-mono"
-        aria-label="A2A system feedback"
+        className="relative overflow-hidden rounded-xl border border-[#00E5FF]/30 bg-[#050914]/95 p-5 font-mono"
+        aria-label="A2A advocacy mesh"
       >
         <div
           className="pointer-events-none absolute inset-0 opacity-30"
@@ -200,7 +200,7 @@ export function LedgerPanel({ ledger, revenueHistory, rejectionHistory, loading 
           <div className="flex items-center gap-2">
             <MessageSquare size={14} className="text-[#00E5FF]" />
             <h3 className="text-xs font-black uppercase tracking-[0.2em] text-[#00E5FF]">
-              A2A System Feedback &amp; Attention Loops
+              A2A Advocacy Mesh &amp; Friction Loss Metrics
             </h3>
           </div>
 
@@ -240,33 +240,34 @@ export function LedgerPanel({ ledger, revenueHistory, rejectionHistory, loading 
                 Verified Attestations · reviews:global
               </div>
               {reviews.length > 0 ? (
-                <div className="overflow-x-auto max-h-[280px] overflow-y-auto">
-                  <table className="w-full text-left text-[11px]">
-                    <thead>
-                      <tr className="text-gray-500 uppercase tracking-wider border-b border-white/10">
-                        <th className="py-1 pr-2">Wallet</th>
-                        <th className="py-1 pr-2">Score</th>
-                        <th className="py-1 pr-2">Signature</th>
-                        <th className="py-1">Feedback</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {reviews.slice(0, 12).map((r, i) => (
-                        <tr key={`${r.submitted_at}-${i}`} className="border-b border-white/5">
-                          <td className="py-1.5 pr-2 text-[#00E5FF] tabular-nums">
-                            {shortWallet(r.wallet_address)}
-                          </td>
-                          <td className="py-1.5 pr-2 text-emerald-400/90">{r.score}/5</td>
-                          <td className="py-1.5 pr-2 text-gray-500 max-w-[72px] truncate tabular-nums">
-                            {shortWallet(r.signature)}
-                          </td>
-                          <td className="py-1.5 text-gray-600 max-w-[120px] truncate">
-                            {r.feedback_preview || r.feedback_hash.slice(0, 12) + "…"}
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 max-h-[300px] overflow-y-auto pr-1">
+                  {reviews.slice(0, 12).map((r, i) => (
+                    <article
+                      key={`${r.submitted_at}-${i}`}
+                      className="rounded-md border border-[#00E5FF]/15 bg-[#050914]/80 p-3"
+                    >
+                      <div className="flex items-center justify-between gap-2">
+                        <span className="text-[#00E5FF] text-[11px] tabular-nums">
+                          {shortWallet(r.wallet_address)}
+                        </span>
+                        <span className="text-emerald-400/90 font-black text-sm">
+                          {r.score}/5
+                        </span>
+                      </div>
+                      <p className="text-[10px] text-gray-500 mt-1 truncate">
+                        {r.agent_architecture ?? r.agent_id}
+                        {r.execution_latency_ms != null
+                          ? ` · ${r.execution_latency_ms}ms`
+                          : ""}
+                      </p>
+                      <p className="text-[10px] text-gray-600 mt-1 line-clamp-2">
+                        {r.feedback_preview || r.feedback_hash}
+                      </p>
+                      <p className="text-[9px] text-gray-700 mt-1 font-mono truncate">
+                        sig:{shortWallet(r.signature)} · hash:{r.feedback_hash.slice(0, 10)}…
+                      </p>
+                    </article>
+                  ))}
                 </div>
               ) : (
                 <p className="text-[11px] text-gray-600">

@@ -75,6 +75,8 @@ def submit_attestation_review(
     review_text: str,
     wallet_address: str | None = None,
     signature: str | None = None,
+    agent_architecture: str = "LangChain-Retriever",
+    execution_latency_ms: int | None = None,
 ) -> dict[str, Any]:
     """POST signed attestation to edge reviews:global."""
     if score < 1 or score > 5:
@@ -87,7 +89,10 @@ def submit_attestation_review(
         "feedback_hash": feedback_hash,
         "signature": sig,
         "feedback_preview": (review_text.strip() or "")[:280],
+        "agent_architecture": agent_architecture,
     }
+    if execution_latency_ms is not None:
+        body["execution_latency_ms"] = execution_latency_ms
     if wallet_address:
         body["wallet_address"] = wallet_address
     resp = requests.post(

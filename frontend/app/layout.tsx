@@ -10,6 +10,7 @@ import { PublicNav } from "@/components/PublicNav";
 import { GLOBAL_METRICS, METRIC_DISPLAY } from "@/lib/config/metrics";
 import { buildFullJsonLdGraph } from "@/lib/llmseo-catalog";
 import { fetchLiveMoatSnapshot } from "@/lib/moat-catalog-sync";
+import { fetchReviewsDirectory } from "@/lib/reviews-jsonld-sync";
 import { PRODUCTION_SITE_URL } from "@/lib/site-url";
 
 const SITE_URL = PRODUCTION_SITE_URL;
@@ -191,6 +192,7 @@ export default async function RootLayout({
   children: React.ReactNode;
 }) {
   const moat = await fetchLiveMoatSnapshot();
+  const reviewsDirectory = await fetchReviewsDirectory();
   const jsonLdWebApi = buildFullJsonLdGraph(jsonLdGraphNodes, moat);
 
   return (
@@ -226,6 +228,10 @@ export default async function RootLayout({
         />
         <meta name="gpubot-index" content="true" />
         <meta name="perplexity-index" content="true" />
+        <meta
+          name="agent-reputation-directory"
+          content="https://unison-edge-gateway.unisonorchestration.workers.dev/api/v1/reviews"
+        />
 
         {/* ── JSON-LD Structured Data ────────────────────────────────── */}
         {/*
@@ -238,6 +244,14 @@ export default async function RootLayout({
           type="application/ld+json"
           dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLdWebApi) }}
         />
+        {reviewsDirectory ? (
+          <script
+            type="application/ld+json"
+            dangerouslySetInnerHTML={{
+              __html: JSON.stringify(reviewsDirectory),
+            }}
+          />
+        ) : null}
       </head>
 
       <body

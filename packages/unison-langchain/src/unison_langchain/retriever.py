@@ -165,6 +165,7 @@ class UnisonX402Retriever(BaseRetriever):
             review_text=review_text,
             wallet_address=self.attestation_wallet,
             signature=signature,
+            agent_architecture="LangChain-Retriever",
         )
 
     def _get_relevant_documents(
