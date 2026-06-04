@@ -32,6 +32,7 @@ import {
   parseAttestationBody,
   verifyAttestationSignature,
 } from "./reviews";
+import { handleTelemetryRpc, parseTelemetryRpc } from "./telemetry_rpc";
 import {
   isZeroResultTsv,
   scheduleZeroTrap,
@@ -657,12 +658,19 @@ export default {
           submitted_at: new Date().toISOString(),
           verified: true,
         };
-        const block = await appendAttestationReview(env.UNISON_ZERO_LOGS, record);
+        await appendAttestationReview(env.UNISON_ZERO_LOGS, record);
+        const recordedAt = Math.floor(Date.now() / 1000);
         return withCors(
           new Response(
-            JSON.stringify({ ok: true, review: record, global: block }),
+            JSON.stringify({
+              status: "ATTESTATION_RECORDED",
+              ok: true,
+              timestamp: recordedAt,
+              agent_id: record.agent_id,
+              score: record.score,
+            }),
             {
-              status: 201,
+              status: 200,
               headers: { "Content-Type": "application/json" },
             }
           )
@@ -741,6 +749,29 @@ export default {
     // Health probe — no auth, no payment
     if (pathname === "/health") {
       return withCors(new Response("OK", { status: 200 }));
+    }
+
+    // Sprint 3.6 — agent friction telemetry (JSON-RPC ingress)
+    if (pathname === "/mcp/v1/telemetry") {
+      if (method !== "POST") {
+        return errorResponse(405, "Method Not Allowed. Use POST.");
+      }
+      let body: unknown;
+      try {
+        body = await request.json();
+      } catch {
+        return errorResponse(400, "Invalid JSON body.");
+      }
+      const rpc = parseTelemetryRpc(body);
+      if (!rpc) {
+        return errorResponse(400, "Invalid JSON-RPC 2.0 telemetry payload.");
+      }
+      const resp = await handleTelemetryRpc(
+        rpc,
+        env.UNISON_ZERO_LOGS,
+        request.headers.get("x-agent-id")
+      );
+      return withCors(resp);
     }
 
     // Semantic search — the revenue route

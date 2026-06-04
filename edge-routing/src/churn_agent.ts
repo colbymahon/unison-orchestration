@@ -148,7 +148,8 @@ async function injectGapIntents(
   collection: string,
   agentId: string,
   intents: string[]
-): Promise<void> {
+): Promise<number> {
+  let n = 0;
   for (const intent of intents.slice(0, 8)) {
     const input: ZeroTrapInput = {
       query: intent.trim(),
@@ -156,7 +157,20 @@ async function injectGapIntents(
       agentHeader: agentId,
     };
     await persistZeroLog(kv, input);
+    n += 1;
   }
+  return n;
+}
+
+/** Public helper for /mcp/v1/telemetry JSON-RPC gap inversion */
+export async function injectGapIntentsFromTelemetry(
+  kv: KVNamespace,
+  collection: string,
+  agentHeader: string | null,
+  intents: string[]
+): Promise<number> {
+  const agent = agentHeader?.trim() || "anonymous";
+  return injectGapIntents(kv, collection, agent, intents);
 }
 
 async function runChurnProbe(
@@ -192,10 +206,15 @@ async function runChurnProbe(
       detail = `http_${status}`;
       const intents = extractGapIntents(body);
       if (intents.length > 0) {
-        await injectGapIntents(zeroLogsKv, event.collection_target, event.agent_id, intents);
+        const n = await injectGapIntents(
+          zeroLogsKv,
+          event.collection_target,
+          event.agent_id,
+          intents
+        );
         event.gap_injected = true;
         outcome = "gap_injected";
-        detail = `${detail}; intents=${intents.length}`;
+        detail = `${detail}; intents=${n}`;
       }
       event.webhook_status = status;
     } catch (err) {

@@ -246,6 +246,7 @@ export function LedgerPanel({ ledger, revenueHistory, rejectionHistory, loading 
                       <tr className="text-gray-500 uppercase tracking-wider border-b border-white/10">
                         <th className="py-1 pr-2">Wallet</th>
                         <th className="py-1 pr-2">Score</th>
+                        <th className="py-1 pr-2">Signature</th>
                         <th className="py-1">Feedback</th>
                       </tr>
                     </thead>
@@ -256,7 +257,10 @@ export function LedgerPanel({ ledger, revenueHistory, rejectionHistory, loading 
                             {shortWallet(r.wallet_address)}
                           </td>
                           <td className="py-1.5 pr-2 text-emerald-400/90">{r.score}/5</td>
-                          <td className="py-1.5 text-gray-600 max-w-[160px] truncate">
+                          <td className="py-1.5 pr-2 text-gray-500 max-w-[72px] truncate tabular-nums">
+                            {shortWallet(r.signature)}
+                          </td>
+                          <td className="py-1.5 text-gray-600 max-w-[120px] truncate">
                             {r.feedback_preview || r.feedback_hash.slice(0, 12) + "…"}
                           </td>
                         </tr>
