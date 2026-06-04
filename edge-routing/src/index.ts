@@ -628,9 +628,18 @@ export default {
       }
       const parsed = parseAttestationBody(body);
       if (!parsed) {
-        return errorResponse(
-          400,
-          "Invalid attestation schema. Require agent_id, score 1-5, feedback_hash (sha256 hex), signature (0x hex)."
+        return withCors(
+          new Response(
+            JSON.stringify({
+              ok: false,
+              error:
+                "Invalid attestation schema. Require agent_id (3-128 token), score 1-5, feedback_hash (40-64 hex), signature (0x + 20-130 hex).",
+            }),
+            {
+              status: 400,
+              headers: { "Content-Type": "application/json" },
+            }
+          )
         );
       }
       const verified = await verifyAttestationSignature(parsed, env);

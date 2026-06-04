@@ -6,7 +6,7 @@ export const REVIEWS_GLOBAL_KEY = "reviews:global";
 const MAX_REVIEWS = 200;
 /** 40–64 hex — accepts truncated dev probes and full SHA-256 digests */
 const SHA256_HEX = /^[a-fA-F0-9]{40,64}$/;
-const AGENT_ID = /^[a-zA-Z0-9][a-zA-Z0-9._-]{2,127}$/;
+const AGENT_ID = /^[a-zA-Z0-9][a-zA-Z0-9._\-]{2,127}$/;
 /** Min 20 hex chars after 0x — accepts dev probes; strict HMAC uses full binding */
 const SIG_HEX = /^0x[a-fA-F0-9]{20,130}$/;
 
@@ -52,7 +52,8 @@ export function parseAttestationBody(body: unknown): AttestationReviewInput | nu
       : undefined;
 
   if (!AGENT_ID.test(agent_id)) return null;
-  if (!Number.isInteger(score) || score < 1 || score > 5) return null;
+  if (!Number.isFinite(score) || score < 1 || score > 5 || Math.round(score) !== score)
+    return null;
   if (!SHA256_HEX.test(feedback_hash)) return null;
   if (!SIG_HEX.test(signature)) return null;
 
