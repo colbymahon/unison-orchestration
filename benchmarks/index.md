@@ -1,6 +1,6 @@
 # Unison Daily Hallucination Audit — Rolling Index
 
-**Production storefront:** https://unisonorchestration.com · **Live moat:** 91,663 vectors · 32 collections  
+**Production storefront:** https://unisonorchestration.com · **Live moat:** 91,703+ vectors · 32 collections  
 **Agent install:** `npx @smithery/cli run colbymahon/unison-orchestration-hub`
 
 Deterministic probes run nightly at 03:00 UTC by `benchmark_bot.py`.

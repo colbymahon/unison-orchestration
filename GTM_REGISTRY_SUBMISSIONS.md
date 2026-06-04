@@ -3,6 +3,8 @@
 Copy-paste ready submissions for all three major MCP registries.
 Gateway URL: https://unison-edge-gateway.unisonorchestration.workers.dev
 
+**Live moat (verified 2026-06-04):** 91,703 vectors · 32 collections · `smithery.yaml` v1.4.0
+
 ---
 
 ## 1. PulseMCP (pulsemcp.com/submit)
@@ -144,9 +146,13 @@ handled via PulseMCP and Smithery only.
 After `npx @smithery/cli auth login`:
 
 ```bash
+cd ~/unison-orchestration
+npx @smithery/cli auth login
+npx @smithery/cli run colbymahon/unison-orchestration-hub
 npx @smithery/cli mcp publish \
   "https://unison-edge-gateway.unisonorchestration.workers.dev" \
-  -n v18group/unison-orchestration-hub
+  -n colbymahon/unison-orchestration-hub
 ```
 
-`smithery.yaml` is committed at repo root for the web form paste step.
+`smithery.yaml` (v1.4.0) is at repo root — paste into web form or use CLI above.
+Full pack: [`integrations/SMITHERY_SUBMISSION.md`](integrations/SMITHERY_SUBMISSION.md).
