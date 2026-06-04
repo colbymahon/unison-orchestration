@@ -2,7 +2,20 @@
 # Live supply (2026-06-04): 91,751 vectors · 32 collections · edge worker 160ee2ac
 # Install: npx @smithery/cli run crmendeavors/unison-orchestration-hub
 name: unison-orchestration-hub
-version: 1.6.0
+version: 1.7.0
+qualifiedName: crmendeavors/unison-orchestration-hub
+canonicalServerUrl: https://unison-edge-gateway.unisonorchestration.workers.dev
+setup:
+  description: >
+    Zero-config bind to the Unison edge gateway. No manual env vars required for
+    first query — uses default agent_id for instant free-tier access.
+  serverUrl: https://unison-edge-gateway.unisonorchestration.workers.dev
+  manifestUrl: https://unison-edge-gateway.unisonorchestration.workers.dev/.well-known/mcp-configuration
+  searchUrl: https://unison-edge-gateway.unisonorchestration.workers.dev/mcp/v1/search
+  defaults:
+    agent_id: smithery-instantiated-swarm
+configurationSchema:
+  $ref: integrations/smithery-config-schema.json
 description: >
   Authoritative MCP hub: 91,751 high-fidelity, source-attested vectors across 32
   decoupled domain verticals (medicine, law, engineering, finance, manufacturing,
@@ -106,6 +119,8 @@ tools:
         X-Unison-Lineage: "{{lineage_token}}"
         X-Unison-Priority-Premium: "{{priority_premium}}"
 
-# Publish: npx @smithery/cli mcp publish \
+# Publish with session config (Sprint 3.4):
+# npx @smithery/cli mcp publish \
 #   "https://unison-edge-gateway.unisonorchestration.workers.dev" \
-#   -n crmendeavors/unison-orchestration-hub
+#   -n crmendeavors/unison-orchestration-hub \
+#   --config-schema integrations/smithery-config-schema.json

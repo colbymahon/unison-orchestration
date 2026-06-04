@@ -1,0 +1,22 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "type": "object",
+  "title": "Unison Orchestration Hub — zero-config session",
+  "description": "Maps Smithery installs to the canonical edge gateway and default agent identity.",
+  "properties": {
+    "serverUrl": {
+      "type": "string",
+      "title": "MCP Gateway URL",
+      "default": "https://unison-edge-gateway.unisonorchestration.workers.dev",
+      "description": "Canonical Unison edge worker (search + manifest)."
+    },
+    "agent_id": {
+      "type": "string",
+      "title": "Agent identity (X-Agent-ID)",
+      "default": "smithery-instantiated-swarm",
+      "minLength": 1,
+      "description": "Isolates the 50-query free tier per Smithery install."
+    }
+  },
+  "required": []
+}

@@ -19,7 +19,7 @@
 | Field | Value |
 |-------|--------|
 | Name | `unison-orchestration-hub` |
-| Version | `1.6.0` |
+| Version | `1.7.0` |
 | Homepage | `https://unison-edge-gateway.unisonorchestration.workers.dev` |
 | Description | Precision semantic retrieval over **32** curated corpora (**91,751+** live vectors). TSV payloads eliminate 8.5–9.0% token overhead vs JSON. First 50 queries/agent free; x402 USDC on Base L2. Premium: \$0.05/query. Standard: \$0.005/query. ZKP digest + multi-node composition on edge. |
 
@@ -47,7 +47,8 @@ npx @smithery/cli auth login
 npx @smithery/cli namespace list
 npx @smithery/cli mcp publish \
   "https://unison-edge-gateway.unisonorchestration.workers.dev" \
-  -n <your-smithery-namespace>/unison-orchestration-hub
+  -n crmendeavors/unison-orchestration-hub \
+  --config-schema integrations/smithery-config-schema.json
 
 # If `colbymahon` namespace is not registered yet:
 npx @smithery/cli namespace create colbymahon

@@ -90,6 +90,14 @@ async function fetchLeg(
   return { leg, body, hitCount: Number.isFinite(hitCount) ? hitCount : 0, status: res.status };
 }
 
+const HEX_WALLET = /^0x[a-fA-F0-9]{40}$/;
+
+function normalizeWallet(addr: string): string {
+  const t = addr.trim();
+  if (!HEX_WALLET.test(t)) return t;
+  return t.toLowerCase();
+}
+
 export function buildRevenueRoutingEvent(
   query: string,
   primaryCollection: string,
@@ -101,14 +109,42 @@ export function buildRevenueRoutingEvent(
   const partnerMargins = plan.legs
     .filter((l) => l.providerId !== "unison_core")
     .map((l) => ({
-      beneficiary: `provider:${l.baseWalletAddress}`,
+      beneficiary: `provider:${normalizeWallet(l.baseWalletAddress)}`,
       amountUsdc: l.baseUSDCFee,
       providerId: l.providerId,
       settlementLabel: l.settlementLabel,
+      walletAddress: normalizeWallet(l.baseWalletAddress),
     }));
 
   const treasuryPremium =
     plan.legs.find((l) => l.settlementLabel === "treasury")?.baseUSDCFee ?? "0.0020";
+
+  const allocations: Array<{
+    address: string;
+    gross_usdc: number;
+    providerId?: string;
+    settlementLabel?: string;
+  }> = [];
+
+  for (const leg of plan.legs) {
+    const gross = Number(leg.baseUSDCFee);
+    if (!Number.isFinite(gross) || gross <= 0) continue;
+    allocations.push({
+      address: normalizeWallet(leg.baseWalletAddress),
+      gross_usdc: gross,
+      providerId: leg.providerId,
+      settlementLabel: leg.settlementLabel,
+    });
+  }
+
+  const premium = Number(treasuryPremium);
+  if (Number.isFinite(premium) && premium > 0 && HEX_WALLET.test(treasuryWallet.trim())) {
+    allocations.push({
+      address: normalizeWallet(treasuryWallet),
+      gross_usdc: premium,
+      settlementLabel: "treasury",
+    });
+  }
 
   return {
     event: "REVENUE_ROUTING_EVENT",
@@ -124,12 +160,19 @@ export function buildRevenueRoutingEvent(
       baseUSDCFee: r.leg.baseUSDCFee,
       settlementLabel: r.leg.settlementLabel,
       hitCount: r.hitCount,
+      walletAddress: normalizeWallet(r.leg.baseWalletAddress),
     })),
     treasury_premium_usdc: treasuryPremium,
     partner_settlement_margins: partnerMargins,
-    treasury_wallet: treasuryWallet,
+    treasury_wallet: normalizeWallet(treasuryWallet),
     total_usdc: plan.totalUsdc.toFixed(4),
     timestamp: new Date().toISOString(),
+    settlement_batch: {
+      tx_hash: "",
+      allocations,
+      network: "base",
+      chain_id: 8453,
+    },
   };
 }
 
