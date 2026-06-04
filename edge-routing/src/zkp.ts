@@ -8,6 +8,10 @@ export const ZKP_CHUNK_COUNT_HEADER = "X-Unison-ZKP-Chunk-Count";
 export const ZKP_VERIFIED_COUNT_HEADER = "X-Unison-ZKP-Verified-Count";
 export const SOURCE_DIGEST_HEADER = "X-Unison-Source-Digest";
 
+/** SHA-256 of empty string — safe fallback when chunk assembly fails */
+export const EMPTY_SHA256_HEX =
+  "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855";
+
 const KV_PREFIX = "zkp:chunk:";
 const KV_RING_PREFIX = "zkp:ring:";
 const KV_TTL_SECONDS = 90 * 24 * 60 * 60;
@@ -27,8 +31,9 @@ export interface ZkpVerificationResult {
 }
 
 /** Align with Python sanitize_tsv_field */
-export function sanitizeTsvField(value: string): string {
-  return value.replace(/[\t\r\n]+/g, " ").trim();
+export function sanitizeTsvField(value: string | undefined | null): string {
+  const s = value == null ? "" : String(value);
+  return s.replace(/[\t\r\n]+/g, " ").trim();
 }
 
 /** Canonical row bytes for ingest + edge (Sequence\\tURL\\tContent) */
@@ -68,19 +73,42 @@ export function parseTsvChunks(tsvBody: string): TsvChunkRow[] {
 
     if (cols.length >= 4 && !cols[0].toLowerCase().includes("http")) {
       rows.push({
-        sequence: cols[1],
-        url: cols[2],
-        content: cols.slice(3).join("\t"),
+        sequence: cols[1] ?? "",
+        url: cols[2] ?? "",
+        content: cols.slice(3).join("\t") ?? "",
       });
     } else {
       rows.push({
-        sequence: cols[0],
-        url: cols[1],
-        content: cols.slice(2).join("\t"),
+        sequence: cols[0] ?? "",
+        url: cols[1] ?? "",
+        content: cols.slice(2).join("\t") ?? "",
       });
     }
   }
   return rows;
+}
+
+/** Degraded ZKP block when verification throws — keeps worker alive (no 1101). */
+export function degradedZkpResult(reason: string): ZkpVerificationResult {
+  console.warn(
+    JSON.stringify({
+      event: "ZKP_VERIFY_DEGRADED",
+      reason,
+      timestamp: new Date().toISOString(),
+    })
+  );
+  return {
+    verificationDigest: EMPTY_SHA256_HEX,
+    chunkCount: 0,
+    verifiedCount: 0,
+    chunkDigests: [],
+    headers: {
+      [ZKP_VERIFICATION_DIGEST_HEADER]: EMPTY_SHA256_HEX,
+      [ZKP_CHUNK_COUNT_HEADER]: "0",
+      [ZKP_VERIFIED_COUNT_HEADER]: "0",
+      [SOURCE_DIGEST_HEADER]: EMPTY_SHA256_HEX,
+    },
+  };
 }
 
 /**
@@ -171,57 +199,82 @@ export async function verifyAndAttachZkp(
   collection: string,
   episodeId?: string
 ): Promise<ZkpVerificationResult> {
-  const chunks = parseTsvChunks(tsvBody);
-  const chunkDigests: string[] = [];
-  let verifiedCount = 0;
+  try {
+    const chunks = parseTsvChunks(tsvBody);
+    const chunkDigests: string[] = [];
+    let verifiedCount = 0;
 
-  for (const row of chunks) {
-    const digest = await computeChunkDigest(row.sequence, row.url, row.content);
-    chunkDigests.push(digest);
-    const known = await lookupChunkDigest(kv, digest);
-    if (known) verifiedCount += 1;
-    await recordChunkDigestInKv(kv, digest, {
-      collection,
-      sequence: row.sequence,
-      url: row.url,
-      episodeId,
-      source: known ? "kv_hit" : "edge_materialize",
-    });
+    for (const row of chunks) {
+      const digest = await computeChunkDigest(
+        row.sequence,
+        row.url,
+        row.content
+      );
+      chunkDigests.push(digest);
+      const known = await lookupChunkDigest(kv, digest);
+      if (known) verifiedCount += 1;
+      try {
+        await recordChunkDigestInKv(kv, digest, {
+          collection,
+          sequence: row.sequence,
+          url: row.url,
+          episodeId,
+          source: known ? "kv_hit" : "edge_materialize",
+        });
+      } catch (kvErr) {
+        console.warn("ZKP KV record skipped:", kvErr);
+      }
+    }
+
+    const verificationDigest = await computeMergedBlockDigest(chunkDigests);
+    if (kv && episodeId) {
+      try {
+        await appendRingEntry(
+          kv,
+          collection,
+          episodeId,
+          verificationDigest,
+          chunks.length
+        );
+      } catch (ringErr) {
+        console.warn("ZKP ring append skipped:", ringErr);
+      }
+    }
+
+    const headers: Record<string, string> = {
+      [ZKP_VERIFICATION_DIGEST_HEADER]: verificationDigest,
+      [ZKP_CHUNK_COUNT_HEADER]: String(chunks.length),
+      [ZKP_VERIFIED_COUNT_HEADER]: String(verifiedCount),
+    };
+    if (chunkDigests[0]) {
+      headers[SOURCE_DIGEST_HEADER] = chunkDigests[0];
+    } else {
+      headers[SOURCE_DIGEST_HEADER] = EMPTY_SHA256_HEX;
+    }
+
+    console.log(
+      JSON.stringify({
+        event: "ZKP_VERIFY_EVENT",
+        collection,
+        lineage_episode_id: episodeId,
+        verification_digest: verificationDigest,
+        chunk_count: chunks.length,
+        verified_count: verifiedCount,
+        timestamp: new Date().toISOString(),
+      })
+    );
+
+    return {
+      verificationDigest,
+      chunkCount: chunks.length,
+      verifiedCount,
+      chunkDigests,
+      headers,
+    };
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : String(err);
+    return degradedZkpResult(msg);
   }
-
-  const verificationDigest = await computeMergedBlockDigest(chunkDigests);
-  if (kv && episodeId) {
-    await appendRingEntry(kv, collection, episodeId, verificationDigest, chunks.length);
-  }
-
-  const headers: Record<string, string> = {
-    [ZKP_VERIFICATION_DIGEST_HEADER]: verificationDigest,
-    [ZKP_CHUNK_COUNT_HEADER]: String(chunks.length),
-    [ZKP_VERIFIED_COUNT_HEADER]: String(verifiedCount),
-  };
-  if (chunkDigests[0]) {
-    headers[SOURCE_DIGEST_HEADER] = chunkDigests[0];
-  }
-
-  console.log(
-    JSON.stringify({
-      event: "ZKP_VERIFY_EVENT",
-      collection,
-      lineage_episode_id: episodeId,
-      verification_digest: verificationDigest,
-      chunk_count: chunks.length,
-      verified_count: verifiedCount,
-      timestamp: new Date().toISOString(),
-    })
-  );
-
-  return {
-    verificationDigest,
-    chunkCount: chunks.length,
-    verifiedCount,
-    chunkDigests,
-    headers,
-  };
 }
 
 export function mergeZkpHeaders(

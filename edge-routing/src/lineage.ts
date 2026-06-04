@@ -109,16 +109,26 @@ async function sealLineageClaims(
 ): Promise<string | null> {
   const key = secretKey(sessionSecret);
   if (!key) return null;
-  const now = Math.floor(Date.now() / 1000);
-  const exp = now + LINEAGE_TTL_SECONDS;
-  return new SignJWT({
-    ...claims,
-    v: LINEAGE_SCHEMA_VERSION,
-  })
-    .setProtectedHeader({ alg: "HS256" })
-    .setIssuedAt(now)
-    .setExpirationTime(exp)
-    .sign(key);
+  try {
+    const now = Math.floor(Date.now() / 1000);
+    const exp = now + LINEAGE_TTL_SECONDS;
+    return await new SignJWT({
+      ...claims,
+      v: LINEAGE_SCHEMA_VERSION,
+    })
+      .setProtectedHeader({ alg: "HS256" })
+      .setIssuedAt(now)
+      .setExpirationTime(exp)
+      .sign(key);
+  } catch (err) {
+    console.warn(
+      JSON.stringify({
+        event: "LINEAGE_SEAL_DEGRADED",
+        error: err instanceof Error ? err.message : String(err),
+      })
+    );
+    return null;
+  }
 }
 
 export function newEpisodeId(): string {
@@ -175,68 +185,91 @@ export async function prepareLineageForSearch(
 ): Promise<LineageSearchContext | null> {
   if (!kv || !sessionSecret) return null;
 
-  const principalId = resolvePrincipalId(request);
-  const inbound = request.headers.get(LINEAGE_HEADER)?.trim();
-  let episodeId = newEpisodeId();
-  let step = 1;
-  let collections = [collection];
-  let contextRefs: string[] = [];
-  let episode: LineageEpisodeRecord | null = null;
+  try {
+    const principalId = resolvePrincipalId(request);
+    const inbound = request.headers.get(LINEAGE_HEADER)?.trim();
+    let episodeId = newEpisodeId();
+    let step = 1;
+    let collections = [collection];
+    let contextRefs: string[] = [];
+    let episode: LineageEpisodeRecord | null = null;
 
-  if (inbound) {
-    const opened = await openLineageToken(inbound, sessionSecret);
-    if (opened.ok) {
-      const { claims } = opened;
-      episode = await loadEpisode(kv, claims.episodeId);
-      if (episode) {
-        episodeId = claims.episodeId;
-        step = Math.min(claims.step + 1, LINEAGE_MAX_STEPS);
-        collections = Array.from(new Set([...episode.steps.map((s) => s.collection), collection]));
-        contextRefs = episode.steps.flatMap((s) => s.vectorRefs);
+    if (inbound) {
+      const opened = await openLineageToken(inbound, sessionSecret);
+      if (opened.ok) {
+        const { claims } = opened;
+        episode = await loadEpisode(kv, claims.episodeId);
+        if (episode) {
+          episodeId = claims.episodeId;
+          step = Math.min(claims.step + 1, LINEAGE_MAX_STEPS);
+          collections = Array.from(
+            new Set([...episode.steps.map((s) => s.collection), collection])
+          );
+          contextRefs = episode.steps.flatMap((s) => s.vectorRefs);
+        } else {
+          episodeId = claims.episodeId;
+          step = Math.min(claims.step + 1, LINEAGE_MAX_STEPS);
+          collections = Array.from(new Set([...claims.collections, collection]));
+        }
       } else {
-        episodeId = claims.episodeId;
-        step = claims.step + 1;
-        collections = Array.from(new Set([...claims.collections, collection]));
+        console.warn(
+          JSON.stringify({
+            event: "LINEAGE_TOKEN_REJECTED",
+            action: "reset_episode_step_1",
+          })
+        );
+        episodeId = newEpisodeId();
+        step = 1;
       }
     }
-  }
 
-  if (!episode) {
-    episode = {
-      episodeId,
-      principalId,
-      createdAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString(),
-      steps: [],
-      contextBudgetUsed: 0,
-      maxContextBudget: 32_000,
+    if (!episode) {
+      episode = {
+        episodeId,
+        principalId,
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+        steps: [],
+        contextBudgetUsed: 0,
+        maxContextBudget: 32_000,
+      };
+    }
+
+    const token = await sealLineageClaims(
+      { episodeId, step, principalId, collections },
+      sessionSecret
+    );
+    if (!token) return null;
+
+    const forwardHeaders: Record<string, string> = {
+      [LINEAGE_VERSION_HEADER]: LINEAGE_SCHEMA_VERSION,
+      [LINEAGE_EPISODE_HEADER]: episodeId,
+      [LINEAGE_STEP_HEADER]: String(step),
     };
+    if (contextRefs.length > 0) {
+      forwardHeaders[CONTEXT_REFS_HEADER] = JSON.stringify(
+        contextRefs.slice(-24)
+      );
+    }
+
+    return {
+      episodeId,
+      step,
+      principalId,
+      collections,
+      contextRefs,
+      outboundToken: token,
+      forwardHeaders,
+    };
+  } catch (err) {
+    console.warn(
+      JSON.stringify({
+        event: "LINEAGE_PREPARE_DEGRADED",
+        error: err instanceof Error ? err.message : String(err),
+      })
+    );
+    return null;
   }
-
-  const token = await sealLineageClaims(
-    { episodeId, step, principalId, collections },
-    sessionSecret
-  );
-  if (!token) return null;
-
-  const forwardHeaders: Record<string, string> = {
-    [LINEAGE_VERSION_HEADER]: LINEAGE_SCHEMA_VERSION,
-    [LINEAGE_EPISODE_HEADER]: episodeId,
-    [LINEAGE_STEP_HEADER]: String(step),
-  };
-  if (contextRefs.length > 0) {
-    forwardHeaders[CONTEXT_REFS_HEADER] = JSON.stringify(contextRefs.slice(-24));
-  }
-
-  return {
-    episodeId,
-    step,
-    principalId,
-    collections,
-    contextRefs,
-    outboundToken: token,
-    forwardHeaders,
-  };
 }
 
 /**
@@ -253,6 +286,7 @@ export async function finalizeLineageAfterSearch(
 ): Promise<string | null> {
   if (!kv || !ctx) return ctx?.outboundToken ?? null;
 
+  try {
   const episode =
     (await loadEpisode(kv, ctx.episodeId)) ?? {
       episodeId: ctx.episodeId,
@@ -293,6 +327,15 @@ export async function finalizeLineageAfterSearch(
     },
     sessionSecret
   );
+  } catch (err) {
+    console.warn(
+      JSON.stringify({
+        event: "LINEAGE_FINALIZE_DEGRADED",
+        error: err instanceof Error ? err.message : String(err),
+      })
+    );
+    return ctx.outboundToken ?? null;
+  }
 }
 
 export function resolveLineageSessionSecret(env: {

@@ -161,9 +161,11 @@ function resolveClientId(request: Request): string {
     return `agent:${agentId.trim()}`;
   }
   // Fall back to connecting IP
+  const forwarded = request.headers.get("x-forwarded-for");
+  const forwardedIp = forwarded?.split(",")[0]?.trim();
   const ip =
     request.headers.get("cf-connecting-ip") ??
-    request.headers.get("x-forwarded-for")?.split(",")[0].trim() ??
+    (forwardedIp && forwardedIp.length > 0 ? forwardedIp : null) ??
     "unknown";
   return `ip:${ip}`;
 }
@@ -267,10 +269,21 @@ async function proxyToBackend(
 ): Promise<Response> {
   const lineageForwardHeaders = lineageCtx?.forwardHeaders ?? {};
   const incomingUrl = new URL(request.url);
-  const backendUrl = new URL(
-    incomingUrl.pathname + incomingUrl.search,
-    env.BACKEND_URL
-  );
+  if (!env.BACKEND_URL?.trim()) {
+    console.error("BACKEND_URL not configured on edge worker");
+    return errorResponse(502, "Backend URL not configured.");
+  }
+
+  let backendUrl: URL;
+  try {
+    backendUrl = new URL(
+      incomingUrl.pathname + incomingUrl.search,
+      env.BACKEND_URL
+    );
+  } catch (urlErr) {
+    console.error("Invalid BACKEND_URL:", urlErr);
+    return errorResponse(502, "Backend URL misconfigured.");
+  }
 
   const headers = new Headers(request.headers);
   headers.delete("payment-signature");
@@ -333,35 +346,48 @@ async function proxyToBackend(
       });
     }
 
-    // Phase 2a: persist step + outbound lineage token
+    // Phase 2a: persist step + outbound lineage token (never throw — degrade gracefully)
     if (env.UNISON_LINEAGE && lineageCtx) {
-      const sessionSecret = resolveLineageSessionSecret(env);
-      const refreshed = await finalizeLineageAfterSearch(
-        env.UNISON_LINEAGE,
-        lineageCtx,
-        collection,
-        q,
-        bodyText,
-        hitCount >= 0 ? hitCount : 0,
-        sessionSecret
-      );
-      if (refreshed) {
-        extraHeaders[LINEAGE_HEADER] = refreshed;
-      } else if (lineageCtx.outboundToken) {
-        extraHeaders[LINEAGE_HEADER] = lineageCtx.outboundToken;
+      try {
+        const sessionSecret = resolveLineageSessionSecret(env);
+        const refreshed = await finalizeLineageAfterSearch(
+          env.UNISON_LINEAGE,
+          lineageCtx,
+          collection,
+          q,
+          bodyText,
+          hitCount >= 0 ? hitCount : 0,
+          sessionSecret
+        );
+        if (refreshed) {
+          extraHeaders[LINEAGE_HEADER] = refreshed;
+        } else if (lineageCtx.outboundToken) {
+          extraHeaders[LINEAGE_HEADER] = lineageCtx.outboundToken;
+        }
+        extraHeaders["X-Unison-Lineage-Step"] = String(lineageCtx.step);
+        extraHeaders["X-Unison-Lineage-Episode"] = lineageCtx.episodeId;
+      } catch (lineageErr) {
+        console.warn("Lineage finalize degraded:", lineageErr);
+        if (lineageCtx.outboundToken) {
+          extraHeaders[LINEAGE_HEADER] = lineageCtx.outboundToken;
+        }
+        extraHeaders["X-Unison-Lineage-Step"] = "1";
+        extraHeaders["X-Unison-Lineage-Episode"] = lineageCtx.episodeId;
       }
-      extraHeaders["X-Unison-Lineage-Step"] = String(lineageCtx.step);
-      extraHeaders["X-Unison-Lineage-Episode"] = lineageCtx.episodeId;
     }
 
     if (bodyText) {
-      const zkp = await verifyAndAttachZkp(
-        env.UNISON_LINEAGE,
-        bodyText,
-        collection,
-        lineageEpisodeId
-      );
-      mergeZkpHeaders(extraHeaders, zkp);
+      try {
+        const zkp = await verifyAndAttachZkp(
+          env.UNISON_LINEAGE,
+          bodyText,
+          collection,
+          lineageEpisodeId
+        );
+        mergeZkpHeaders(extraHeaders, zkp);
+      } catch (zkpErr) {
+        console.warn("ZKP attach degraded:", zkpErr);
+      }
     }
   }
 
@@ -384,64 +410,78 @@ async function executeMcpSearch(
   ctx: ExecutionContext,
   tierHeaders: Record<string, string>
 ): Promise<Response> {
-  const url = new URL(request.url);
-  const collection =
-    url.searchParams.get("collection")?.trim() ?? "unison_engineering_core";
-  const q = url.searchParams.get("q")?.trim() ?? "";
-  const sessionSecret = resolveLineageSessionSecret(env);
-  const lineageCtx = await prepareLineageForSearch(
-    request,
-    env.UNISON_LINEAGE,
-    collection,
-    q,
-    sessionSecret
-  );
-
-  const { gate, blockedResponse } = await evaluateAuctionGate(
-    request,
-    env.UNISON_LINEAGE,
-    collection,
-    env,
-    lineageCtx
-      ? { episodeId: lineageCtx.episodeId, step: lineageCtx.step }
-      : undefined
-  );
-
-  if (blockedResponse) {
-    const blocked = withCors(blockedResponse);
-    for (const [k, v] of Object.entries(gate.responseHeaders)) {
-      blocked.headers.set(k, v);
-    }
-    if (lineageCtx?.outboundToken) {
-      blocked.headers.set(LINEAGE_HEADER, lineageCtx.outboundToken);
-      blocked.headers.set("X-Unison-Lineage-Step", String(lineageCtx.step));
-    }
-    return blocked;
-  }
-
-  const mergedTier = { ...tierHeaders, ...gate.responseHeaders };
-  const plan = resolveCompositionPlan(
-    q,
-    collection,
-    url.searchParams,
-    env.PAYMENT_DEST
-  );
-
-  if (plan.active && plan.legs.length > 1) {
-    const { response } = await executeCompositeSearch(
+  try {
+    const url = new URL(request.url);
+    const collection =
+      url.searchParams.get("collection")?.trim() ?? "unison_engineering_core";
+    const q = url.searchParams.get("q")?.trim() ?? "";
+    const sessionSecret = resolveLineageSessionSecret(env);
+    const lineageCtx = await prepareLineageForSearch(
       request,
+      env.UNISON_LINEAGE,
+      collection,
+      q,
+      sessionSecret
+    );
+
+    const { gate, blockedResponse } = await evaluateAuctionGate(
+      request,
+      env.UNISON_LINEAGE,
+      collection,
       env,
-      plan,
+      lineageCtx
+        ? { episodeId: lineageCtx.episodeId, step: lineageCtx.step }
+        : undefined
+    );
+
+    if (blockedResponse) {
+      const blocked = withCors(blockedResponse);
+      for (const [k, v] of Object.entries(gate.responseHeaders)) {
+        blocked.headers.set(k, v);
+      }
+      if (lineageCtx?.outboundToken) {
+        blocked.headers.set(LINEAGE_HEADER, lineageCtx.outboundToken);
+        blocked.headers.set("X-Unison-Lineage-Step", String(lineageCtx.step));
+      }
+      return blocked;
+    }
+
+    const mergedTier = { ...tierHeaders, ...gate.responseHeaders };
+    const plan = resolveCompositionPlan(
       q,
       collection,
-      lineageCtx,
-      mergedTier
+      url.searchParams,
+      env.PAYMENT_DEST ?? ""
     );
-    return withCors(response);
-  }
 
-  mergedTier[ROUTER_COMPOSITION_HEADER] = "Single-Node";
-  return proxyToBackend(request, env, ctx, mergedTier, lineageCtx);
+    if (plan.active && plan.legs.length > 1) {
+      const { response } = await executeCompositeSearch(
+        request,
+        env,
+        plan,
+        q,
+        collection,
+        lineageCtx,
+        mergedTier
+      );
+      return withCors(response);
+    }
+
+    mergedTier[ROUTER_COMPOSITION_HEADER] = "Single-Node";
+    return proxyToBackend(request, env, ctx, mergedTier, lineageCtx);
+  } catch (err) {
+    console.error(
+      JSON.stringify({
+        event: "MCP_SEARCH_HANDLER_ERROR",
+        error: err instanceof Error ? err.message : String(err),
+        stack: err instanceof Error ? err.stack : undefined,
+      })
+    );
+    return errorResponse(
+      502,
+      "Edge gateway processing error. Retry or use backend fallback."
+    );
+  }
 }
 
 // ---------------------------------------------------------------------------
@@ -533,10 +573,15 @@ export default {
         console.log(
           `Free tier: client=${clientId} used=${freeTier.used + 1}/${FREE_TIER_LIMIT}`
         );
-        return executeMcpSearch(request, env, ctx, {
-          "X-Remaining-Free-Tier": String(freeTier.remaining),
-          "X-Free-Tier-Limit": String(FREE_TIER_LIMIT),
-        });
+        try {
+          return await executeMcpSearch(request, env, ctx, {
+            "X-Remaining-Free-Tier": String(freeTier.remaining),
+            "X-Free-Tier-Limit": String(FREE_TIER_LIMIT),
+          });
+        } catch (searchErr) {
+          console.error("executeMcpSearch uncaught:", searchErr);
+          return errorResponse(502, "Edge search handler error.");
+        }
       }
 
       const signature = request.headers.get("payment-signature");
@@ -554,7 +599,12 @@ export default {
       }
 
       console.log(`Paid request verified: client=${clientId}`);
-      return executeMcpSearch(request, env, ctx, { "X-Tier": "paid" });
+      try {
+        return await executeMcpSearch(request, env, ctx, { "X-Tier": "paid" });
+      } catch (searchErr) {
+        console.error("executeMcpSearch uncaught:", searchErr);
+        return errorResponse(502, "Edge search handler error.");
+      }
     }
 
     return errorResponse(404, "Not Found.");
