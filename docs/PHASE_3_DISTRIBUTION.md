@@ -24,9 +24,22 @@ Assets: [`smithery.yaml`](../smithery.yaml) · [`integrations/SMITHERY_SUBMISSIO
 
 ## Channel 3 — Public telemetry mirror
 
-GitHub → **Settings → Secrets → Actions** → `TELEMETRY_REPO_TOKEN` (PAT with write on `colbymahon/unison-data-telemetry`).
+GitHub → **Settings → Secrets → Actions** (both required for full pipeline):
 
-Workflow: [`.github/workflows/daily_benchmark.yml`](../.github/workflows/daily_benchmark.yml) · 03:00 UTC.
+| Secret | Purpose |
+|--------|---------|
+| `OPENAI_API_KEY` | Frontier model probes in `benchmark_bot.py` (run fails ~10s without it) |
+| `TELEMETRY_REPO_TOKEN` | PAT with `contents: write` on `colbymahon/unison-data-telemetry` |
+
+Manual trigger after secrets are set:
+
+```bash
+cd ~/unison-orchestration
+gh workflow run daily_benchmark.yml
+gh run watch   # follow latest run to completion
+```
+
+Workflow: [`.github/workflows/daily_benchmark.yml`](../.github/workflows/daily_benchmark.yml) · 03:00 UTC cron.
 
 ## Ops symlink
 

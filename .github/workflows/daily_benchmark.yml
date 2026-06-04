@@ -39,13 +39,21 @@ jobs:
           UNISON_EDGE_URL:      "https://unison-edge-gateway.unisonorchestration.workers.dev"
           STOREFRONT_URL:       "https://unisonorchestration.com"
           BENCHMARK_MODELS:     ${{ inputs.models || 'gpt-4o,gpt-4o-mini' }}
-        run: python3 benchmarks/benchmark_bot.py
+        run: |
+          if [ -z "$OPENAI_API_KEY" ]; then
+            echo "::error::OPENAI_API_KEY repository secret is missing. Add it under Settings → Secrets → Actions."
+            exit 1
+          fi
+          python3 benchmarks/benchmark_bot.py
 
       - name: Mirror telemetry to public repo (optional)
-        if: ${{ secrets.TELEMETRY_REPO_TOKEN }}
         env:
           TELEMETRY_REPO_TOKEN: ${{ secrets.TELEMETRY_REPO_TOKEN }}
         run: |
+          if [ -z "$TELEMETRY_REPO_TOKEN" ]; then
+            echo "TELEMETRY_REPO_TOKEN not set — skipping public mirror."
+            exit 0
+          fi
           git clone "https://x-access-token:${TELEMETRY_REPO_TOKEN}@github.com/colbymahon/unison-data-telemetry.git" /tmp/telemetry
           cp benchmarks/index.md /tmp/telemetry/README.md
           cd /tmp/telemetry
