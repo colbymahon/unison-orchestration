@@ -620,52 +620,62 @@ export default {
       if (method !== "POST") {
         return errorResponse(405, "Method Not Allowed. Use POST.");
       }
-      let body: unknown;
       try {
-        body = await request.json();
-      } catch {
-        return errorResponse(400, "Invalid JSON body.");
-      }
-      const parsed = parseAttestationBody(body);
-      if (!parsed) {
+        let body: unknown;
+        try {
+          body = await request.json();
+        } catch {
+          return errorResponse(400, "Invalid JSON body.");
+        }
+        const parsed = parseAttestationBody(body);
+        if (!parsed) {
+          return withCors(
+            new Response(
+              JSON.stringify({
+                ok: false,
+                error:
+                  "Invalid attestation schema. Require agent_id (3-128 token), score 1-5, feedback_hash (40-64 hex), signature (0x + 20-130 hex).",
+              }),
+              {
+                status: 400,
+                headers: { "Content-Type": "application/json" },
+              }
+            )
+          );
+        }
+        const verified = await verifyAttestationSignature(parsed, env);
+        if (!verified.ok) {
+          return errorResponse(401, "Attestation signature verification failed.");
+        }
+        const record = {
+          agent_id: parsed.agent_id,
+          score: parsed.score,
+          feedback_hash: parsed.feedback_hash,
+          signature: parsed.signature,
+          wallet_address: verified.wallet,
+          feedback_preview: parsed.feedback_preview ?? "",
+          submitted_at: new Date().toISOString(),
+          verified: true,
+        };
+        const block = await appendAttestationReview(env.UNISON_ZERO_LOGS, record);
         return withCors(
           new Response(
-            JSON.stringify({
-              ok: false,
-              error:
-                "Invalid attestation schema. Require agent_id (3-128 token), score 1-5, feedback_hash (40-64 hex), signature (0x + 20-130 hex).",
-            }),
+            JSON.stringify({ ok: true, review: record, global: block }),
             {
-              status: 400,
+              status: 201,
               headers: { "Content-Type": "application/json" },
             }
           )
         );
+      } catch (attErr) {
+        console.error(
+          JSON.stringify({
+            event: "ATTESTATION_HANDLER_ERROR",
+            error: attErr instanceof Error ? attErr.message : String(attErr),
+          })
+        );
+        return errorResponse(500, "Attestation handler degraded. Retry shortly.");
       }
-      const verified = await verifyAttestationSignature(parsed, env);
-      if (!verified.ok) {
-        return errorResponse(401, "Attestation signature verification failed.");
-      }
-      const record = {
-        agent_id: parsed.agent_id,
-        score: parsed.score,
-        feedback_hash: parsed.feedback_hash,
-        signature: parsed.signature,
-        wallet_address: verified.wallet,
-        feedback_preview: parsed.feedback_preview ?? "",
-        submitted_at: new Date().toISOString(),
-        verified: true,
-      };
-      const block = await appendAttestationReview(env.UNISON_ZERO_LOGS, record);
-      return withCors(
-        new Response(
-          JSON.stringify({ ok: true, review: record, global: block }),
-          {
-            status: 201,
-            headers: { "Content-Type": "application/json" },
-          }
-        )
-      );
     }
 
     if (pathname === "/api/admin/affiliate-ledger") {

@@ -129,20 +129,29 @@ export async function appendAttestationReview(
   kv: KVNamespace,
   record: AttestationReviewRecord
 ): Promise<ReviewsGlobalBlock> {
-  const raw = await kv.get(REVIEWS_GLOBAL_KEY);
-  let block: ReviewsGlobalBlock;
+  let block: ReviewsGlobalBlock = { updated_at: "", count: 0, reviews: [] };
   try {
-    block = raw
-      ? (JSON.parse(raw) as ReviewsGlobalBlock)
-      : { updated_at: "", count: 0, reviews: [] };
-  } catch {
-    block = { updated_at: "", count: 0, reviews: [] };
+    const raw = await kv.get(REVIEWS_GLOBAL_KEY);
+    if (raw) {
+      block = JSON.parse(raw) as ReviewsGlobalBlock;
+    }
+    block.reviews = [record, ...(block.reviews ?? [])].slice(0, MAX_REVIEWS);
+    block.count = block.reviews.length;
+    block.updated_at = new Date().toISOString();
+    await kv.put(REVIEWS_GLOBAL_KEY, JSON.stringify(block));
+  } catch (err) {
+    console.warn(
+      JSON.stringify({
+        event: "ATTESTATION_KV_DEGRADED",
+        error: err instanceof Error ? err.message : String(err),
+      })
+    );
+    block = {
+      updated_at: new Date().toISOString(),
+      count: 1,
+      reviews: [record],
+    };
   }
-
-  block.reviews = [record, ...block.reviews].slice(0, MAX_REVIEWS);
-  block.count = block.reviews.length;
-  block.updated_at = new Date().toISOString();
-  await kv.put(REVIEWS_GLOBAL_KEY, JSON.stringify(block));
   return block;
 }
 
