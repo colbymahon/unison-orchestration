@@ -9,6 +9,7 @@ import { ScanlineOverlay } from "@/components/ScanlineOverlay";
 import { PublicNav } from "@/components/PublicNav";
 import { GLOBAL_METRICS, METRIC_DISPLAY } from "@/lib/config/metrics";
 import { buildFullJsonLdGraph } from "@/lib/llmseo-catalog";
+import { fetchLiveMoatSnapshot } from "@/lib/moat-catalog-sync";
 import { PRODUCTION_SITE_URL } from "@/lib/site-url";
 
 const SITE_URL = PRODUCTION_SITE_URL;
@@ -183,14 +184,15 @@ const jsonLdGraphNodes = [
     },
 ];
 
-const jsonLdWebApi = buildFullJsonLdGraph(jsonLdGraphNodes);
-
 /* ─── Root Layout ─────────────────────────────────────────────────────────────── */
-export default function RootLayout({
+export default async function RootLayout({
   children,
 }: {
   children: React.ReactNode;
 }) {
+  const moat = await fetchLiveMoatSnapshot();
+  const jsonLdWebApi = buildFullJsonLdGraph(jsonLdGraphNodes, moat);
+
   return (
     <html
       lang="en"

@@ -4,6 +4,7 @@
  */
 
 export const CANONICAL_SITE_ORIGIN = "https://unisonorchestration.com";
+export const CANONICAL_HOST = "unisonorchestration.com";
 
 export function isProductionRuntime(): boolean {
   return (

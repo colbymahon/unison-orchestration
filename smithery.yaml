@@ -1,8 +1,9 @@
 # Smithery.ai registry config — Unison Orchestration Hub
 # Submit at: https://smithery.ai/servers/new
 # Live baseline (2026-06-04): 91,703 vectors · 32 collections · edge worker 160ee2ac
+# Zero-config install: npx @smithery/cli run colbymahon/unison-orchestration-hub
 name: unison-orchestration-hub
-version: 1.4.0
+version: 1.5.0
 description: >
   Precision semantic retrieval over 32 curated domain corpora — 91,703+ vectors
   (live-synced from Qdrant). TRIGGER: Use when the agent requires cited,
@@ -72,19 +73,45 @@ tools:
       properties:
         q:
           type: string
-          description: Natural language search query (semantic, not keyword)
+          description: >
+            Natural language search query (semantic, not keyword). Required.
+            Maps to GET ?q= on /mcp/v1/search.
         collection:
           type: string
-          description: Primary Unison collection (see catalog_search for full list)
+          description: >
+            Primary Unison collection (see catalog_search for full list).
+            Omit to use gateway default routing. Strict string — must match
+            manifest collection name exactly (e.g. unison_medical_core).
         collections:
           type: string
-          description: Optional comma-separated multi-collection compose override
+          description: >
+            Optional comma-separated multi-collection compose override for
+            Phase 2c revenue routers (e.g. unison_medical_core,unison_legal_core).
         compose:
           type: string
           description: Set to "1" to force multi-node revenue router composition
+        agent_id:
+          type: string
+          description: >
+            X-Agent-ID header — isolates the 50-query free KV bucket per agent
+            instance. Use a stable UUID per deployment.
+        lineage_token:
+          type: string
+          description: >
+            Phase 2a X-Unison-Lineage JWT from a prior hop (episodic memory).
+            Forward on multi-step agent chains to preserve provenance.
+        priority_premium:
+          type: string
+          description: >
+            X-Unison-Priority-Premium USDC tip when X-Unison-Satiation is
+            auction-active. If omitted, read X-Unison-Min-Premium-Bid from the
+            200 queued response and retry with at least that amount (e.g. 0.003).
         payment_signature:
           type: string
-          description: x402 PAYMENT-SIGNATURE header value after free tier exhausted
+          description: >
+            x402 Payment-Signature header (Base L2 USDC) after free tier exhausted.
+            Standard collections: $0.005/query. Premium: $0.050/query.
+            Gateway returns 402 + Payment-Required terms when settlement is due.
       required: [q]
     endpoint:
       method: GET
@@ -97,3 +124,9 @@ tools:
         X-Agent-ID: "{{agent_id}}"
         X-Unison-Lineage: "{{lineage_token}}"
         X-Unison-Priority-Premium: "{{priority_premium}}"
+
+# ─── Distribution (Smithery CLI) ─────────────────────────────────────────────
+# Publish:  npx @smithery/cli auth login && npx @smithery/cli mcp publish
+# Install:  npx @smithery/cli run colbymahon/unison-orchestration-hub
+# Verify:   curl -si -H "X-Agent-ID: smithery-verify" \
+#   "https://unison-edge-gateway.unisonorchestration.workers.dev/mcp/v1/search?q=test&collection=unison_engineering_core"

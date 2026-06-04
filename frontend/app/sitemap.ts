@@ -1,4 +1,5 @@
 import type { MetadataRoute } from "next";
+import { COLLECTIONS } from "@/lib/collections";
 import { PRODUCTION_SITE_URL } from "@/lib/site-url";
 
 export const dynamic = "force-dynamic";
@@ -8,7 +9,7 @@ export default function sitemap(): MetadataRoute.Sitemap {
   const base = PRODUCTION_SITE_URL;
   const now = new Date();
 
-  const routes = [
+  const staticRoutes = [
     "",
     "/docs",
     "/corpora",
@@ -17,10 +18,19 @@ export default function sitemap(): MetadataRoute.Sitemap {
     "/api/openapi.json",
   ];
 
+  const collectionRoutes = COLLECTIONS.map((c) => `/corpora/${c.id}`);
+
+  const routes = [...staticRoutes, ...collectionRoutes];
+
   return routes.map((path) => ({
     url: `${base}${path}`,
     lastModified: now,
-    changeFrequency: path === "" ? "daily" : "weekly",
-    priority: path === "" ? 1 : path.startsWith("/api") || path.includes("well-known") ? 0.9 : 0.8,
+    changeFrequency:
+      path === ""
+        ? "daily"
+        : path.startsWith("/corpora/")
+          ? "daily"
+          : "weekly",
+    priority: path === "" ? 1 : path.startsWith("/corpora/") ? 0.85 : 0.8,
   }));
 }

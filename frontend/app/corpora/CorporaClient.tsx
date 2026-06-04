@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import Link from "next/link";
 import { motion, AnimatePresence } from "framer-motion";
 import { X, Terminal, Database, ChevronRight, Search } from "lucide-react";
 import { COLLECTIONS, type Collection } from "@/lib/collections";
@@ -197,10 +198,19 @@ export function CorporaClient() {
                   ))}
                 </div>
 
-                <div className={`flex items-center gap-1.5 text-xs font-medium ${accentText[col.color]} opacity-60`}>
-                  <Terminal className="w-3.5 h-3.5" aria-hidden="true" />
-                  Inspect TSV
-                  <ChevronRight className="w-3 h-3 ml-auto" aria-hidden="true" />
+                <div className={`flex items-center justify-between gap-2 text-xs font-medium ${accentText[col.color]} opacity-60`}>
+                  <span className="flex items-center gap-1.5">
+                    <Terminal className="w-3.5 h-3.5" aria-hidden="true" />
+                    Inspect TSV
+                  </span>
+                  <Link
+                    href={`/corpora/${col.id}`}
+                    onClick={(e) => e.stopPropagation()}
+                    className="hover:opacity-100 opacity-80 underline-offset-2 hover:underline"
+                  >
+                    Crawl page
+                  </Link>
+                  <ChevronRight className="w-3 h-3" aria-hidden="true" />
                 </div>
               </motion.article>
             ))}

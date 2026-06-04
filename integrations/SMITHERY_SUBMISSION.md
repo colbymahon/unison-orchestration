@@ -19,7 +19,7 @@
 | Field | Value |
 |-------|--------|
 | Name | `unison-orchestration-hub` |
-| Version | `1.4.0` |
+| Version | `1.5.0` |
 | Homepage | `https://unison-edge-gateway.unisonorchestration.workers.dev` |
 | Description | Precision semantic retrieval over **32** curated corpora (**91,703+** live vectors). TSV payloads eliminate 8.5–9.0% token overhead vs JSON. First 50 queries/agent free; x402 USDC on Base L2. Premium: \$0.05/query. Standard: \$0.005/query. ZKP digest + multi-node composition on edge. |
 

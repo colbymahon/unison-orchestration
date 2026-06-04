@@ -18,6 +18,9 @@
 
 Wire the same manifest into agent graphs as an external tool node; collection routing can mirror `client-agent/smithery_router.py` semantic matching.
 
+**Install (Smithery):** `npx @smithery/cli run colbymahon/unison-orchestration-hub`  
+**Live scale:** 91,703+ vectors · 32 collections · edge worker `160ee2ac`
+
 ## Evidence link
 
 Rolling benchmark index: `benchmarks/index.md` in the monorepo (updated 03:00 UTC daily).

@@ -35,6 +35,12 @@ client-agent/.env.save
 core-mcp-server/.env
 edge-routing/.env
 frontend/.env.local
+frontend/.webauthn/
+
+# Autonomous agent runtime state (PM2 / daemons)
+data-ingestion/.agent_state/
+distribution-agents/.agent_state/
+logs/
 
 # Node
 **/node_modules/

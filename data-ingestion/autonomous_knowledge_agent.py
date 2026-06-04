@@ -20,6 +20,8 @@ Environment (data-ingestion/.env):
   KNOWLEDGE_CYCLE_SECONDS  — default 3600 (1h between full cycles)
   KNOWLEDGE_ARXIV_BATCH    — papers per category per cycle (default 8)
   KNOWLEDGE_MAX_GAPS       — trapped gaps processed per cycle (default 3)
+  CATALOG_REVALIDATE_URL   — Next.js hook (default: storefront /api/internal/revalidate-catalog)
+  CATALOG_REVALIDATE_SECRET — Bearer token for catalog revalidation (optional)
 """
 
 from __future__ import annotations
@@ -430,6 +432,37 @@ async def process_github_lane(
     return upserted
 
 
+# ─── Storefront catalog revalidation ─────────────────────────────────────────
+
+
+async def trigger_catalog_revalidate(
+    session: aiohttp.ClientSession,
+    *,
+    collections: list[str],
+) -> None:
+    """Ping Next.js to refresh LLMSEO JSON-LD and per-collection crawl pages."""
+    secret = os.getenv("CATALOG_REVALIDATE_SECRET")
+    if not secret:
+        return
+
+    url = os.getenv(
+        "CATALOG_REVALIDATE_URL",
+        "https://unisonorchestration.com/api/internal/revalidate-catalog",
+    )
+    payload = {"collections": collections[:32]}
+    headers = {"Authorization": f"Bearer {secret}", "Content-Type": "application/json"}
+
+    try:
+        async with session.post(url, json=payload, headers=headers, timeout=15) as resp:
+            if resp.status >= 400:
+                text = await resp.text()
+                log.warning("[CATALOG] Revalidate %s: %s", resp.status, text[:200])
+            else:
+                log.info("[CATALOG] Revalidated storefront (%d collections)", len(collections))
+    except Exception as exc:
+        log.warning("[CATALOG] Revalidate skipped: %s", exc)
+
+
 # ─── Main loop ───────────────────────────────────────────────────────────────
 
 
@@ -508,6 +541,13 @@ class KnowledgeIngestionDaemon:
             summary["github_vectors"],
             summary["duration_seconds"],
         )
+
+        if total > 0 and self.telemetry.collections_touched:
+            async with aiohttp.ClientSession() as session:
+                await trigger_catalog_revalidate(
+                    session, collections=self.telemetry.collections_touched
+                )
+
         return summary
 
     async def run_forever(self) -> None:

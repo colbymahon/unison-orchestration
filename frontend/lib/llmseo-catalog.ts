@@ -1,9 +1,10 @@
 /**
  * Agentic SEO (LLMSEO) — schema.org DataCatalog for crawler / LLM ingestion.
- * Static server-side only; no user input interpolation.
+ * Merges static collection keywords with live moat vector counts when available.
  */
 
 import { COLLECTIONS } from "@/lib/collections";
+import type { LiveMoatSnapshot } from "@/lib/moat-catalog-sync";
 
 const EDGE_MANIFEST =
   "https://unison-edge-gateway.unisonorchestration.workers.dev/.well-known/mcp-configuration";
@@ -27,16 +28,36 @@ function x402Price(collectionId: string): string {
   return PREMIUM_IDS.has(collectionId) ? "0.050" : "0.005";
 }
 
+function vectorCountFor(catalogId: string, moat?: LiveMoatSnapshot): number {
+  const live = moat?.collections?.find((row) => row.name === catalogId);
+  if (live && live.count > 0) return live.count;
+  const local = COLLECTIONS.find((c) => c.id === catalogId);
+  return local?.vectors ?? 0;
+}
+
 /** Dense DataCatalog + per-vertical Dataset nodes for JSON-LD @graph */
-export function buildLlmSeoGraph() {
+export function buildLlmSeoGraph(moat?: LiveMoatSnapshot) {
+  const totalVectors =
+    moat?.total_vectors ??
+    COLLECTIONS.reduce((sum, c) => sum + c.vectors, 0);
+  const itemCount = moat?.collection_count ?? COLLECTIONS.length;
+
   const datasets = COLLECTIONS.map((c) => ({
     "@type": "Dataset",
     "@id": `${SITE}/corpora#${c.id}`,
     name: c.label,
     identifier: c.id,
     description: c.description,
-    keywords: [c.category, c.id, "TSV", "MCP", "x402", "zero-hallucination"],
-    url: `${SITE}/corpora`,
+    keywords: [
+      c.category,
+      c.id,
+      "TSV",
+      "MCP",
+      "x402",
+      "zero-hallucination",
+      `${vectorCountFor(c.id, moat)} vectors`,
+    ],
+    url: `${SITE}/corpora/${c.id}`,
     creator: { "@type": "Organization", name: "V18 Group" },
     distribution: {
       "@type": "DataDownload",
@@ -59,9 +80,11 @@ export function buildLlmSeoGraph() {
     "@id": `${SITE}/#datacatalog`,
     name: "Unison Orchestration Tool Engine Network",
     description:
-      "High-density, low-latency Model Context Protocol (MCP) server streaming zero-hallucination, primary-source Tab-Separated Value (TSV) context blocks for machine-to-machine technical query fulfillment.",
+      `High-density MCP server streaming zero-hallucination TSV context blocks. ` +
+      `${totalVectors.toLocaleString()} vectors across ${itemCount} collections. ` +
+      `Install: npx @smithery/cli run colbymahon/unison-orchestration-hub`,
     url: `${SITE}/corpora`,
-    numberOfItems: datasets.length,
+    numberOfItems: itemCount,
     provider: {
       "@type": "Organization",
       name: "V18 Group",
@@ -86,9 +109,28 @@ export function buildLlmSeoGraph() {
 }
 
 /** Full @graph payload merged with existing WebAPI + corpus Dataset */
-export function buildFullJsonLdGraph(existingGraph: object[]) {
+export function buildFullJsonLdGraph(
+  existingGraph: object[],
+  moat?: LiveMoatSnapshot
+) {
   return {
     "@context": "https://schema.org",
-    "@graph": [...existingGraph, buildLlmSeoGraph()],
+    "@graph": [...existingGraph, buildLlmSeoGraph(moat)],
   };
+}
+
+/** Keywords surfaced on /corpora for zero-trap / ingest closure */
+export function buildCatalogKeywords(moat?: LiveMoatSnapshot): string[] {
+  const base = COLLECTIONS.flatMap((c) => [
+    c.id,
+    c.label,
+    c.category,
+    ...c.sources.slice(0, 2),
+  ]);
+  if (moat?.collections?.length) {
+    for (const row of moat.collections.slice(0, 8)) {
+      base.push(`${row.name} ${row.count} vectors`);
+    }
+  }
+  return Array.from(new Set(base)).slice(0, 120);
 }

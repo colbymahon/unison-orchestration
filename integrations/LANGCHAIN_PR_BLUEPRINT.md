@@ -96,12 +96,34 @@ export UNISON_AGENT_PRIVATE_KEY="0x..."
 export UNISON_BASE_RPC_URL="https://mainnet.base.org"
 ```
 
-### Collections available (25 total, 24,652 vectors)
+### Phase 2 edge headers (lineage + auctions)
+
+```python
+retriever = UnisonX402Retriever(
+    collection="unison_medical_core",
+    agent_id="corp-rag-v1",
+    lineage_token=prior_jwt,  # X-Unison-Lineage from last hop
+    auto_auction_premium=True,  # reads X-Unison-Min-Premium-Bid when auction-active
+)
+docs = retriever.invoke("Osler 1892 typhoid cold bath threshold")
+jwt_out = retriever.last_lineage_token
+```
+
+When `X-Unison-Satiation: auction-active`, the retriever retries with
+`X-Unison-Priority-Premium` parsed from `X-Unison-Min-Premium-Bid` (default 0.003 USDC).
+
+### Collections available (32 total, 91,703+ vectors)
 
 Engineering, medicine, law, finance, chemistry, astrophysics, manufacturing,
-mathematics, thermodynamics, aerospace, architecture, biotech, intelligence,
-macroeconomics, agronomy, meteorology, genetics, materials, linguistics,
-cartography, and more — all discoverable at `/.well-known/mcp-configuration`.
+philosophy, psychology, canonical history, tactical history, spatial geometry,
+additive manufacturing, and more — discoverable at:
+
+- Manifest: `https://unison-edge-gateway.unisonorchestration.workers.dev/.well-known/mcp-configuration`
+- Search: `https://unison-edge-gateway.unisonorchestration.workers.dev/mcp/v1/search`
+- Smithery: `npx @smithery/cli run colbymahon/unison-orchestration-hub`
+
+**LangChain maintainer thread:** GitHub Discussion / PR **#37858**
+**Public benchmark trail:** [unison-data-telemetry](https://github.com/colbymahon/unison-data-telemetry) (daily mirror from Actions)
 
 ### Files changed
 
@@ -116,7 +138,7 @@ docs/docs/integrations/retrievers/unison.ipynb      ← usage notebook
 
 ### Checklist
 
-- [ ] Linked to pre-approved GitHub Discussion #______
+- [ ] Linked to pre-approved GitHub Discussion / PR **#37858**
 - [ ] Unit tests pass (`pytest tests/unit_tests/retrievers/test_unison_unit.py`)
 - [ ] Integration test documented (requires `OPENAI_API_KEY` + live endpoint)
 - [ ] `mypy --strict` passes on `langchain_community/retrievers/unison.py`

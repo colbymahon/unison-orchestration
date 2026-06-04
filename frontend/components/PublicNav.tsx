@@ -41,6 +41,7 @@ export function PublicNav() {
         {/* Wordmark */}
         <Link
           href="/"
+          prefetch
           className="flex items-center gap-3 group"
           aria-label="Unison Orchestration"
         >
@@ -78,6 +79,7 @@ export function PublicNav() {
               <li key={href}>
                 <Link
                   href={href}
+                  prefetch
                   className={`px-4 py-2 rounded-lg text-[13px] font-medium tracking-wide transition-all duration-200 ${
                     active
                       ? "text-cyan-400 bg-cyan-400/[0.09] border border-cyan-400/20"
@@ -109,6 +111,7 @@ export function PublicNav() {
           </a>
           <Link
             href="/dashboard"
+            prefetch={false}
             className="
               px-4 py-2 rounded-lg text-[12px] font-semibold
               font-[var(--font-mono)] tracking-wider uppercase
@@ -149,6 +152,7 @@ export function PublicNav() {
                 <li key={href}>
                   <Link
                     href={href}
+                    prefetch
                     onClick={() => setOpen(false)}
                     className={`block px-4 py-3 rounded-lg text-sm font-medium transition-all ${
                       pathname === href

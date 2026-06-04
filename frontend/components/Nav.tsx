@@ -39,6 +39,7 @@ export function Nav() {
         {/* Wordmark */}
         <Link
           href="/"
+          prefetch
           className="flex items-center gap-2.5 group"
           aria-label="Unison Orchestration Home"
         >
@@ -58,6 +59,7 @@ export function Nav() {
               <li key={href}>
                 <Link
                   href={href}
+                  prefetch={href !== "/dashboard"}
                   className={`px-4 py-2 rounded-lg text-sm font-medium transition-all duration-200 ${
                     active
                       ? "text-cyan-400 bg-cyan-400/10 border border-cyan-400/20"
@@ -115,6 +117,7 @@ export function Nav() {
                   <li key={href}>
                     <Link
                       href={href}
+                      prefetch={href !== "/dashboard"}
                       onClick={() => setOpen(false)}
                       className={`block px-4 py-3 rounded-lg text-sm font-medium transition-all ${
                         active

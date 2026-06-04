@@ -82,9 +82,32 @@ class TestUnisonX402RetrieverUnit:
             docs = retriever.invoke("Tesla")
         assert "gutenberg.org" in docs[0].metadata["source_url"]
 
-    def test_list_collections_returns_all_25(self) -> None:
+    def test_auction_active_retries_with_premium_header(self) -> None:
+        retriever = UnisonX402Retriever(auto_auction_premium=True)
+        queued = _make_mock_resp(
+            200,
+            MOCK_TSV,
+            {
+                "X-Unison-Satiation": "auction-active",
+                "X-Unison-Min-Premium-Bid": "0.0030 USDC",
+            },
+        )
+        cleared = _make_mock_resp(200, MOCK_TSV, {"X-Unison-Lineage": "jwt-test"})
+        with patch(
+            "unison_langchain.retriever.requests.get",
+            side_effect=[queued, cleared],
+        ) as mock_get:
+            docs = retriever.invoke("premium queue probe")
+        assert len(docs) == 2
+        assert mock_get.call_count == 2
+        second_headers = mock_get.call_args_list[1].kwargs.get("headers") or {}
+        assert "X-Unison-Priority-Premium" in second_headers
+
+    def test_list_collections_returns_registry(self) -> None:
+        from unison_langchain._constants import COLLECTION_REGISTRY
+
         registry = UnisonX402Retriever.list_collections()
-        assert len(registry) == 25
+        assert len(registry) == len(COLLECTION_REGISTRY)
         assert "unison_engineering_core" in registry
         assert "unison_medical_core" in registry
 

@@ -19,6 +19,13 @@ from unison_langchain._constants import (
     EDGE_URL,
     MANIFEST_URL,
 )
+from unison_langchain._edge_headers import (
+    attach_metadata_to_documents,
+    extract_response_metadata,
+    is_auction_active,
+    merge_headers,
+    parse_min_premium_usdc,
+)
 from unison_langchain._tsv import tsv_to_documents
 
 
@@ -37,7 +44,7 @@ class UnisonX402Retriever(BaseRetriever):
     Parameters
     ----------
     collection : str
-        One of the 25 live Unison collections.
+        One of the 32 live Unison collections (91,703+ vectors).
         See ``unison_langchain.COLLECTION_REGISTRY`` for the full list.
     k : int
         Maximum number of source chunks to return per query (default: 8).
@@ -87,9 +94,18 @@ class UnisonX402Retriever(BaseRetriever):
     k: int          = Field(default=DEFAULT_K, ge=1, le=100)
     agent_id: str   = Field(default="unison-langchain")
     timeout: int    = Field(default=DEFAULT_TIMEOUT, ge=1)
+    lineage_token: str | None = Field(
+        default=None,
+        description="Phase 2a X-Unison-Lineage JWT from prior hop (episodic memory).",
+    )
+    auto_auction_premium: bool = Field(
+        default=True,
+        description="When auction-active, auto-apply X-Unison-Priority-Premium from min bid header.",
+    )
 
     # Private — not serialised into the pydantic model
     _private_key: str | None = None
+    _lineage_outbound: str | None = None
 
     @model_validator(mode="after")
     def _load_private_key(self) -> UnisonX402Retriever:
@@ -104,7 +120,7 @@ class UnisonX402Retriever(BaseRetriever):
         *,
         run_manager: CallbackManagerForRetrieverRun | None = None,
     ) -> list[Document]:
-        headers = {"X-Agent-ID": self.agent_id}
+        headers = merge_headers({"X-Agent-ID": self.agent_id}, self.lineage_token)
         params  = {"collection": self.collection, "q": query}
 
         try:
@@ -115,16 +131,28 @@ class UnisonX402Retriever(BaseRetriever):
                 metadata={"collection": self.collection, "status": "network_error"},
             )]
 
-        if resp.status_code == 200:
-            docs = tsv_to_documents(resp.text, collection=self.collection, query=query, k=self.k)
-            for doc in docs:
-                free_remaining = resp.headers.get("X-Remaining-Free-Tier")
-                if free_remaining is not None:
-                    doc.metadata["free_tier_remaining"] = free_remaining
-            return docs
-
         if resp.status_code == 402:
             return self._handle_payment(query, params, headers, resp)
+
+        if resp.status_code == 200 and is_auction_active(resp.headers) and self.auto_auction_premium:
+            min_bid = parse_min_premium_usdc(resp.headers) or 0.003
+            premium_headers = merge_headers(headers, self.lineage_token, min_bid)
+            resp = requests.get(
+                EDGE_URL, params=params, headers=premium_headers, timeout=self.timeout
+            )
+
+        if resp.status_code == 200:
+            docs = tsv_to_documents(resp.text, collection=self.collection, query=query, k=self.k)
+            meta = extract_response_metadata(resp.headers)
+            attach_metadata_to_documents(docs, meta)
+            self._lineage_outbound = meta.get("lineage_token") or resp.headers.get(
+                "X-Unison-Lineage"
+            )
+            free_remaining = resp.headers.get("X-Remaining-Free-Tier")
+            if free_remaining is not None:
+                for doc in docs:
+                    doc.metadata["free_tier_remaining"] = free_remaining
+            return docs
 
         return [Document(
             page_content=f"Unison gateway error {resp.status_code}: {resp.text[:300]}",
@@ -218,6 +246,11 @@ class UnisonX402Retriever(BaseRetriever):
                 best = scored[0]
 
         return cls(collection=best, agent_id=agent_id, k=k, **kwargs)
+
+    @property
+    def last_lineage_token(self) -> str | None:
+        """Lineage JWT from the most recent successful edge response."""
+        return self._lineage_outbound
 
     @classmethod
     def list_collections(cls) -> dict[str, str]:
