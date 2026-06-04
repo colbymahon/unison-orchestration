@@ -23,6 +23,7 @@ import {
   isZeroResultTsv,
   scheduleZeroTrap,
 } from "./zero_trap";
+import { evaluateAuctionGate } from "./auction";
 import {
   LINEAGE_HEADER,
   type LineageSearchContext,
@@ -51,6 +52,11 @@ export interface Env {
   PAYMENT_DEST: string;
   /** Bearer token for /api/admin/* routes (dashboard proxy) */
   ADMIN_API_SECRET?: string;
+  /** Phase 2b — auction window tuning (optional) */
+  AUCTION_WINDOW_MS?: string;
+  AUCTION_MAX_PER_WINDOW?: string;
+  AUCTION_BASE_MIN_PREMIUM?: string;
+  AUCTION_QUEUE_DELAY_MS?: string;
 }
 
 // ---------------------------------------------------------------------------
@@ -67,6 +73,8 @@ const CORS_HEADERS: Record<string, string> = {
   "Access-Control-Allow-Methods": "GET, OPTIONS",
   "Access-Control-Allow-Headers":
     "Content-Type, Payment-Signature, Authorization, X-Agent-ID, X-Unison-Lineage, X-Unison-Lineage-Version, X-Unison-Priority-Premium",
+  "Access-Control-Expose-Headers":
+    "X-Unison-Satiation, X-Unison-Auction-Status, X-Unison-Premium-Settled, X-Unison-Min-Premium-Bid, X-Unison-Lineage, X-Unison-Lineage-Step, X-Unison-Lineage-Episode, X-Remaining-Free-Tier",
   "Access-Control-Max-Age": "86400",
 };
 
@@ -351,6 +359,55 @@ async function proxyToBackend(
 }
 
 // ---------------------------------------------------------------------------
+// MCP search — lineage + auction + proxy
+// ---------------------------------------------------------------------------
+
+async function executeMcpSearch(
+  request: Request,
+  env: Env,
+  ctx: ExecutionContext,
+  tierHeaders: Record<string, string>
+): Promise<Response> {
+  const url = new URL(request.url);
+  const collection =
+    url.searchParams.get("collection")?.trim() ?? "unison_engineering_core";
+  const q = url.searchParams.get("q")?.trim() ?? "";
+  const sessionSecret = resolveLineageSessionSecret(env);
+  const lineageCtx = await prepareLineageForSearch(
+    request,
+    env.UNISON_LINEAGE,
+    collection,
+    q,
+    sessionSecret
+  );
+
+  const { gate, blockedResponse } = await evaluateAuctionGate(
+    request,
+    env.UNISON_LINEAGE,
+    collection,
+    env,
+    lineageCtx
+      ? { episodeId: lineageCtx.episodeId, step: lineageCtx.step }
+      : undefined
+  );
+
+  if (blockedResponse) {
+    const blocked = withCors(blockedResponse);
+    for (const [k, v] of Object.entries(gate.responseHeaders)) {
+      blocked.headers.set(k, v);
+    }
+    if (lineageCtx?.outboundToken) {
+      blocked.headers.set(LINEAGE_HEADER, lineageCtx.outboundToken);
+      blocked.headers.set("X-Unison-Lineage-Step", String(lineageCtx.step));
+    }
+    return blocked;
+  }
+
+  const mergedTier = { ...tierHeaders, ...gate.responseHeaders };
+  return proxyToBackend(request, env, ctx, mergedTier, lineageCtx);
+}
+
+// ---------------------------------------------------------------------------
 // Main Worker entry point
 // ---------------------------------------------------------------------------
 
@@ -433,40 +490,19 @@ export default {
       }
 
       const clientId = resolveClientId(request);
-      const collection =
-        url.searchParams.get("collection")?.trim() ?? "unison_engineering_core";
-      const q = url.searchParams.get("q")?.trim() ?? "";
-      const sessionSecret = resolveLineageSessionSecret(env);
-      const lineageCtx = await prepareLineageForSearch(
-        request,
-        env.UNISON_LINEAGE,
-        collection,
-        q,
-        sessionSecret
-      );
-
       const freeTier = await evaluateFreeTier(clientId, env.FREE_TIER);
 
-      // --- Free tier path ---
       if (freeTier.isFree) {
         console.log(
           `Free tier: client=${clientId} used=${freeTier.used + 1}/${FREE_TIER_LIMIT}`
         );
-        return proxyToBackend(
-          request,
-          env,
-          ctx,
-          {
-            "X-Remaining-Free-Tier": String(freeTier.remaining),
-            "X-Free-Tier-Limit": String(FREE_TIER_LIMIT),
-          },
-          lineageCtx
-        );
+        return executeMcpSearch(request, env, ctx, {
+          "X-Remaining-Free-Tier": String(freeTier.remaining),
+          "X-Free-Tier-Limit": String(FREE_TIER_LIMIT),
+        });
       }
 
-      // --- Paid tier path ---
       const signature = request.headers.get("payment-signature");
-
       if (!signature) {
         return paymentRequiredResponse(
           env,
@@ -480,9 +516,8 @@ export default {
         return paymentRequiredResponse(env, "Invalid or expired payment signature.");
       }
 
-      // Verified paid request
       console.log(`Paid request verified: client=${clientId}`);
-      return proxyToBackend(request, env, ctx, { "X-Tier": "paid" }, lineageCtx);
+      return executeMcpSearch(request, env, ctx, { "X-Tier": "paid" });
     }
 
     return errorResponse(404, "Not Found.");
