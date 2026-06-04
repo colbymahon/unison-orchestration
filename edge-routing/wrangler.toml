@@ -14,6 +14,13 @@ id = "91fdd2e791234210906e25b8dd90ba96"
 binding = "UNISON_ZERO_LOGS"
 id = "977472f20ce947fa8cd2f841559aeec9"
 
+# Phase 2a Memory Breadcrumbs — episode context graph
+# Create: cd edge-routing && npx wrangler kv namespace create UNISON_LINEAGE
+# Paste the returned id below, then: npx wrangler deploy
+[[kv_namespaces]]
+binding = "UNISON_LINEAGE"
+id = "REPLACE_WITH_WRANGLER_KV_NAMESPACE_CREATE_OUTPUT"
+
 [vars]
 # BACKEND_URL is set via `wrangler secret put BACKEND_URL` (production).
 # For local dev, set in .dev.vars (git-ignored): BACKEND_URL=http://localhost:3000

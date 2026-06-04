@@ -16,12 +16,17 @@ export interface ZeroLogEvent {
   accumulated_lost_revenue: number;
   first_seen: string;
   last_seen: string;
+  /** Phase 2a — episodic lineage for ingest prioritization */
+  lineage_episode_id?: string;
+  lineage_step?: number;
 }
 
 export interface ZeroTrapInput {
   query: string;
   collection: string;
   agentHeader: string | null;
+  lineageEpisodeId?: string;
+  lineageStep?: number;
 }
 
 /** TSV from Rust backend: header row only when Qdrant returns zero hits. */
@@ -91,6 +96,12 @@ export async function persistZeroLog(
         accumulated_lost_revenue: attempts * perAttempt,
         last_seen: now,
         originating_agent: agent,
+        ...(input.lineageEpisodeId
+          ? {
+              lineage_episode_id: input.lineageEpisodeId,
+              lineage_step: input.lineageStep,
+            }
+          : {}),
       };
     } catch {
       event = freshEvent(input, now, tier, perAttempt, agent);
@@ -125,6 +136,12 @@ function freshEvent(
     accumulated_lost_revenue: perAttempt,
     first_seen: now,
     last_seen: now,
+    ...(input.lineageEpisodeId
+      ? {
+          lineage_episode_id: input.lineageEpisodeId,
+          lineage_step: input.lineageStep,
+        }
+      : {}),
   };
 }
 

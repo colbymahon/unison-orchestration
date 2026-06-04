@@ -23,6 +23,13 @@ import {
   isZeroResultTsv,
   scheduleZeroTrap,
 } from "./zero_trap";
+import {
+  LINEAGE_HEADER,
+  type LineageSearchContext,
+  finalizeLineageAfterSearch,
+  prepareLineageForSearch,
+  resolveLineageSessionSecret,
+} from "./lineage";
 
 // ---------------------------------------------------------------------------
 // Environment bindings
@@ -33,6 +40,9 @@ export interface Env {
   FREE_TIER: KVNamespace;
   /** Phase B0 — zero-result SEO gap ledger */
   UNISON_ZERO_LOGS: KVNamespace;
+  /** Phase 2a — episodic agent lineage graph */
+  UNISON_LINEAGE?: KVNamespace;
+  LINEAGE_SESSION_SECRET?: string;
 
   BACKEND_URL: string;
   PAYMENT_AMOUNT: string;
@@ -56,7 +66,7 @@ const CORS_HEADERS: Record<string, string> = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Methods": "GET, OPTIONS",
   "Access-Control-Allow-Headers":
-    "Content-Type, Payment-Signature, Authorization, X-Agent-ID",
+    "Content-Type, Payment-Signature, Authorization, X-Agent-ID, X-Unison-Lineage, X-Unison-Lineage-Version, X-Unison-Priority-Premium",
   "Access-Control-Max-Age": "86400",
 };
 
@@ -238,19 +248,26 @@ async function proxyToBackend(
   request: Request,
   env: Env,
   ctx: ExecutionContext,
-  extraHeaders: Record<string, string> = {}
+  extraHeaders: Record<string, string> = {},
+  lineageCtx: LineageSearchContext | null = null
 ): Promise<Response> {
+  const lineageForwardHeaders = lineageCtx?.forwardHeaders ?? {};
   const incomingUrl = new URL(request.url);
   const backendUrl = new URL(
     incomingUrl.pathname + incomingUrl.search,
     env.BACKEND_URL
   );
 
+  const headers = new Headers(request.headers);
+  headers.delete("payment-signature");
+  for (const [key, val] of Object.entries(lineageForwardHeaders)) {
+    headers.set(key, val);
+  }
+
   const backendReq = new Request(backendUrl.toString(), {
     method: request.method,
-    headers: request.headers,
+    headers,
   });
-  backendReq.headers.delete("payment-signature");
 
   let backendResponse: Response;
   try {
@@ -260,36 +277,39 @@ async function proxyToBackend(
     return errorResponse(502, "Backend gateway error. Please retry.");
   }
 
-  // Phase B0: trap zero-result searches (HTTP 200, Qdrant hit count = 0)
-  if (
-    incomingUrl.pathname === "/mcp/v1/search" &&
-    backendResponse.status === 200 &&
-    env.UNISON_ZERO_LOGS
-  ) {
+  const lineageEpisodeId = lineageForwardHeaders["X-Unison-Lineage-Episode"];
+  const lineageStepRaw = lineageForwardHeaders["X-Unison-Lineage-Step"];
+  const lineageStep = lineageStepRaw ? parseInt(lineageStepRaw, 10) : undefined;
+
+  if (incomingUrl.pathname === "/mcp/v1/search" && backendResponse.status === 200) {
     const hitCountHeader = backendResponse.headers.get("x-qdrant-result-count");
+    const hitCount = hitCountHeader ? parseInt(hitCountHeader, 10) : -1;
     const hitCountZero = hitCountHeader === "0";
 
     let tsvZero = false;
-    if (!hitCountZero) {
-      const contentType = backendResponse.headers.get("content-type") ?? "";
-      if (contentType.includes("tab-separated") || contentType.includes("text/")) {
-        const cloned = backendResponse.clone();
-        const body = await cloned.text();
-        tsvZero = isZeroResultTsv(body);
+    let bodyText = "";
+    const contentType = backendResponse.headers.get("content-type") ?? "";
+    if (contentType.includes("tab-separated") || contentType.includes("text/")) {
+      const cloned = backendResponse.clone();
+      bodyText = await cloned.text();
+      if (!hitCountZero) {
+        tsvZero = isZeroResultTsv(bodyText);
       }
     }
 
-    if (hitCountZero || tsvZero) {
-      const q = incomingUrl.searchParams.get("q")?.trim() ?? "";
-      const collection =
-        incomingUrl.searchParams.get("collection")?.trim() ??
-        "unison_engineering_core";
+    const q = incomingUrl.searchParams.get("q")?.trim() ?? "";
+    const collection =
+      incomingUrl.searchParams.get("collection")?.trim() ?? "unison_engineering_core";
+
+    // Phase B0: zero-result trap
+    if (env.UNISON_ZERO_LOGS && (hitCountZero || tsvZero)) {
       scheduleZeroTrap(ctx, env.UNISON_ZERO_LOGS, {
         query: q,
         collection,
         agentHeader: request.headers.get("x-agent-id"),
+        lineageEpisodeId,
+        lineageStep: Number.isFinite(lineageStep) ? lineageStep : undefined,
       });
-      // Fetched Response headers are immutable — rebuild with trap marker.
       const trapHeaders = new Headers(backendResponse.headers);
       trapHeaders.set("X-Zero-Result", "true");
       backendResponse = new Response(backendResponse.body, {
@@ -297,6 +317,25 @@ async function proxyToBackend(
         statusText: backendResponse.statusText,
         headers: trapHeaders,
       });
+    }
+
+    // Phase 2a: persist step + outbound lineage token
+    if (env.UNISON_LINEAGE && lineageCtx) {
+      const sessionSecret = resolveLineageSessionSecret(env);
+      const refreshed = await finalizeLineageAfterSearch(
+        env.UNISON_LINEAGE,
+        lineageCtx,
+        collection,
+        q,
+        bodyText,
+        hitCount >= 0 ? hitCount : 0,
+        sessionSecret
+      );
+      if (refreshed) {
+        extraHeaders[LINEAGE_HEADER] = refreshed;
+      } else if (lineageCtx.outboundToken) {
+        extraHeaders[LINEAGE_HEADER] = lineageCtx.outboundToken;
+      }
     }
   }
 
@@ -392,6 +431,18 @@ export default {
       }
 
       const clientId = resolveClientId(request);
+      const collection =
+        url.searchParams.get("collection")?.trim() ?? "unison_engineering_core";
+      const q = url.searchParams.get("q")?.trim() ?? "";
+      const sessionSecret = resolveLineageSessionSecret(env);
+      const lineageCtx = await prepareLineageForSearch(
+        request,
+        env.UNISON_LINEAGE,
+        collection,
+        q,
+        sessionSecret
+      );
+
       const freeTier = await evaluateFreeTier(clientId, env.FREE_TIER);
 
       // --- Free tier path ---
@@ -399,10 +450,16 @@ export default {
         console.log(
           `Free tier: client=${clientId} used=${freeTier.used + 1}/${FREE_TIER_LIMIT}`
         );
-        return proxyToBackend(request, env, ctx, {
-          "X-Remaining-Free-Tier": String(freeTier.remaining),
-          "X-Free-Tier-Limit": String(FREE_TIER_LIMIT),
-        });
+        return proxyToBackend(
+          request,
+          env,
+          ctx,
+          {
+            "X-Remaining-Free-Tier": String(freeTier.remaining),
+            "X-Free-Tier-Limit": String(FREE_TIER_LIMIT),
+          },
+          lineageCtx
+        );
       }
 
       // --- Paid tier path ---
@@ -423,9 +480,7 @@ export default {
 
       // Verified paid request
       console.log(`Paid request verified: client=${clientId}`);
-      return proxyToBackend(request, env, ctx, {
-        "X-Tier": "paid",
-      });
+      return proxyToBackend(request, env, ctx, { "X-Tier": "paid" }, lineageCtx);
     }
 
     return errorResponse(404, "Not Found.");
