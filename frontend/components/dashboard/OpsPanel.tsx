@@ -15,6 +15,7 @@ import type { HistoryPoint, InfrastructureOpsTelemetry, TelemetryData } from "./
 import { InfraTelemetry } from "./InfraTelemetry";
 import { useLiveFetch } from "@/hooks/useLiveFetch";
 import { DASHBOARD_FETCH_BASE, INFRA_POLL_MS } from "@/lib/dashboard-fetch";
+import { calculateGuardedPercentage } from "@/lib/guarded-metrics";
 
 interface MoatSnapshot {
   total_vectors: number;
@@ -62,8 +63,7 @@ export function OpsPanel({ telemetry, latencyHistory, moat }: Props) {
   const errorRate = useMemo(() => {
     const total = telemetry?.total_queries ?? 0;
     const blocked = telemetry?.total_402_rejections ?? 0;
-    if (total === 0) return 0;
-    return (blocked / total) * 100;
+    return calculateGuardedPercentage(blocked, total);
   }, [telemetry]);
 
   const multiRegionLatency = useMemo(

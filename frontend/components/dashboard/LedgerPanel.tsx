@@ -13,6 +13,12 @@ import { RevenueEngine } from "./RevenueEngine";
 import { computeRevenueVelocityFromGaps, formatUsdcPerHour, formatUsdcTotal } from "@/lib/revenue-velocity";
 import { useLiveFetch } from "@/hooks/useLiveFetch";
 import { AFFILIATE_POLL_MS, DASHBOARD_FETCH_BASE } from "@/lib/dashboard-fetch";
+import {
+  calculateGuardedPercentage,
+  formatGuardedPercentage,
+  isolateCrawlerRetries,
+  isBelowSampleFloor,
+} from "@/lib/guarded-metrics";
 import type { TrappedGapRow } from "./types";
 
 const LedgerPayoutTable = dynamic(
@@ -115,6 +121,22 @@ export function LedgerPanel({ ledger, revenueHistory, rejectionHistory, loading 
   const payoutRows = affiliate?.recent_payout_rows ?? [];
 
   const trappedWindow = trappedRows.slice(0, MAX_TRAPPED_VIEW);
+
+  const totalConsumerQueries = ledger?.total_handled_requests ?? 0;
+  const belowSampleFloor = isBelowSampleFloor(totalConsumerQueries);
+
+  const { cleanConsumerRows, systemRetriesCount, churnRateDisplay } = useMemo(() => {
+    const { cleanConsumerRows, systemRetriesCount } = isolateCrawlerRetries(churnRows);
+    const rate = calculateGuardedPercentage(
+      cleanConsumerRows.length,
+      totalConsumerQueries
+    );
+    return {
+      cleanConsumerRows,
+      systemRetriesCount,
+      churnRateDisplay: formatGuardedPercentage(rate),
+    };
+  }, [churnRows, totalConsumerQueries]);
 
   return (
     <div className="space-y-6 transform-gpu">
@@ -269,6 +291,23 @@ export function LedgerPanel({ ledger, revenueHistory, rejectionHistory, loading 
             </h3>
           </div>
 
+          <div className="flex flex-wrap items-center gap-4 font-mono text-xs">
+            <div className="rounded-lg border border-[#00E5FF]/30 bg-black/40 px-3 py-2">
+              <div className="text-[10px] text-gray-500 uppercase tracking-widest">Churn Rate</div>
+              <div className="text-lg font-black text-[#00E5FF] tabular-nums">{churnRateDisplay}</div>
+            </div>
+            <div className="rounded-lg border border-amber-500/30 bg-black/40 px-3 py-2">
+              <div className="text-[10px] text-gray-500 uppercase tracking-widest">System Retries</div>
+              <div className="text-lg font-black text-amber-400 tabular-nums">{systemRetriesCount}</div>
+              <div className="text-[10px] text-gray-600">429/503 · crawler isolated</div>
+            </div>
+            {belowSampleFloor && (
+              <div className="rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-[10px] text-gray-400 uppercase tracking-widest">
+                METRIC SUB-THRESHOLD // SECURING TRANSACTING DENOMINATORS
+              </div>
+            )}
+          </div>
+
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
             <div className="rounded-lg border-2 border-[#00E5FF]/30 bg-black/40 p-4 min-h-[260px]">
               <div className="text-[10px] text-gray-500 uppercase tracking-widest mb-3">
@@ -308,7 +347,7 @@ export function LedgerPanel({ ledger, revenueHistory, rejectionHistory, loading 
                   No trapped gaps — substrate coverage nominal.
                 </p>
               )}
-              <LedgerChurnStream rows={churnRows} loading={churnLoading} />
+              <LedgerChurnStream rows={cleanConsumerRows} loading={churnLoading} />
             </div>
 
             <div className="rounded-lg border-2 border-[#00E5FF]/30 bg-black/40 p-4 min-h-[260px]">

@@ -6,6 +6,11 @@ import { OverviewTelemetryGrid } from "./OverviewTelemetryGrid";
 import { useLiveFetch } from "@/hooks/useLiveFetch";
 import { AFFILIATE_POLL_MS, DASHBOARD_FETCH_BASE } from "@/lib/dashboard-fetch";
 import type { AffiliateLedgerTelemetry } from "./types";
+import {
+  calculateGuardedPercentage,
+  formatGuardedPercentage,
+  isolateCrawlerRetries,
+} from "@/lib/guarded-metrics";
 
 interface Props {
   moatVectors: number;
@@ -25,12 +30,17 @@ export function OverviewPanel(props: Props) {
     { ...DASHBOARD_FETCH_BASE, pollIntervalMs: AFFILIATE_POLL_MS }
   );
 
-  const churnThreatRatio = useMemo(() => {
-    const churn = props.ledger?.churn_logs?.length ?? 0;
-    const gaps = props.trappedGaps.length;
-    const handled = Math.max(1, props.ledger?.total_handled_requests ?? 1);
-    return ((churn + gaps) / handled) * 100;
-  }, [props.ledger, props.trappedGaps]);
+  const { churnRateDisplay, systemRetriesCount } = useMemo(() => {
+    const { cleanConsumerRows, systemRetriesCount } = isolateCrawlerRetries(
+      props.ledger?.churn_logs ?? []
+    );
+    const totalQueries = props.ledger?.total_handled_requests ?? 0;
+    const rate = calculateGuardedPercentage(cleanConsumerRows.length, totalQueries);
+    return {
+      churnRateDisplay: formatGuardedPercentage(rate),
+      systemRetriesCount,
+    };
+  }, [props.ledger]);
 
   return (
     <div className="space-y-4">
@@ -54,10 +64,15 @@ export function OverviewPanel(props: Props) {
           </div>
         </div>
         <div className="rounded-lg border border-rose-500/30 bg-black/40 px-3 py-2">
-          <span className="text-gray-500">Churn Threat</span>
+          <span className="text-gray-500">Churn Rate</span>
           <div className="text-lg font-black text-rose-400/90 tabular-nums mt-0.5">
-            {churnThreatRatio.toFixed(2)}%
+            {churnRateDisplay}
           </div>
+          {systemRetriesCount > 0 && (
+            <div className="text-[9px] text-gray-600 mt-0.5 normal-case tracking-normal">
+              System Retries: {systemRetriesCount}
+            </div>
+          )}
         </div>
       </div>
 
