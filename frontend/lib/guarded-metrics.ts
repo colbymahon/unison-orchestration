@@ -14,12 +14,24 @@ function isCrawlerRetryRow(row: ChurnRowLike): boolean {
   if (SYSTEM_RETRY_CODES.has(code)) return true;
   if (/^HTTP[-_]?(429|503|504|502|408)$/i.test(code)) return true;
 
+  const codeUpper = code.toUpperCase();
+  if (
+    codeUpper.includes("UNFUNDED_OR_MISSING_SUBSTRATE") ||
+    codeUpper.includes("DASHBOARD-ZKP") ||
+    codeUpper.includes("ZKP-PROBE")
+  ) {
+    return true;
+  }
+
   const agent = (row.agent_id ?? "").toLowerCase();
   if (
     agent.includes("crawler") ||
     agent.includes("swarm") ||
     agent.includes("seo") ||
-    agent.includes("corpus")
+    agent.includes("corpus") ||
+    agent.includes("dashboard-zkp-probe") ||
+    agent.includes("smithery") ||
+    agent.includes("zkp-probe")
   ) {
     return true;
   }
