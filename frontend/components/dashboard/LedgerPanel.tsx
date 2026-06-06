@@ -1,7 +1,7 @@
 "use client";
 
 import dynamic from "next/dynamic";
-import { useMemo } from "react";
+import { useEffect, useMemo, useState, useTransition } from "react";
 import { Coins, MessageSquare, ShieldX, TrendingUp, Wallet } from "lucide-react";
 import type {
   AffiliateLedgerTelemetry,
@@ -73,7 +73,19 @@ function shortWallet(addr: string): string {
 
 const MAX_TRAPPED_VIEW = 10;
 
+function LedgerStreamSkeleton({ label }: { label: string }) {
+  return (
+    <div className="animate-pulse space-y-2 py-4" aria-hidden>
+      <div className="h-3 w-40 rounded bg-white/10" />
+      <div className="h-2 w-full rounded bg-white/5" />
+      <div className="h-2 w-5/6 rounded bg-white/5" />
+      <p className="text-[10px] text-gray-600 uppercase tracking-widest pt-2">{label}</p>
+    </div>
+  );
+}
+
 export function LedgerPanel({ ledger, revenueHistory, rejectionHistory, loading }: Props) {
+  const [isPending, startTransition] = useTransition();
   const telemetry = ledger?.fly_telemetry ?? null;
   const gaps = ledger?.trapped_gaps ?? [];
   const churnLogs = ledger?.churn_logs ?? [];
@@ -137,6 +149,39 @@ export function LedgerPanel({ ledger, revenueHistory, rejectionHistory, loading 
       churnRateDisplay: formatGuardedPercentage(rate),
     };
   }, [churnRows, totalConsumerQueries]);
+
+  const streamNonce = useMemo(
+    () =>
+      [
+        affiliate?.last_event_at ?? "none",
+        payoutRows.length,
+        cleanConsumerRows[0]?.timestamp ?? "none",
+        systemRetriesCount,
+        affiliateAuthBlocked ? "blocked" : "ok",
+      ].join(":"),
+    [
+      affiliate?.last_event_at,
+      payoutRows.length,
+      cleanConsumerRows,
+      systemRetriesCount,
+      affiliateAuthBlocked,
+    ]
+  );
+
+  const [stablePayoutRows, setStablePayoutRows] = useState(payoutRows);
+  const [stableChurnRows, setStableChurnRows] = useState(cleanConsumerRows);
+
+  useEffect(() => {
+    startTransition(() => {
+      setStablePayoutRows(payoutRows);
+      setStableChurnRows(cleanConsumerRows);
+    });
+  }, [payoutRows, cleanConsumerRows, streamNonce]);
+
+  const showAffiliateSkeleton =
+    belowSampleFloor && (affiliateLoading || isPending) && stablePayoutRows.length === 0;
+  const showChurnSkeleton =
+    belowSampleFloor && (churnLoading || isPending) && stableChurnRows.length === 0;
 
   return (
     <div className="space-y-6 transform-gpu">
@@ -256,8 +301,10 @@ export function LedgerPanel({ ledger, revenueHistory, rejectionHistory, loading 
                 </div>
               </div>
 
-              {payoutRows.length > 0 ? (
-                <LedgerPayoutTable rows={payoutRows} />
+              {showAffiliateSkeleton ? (
+                <LedgerStreamSkeleton label="AFFILIATE STREAM STABILIZING // HOLDING LAYOUT" />
+              ) : stablePayoutRows.length > 0 ? (
+                <LedgerPayoutTable key={`payout-${streamNonce}`} rows={stablePayoutRows} />
               ) : (
                 <p className="text-[11px] text-gray-600">
                   No affiliate settlements yet. Paid queries with{" "}
@@ -347,7 +394,15 @@ export function LedgerPanel({ ledger, revenueHistory, rejectionHistory, loading 
                   No trapped gaps — substrate coverage nominal.
                 </p>
               )}
-              <LedgerChurnStream rows={cleanConsumerRows} loading={churnLoading} />
+              {showChurnSkeleton ? (
+                <LedgerStreamSkeleton label="CHURN STREAM STABILIZING // HOLDING LAYOUT" />
+              ) : (
+                <LedgerChurnStream
+                  key={`churn-${streamNonce}`}
+                  rows={stableChurnRows}
+                  loading={churnLoading && !isPending}
+                />
+              )}
             </div>
 
             <div className="rounded-lg border-2 border-[#00E5FF]/30 bg-black/40 p-4 min-h-[260px]">

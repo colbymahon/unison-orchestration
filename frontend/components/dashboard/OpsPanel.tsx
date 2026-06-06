@@ -14,8 +14,10 @@ import { Globe, Server } from "lucide-react";
 import type { HistoryPoint, InfrastructureOpsTelemetry, TelemetryData } from "./types";
 import { InfraTelemetry } from "./InfraTelemetry";
 import { useLiveFetch } from "@/hooks/useLiveFetch";
+import { useAdminPollLatency } from "@/hooks/useAdminPollLatency";
 import { DASHBOARD_FETCH_BASE, INFRA_POLL_MS } from "@/lib/dashboard-fetch";
 import { calculateGuardedPercentage } from "@/lib/guarded-metrics";
+import { formatLatencyMs, sanitizeLatencyMs } from "@/lib/safe-latency";
 
 interface MoatSnapshot {
   total_vectors: number;
@@ -26,6 +28,7 @@ interface MoatSnapshot {
 
 interface Props {
   telemetry: TelemetryData | null;
+  /** Legacy Fly search-mean samples — not used for edge ingress waveform */
   latencyHistory: HistoryPoint[];
   moat?: MoatSnapshot | null;
 }
@@ -39,13 +42,24 @@ const REGION_META: Record<string, { label: string; role: string }> = {
 const CYAN = "#00E5FF";
 
 export function OpsPanel({ telemetry, latencyHistory, moat }: Props) {
-  const { data: infra } = useLiveFetch<InfrastructureOpsTelemetry & {
-    probes?: InfrastructureOpsTelemetry["probes"];
-    geometry?: { edge?: string; fly_mcp?: string; qdrant?: string };
-  }>("/api/v1/infra-health", {
+  const { data: infra } = useLiveFetch<
+    InfrastructureOpsTelemetry & {
+      probes?: InfrastructureOpsTelemetry["probes"];
+      geometry?: { edge?: string; fly_mcp?: string; qdrant?: string };
+    }
+  >("/api/v1/infra-health", {
     ...DASHBOARD_FETCH_BASE,
     pollIntervalMs: INFRA_POLL_MS,
   });
+
+  const adminPoll = useAdminPollLatency(INFRA_POLL_MS);
+
+  const searchColdAvgMs = useMemo(
+    () => sanitizeLatencyMs(telemetry?.mean_latency_ms ?? 0),
+    [telemetry?.mean_latency_ms]
+  );
+
+  const edgeIngressMs = adminPoll.lastMs ?? 0;
 
   const regions = infra?.active_fly_regions ?? ["iad"];
   const endpointStatuses = useMemo(() => {
@@ -66,19 +80,52 @@ export function OpsPanel({ telemetry, latencyHistory, moat }: Props) {
     return calculateGuardedPercentage(blocked, total);
   }, [telemetry]);
 
-  const multiRegionLatency = useMemo(
-    () =>
-      latencyHistory.map((p, i) => ({
-        t: p.t,
-        iad: p.v,
-        lhr: Math.round(p.v * (1.08 + (i % 3) * 0.02)),
-        nrt: Math.round(p.v * (1.15 + (i % 5) * 0.01)),
-      })),
-    [latencyHistory]
-  );
+  const edgeWaveform = useMemo(() => {
+    const source =
+      adminPoll.history.length > 0
+        ? adminPoll.history
+        : latencyHistory.map((p) => ({
+            t: p.t,
+            v: sanitizeLatencyMs(p.v),
+          }));
+    return source.map((p) => ({
+      t: p.t,
+      edge: sanitizeLatencyMs(p.v),
+    }));
+  }, [adminPoll.history, latencyHistory]);
+
+  const routeLabel =
+    adminPoll.route === "edge"
+      ? "Track A · admin-telemetry"
+      : adminPoll.route === "vercel"
+        ? "Track B · Vercel proxy"
+        : "awaiting probe";
 
   return (
     <div className="space-y-6">
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4 font-mono">
+        <div className="rounded-xl border border-[#00E5FF]/40 bg-[#050914]/90 p-4 border-l-2 border-l-[#00E5FF]">
+          <div className="text-[10px] text-gray-500 uppercase tracking-[0.22em]">
+            Edge API Ingress Timing
+          </div>
+          <div className="mt-2 text-3xl font-black tabular-nums text-[#00E5FF]">
+            {adminPoll.lastMs != null ? formatLatencyMs(edgeIngressMs) : "0.00ms"}
+          </div>
+          <div className="text-[10px] text-gray-600 mt-1">{routeLabel}</div>
+        </div>
+        <div className="rounded-xl border border-[#B300FF]/35 bg-[#050914]/90 p-4 border-l-2 border-l-[#B300FF]">
+          <div className="text-[10px] text-gray-500 uppercase tracking-[0.22em]">
+            Downstream Search Cold-Avg
+          </div>
+          <div className="mt-2 text-3xl font-black tabular-nums text-[#B300FF]">
+            {formatLatencyMs(searchColdAvgMs)}
+          </div>
+          <div className="text-[10px] text-gray-600 mt-1">
+            Fly /mcp/v1/search · embed + Qdrant aggregate
+          </div>
+        </div>
+      </div>
+
       <section className="rounded-xl border border-[#00E5FF]/30 bg-[#050914]/90 p-5 font-mono">
         <div className="flex items-center gap-2 mb-4">
           <Globe size={14} className="text-[#00E5FF]" />
@@ -107,19 +154,15 @@ export function OpsPanel({ telemetry, latencyHistory, moat }: Props) {
                 <div className="text-sm font-bold text-white mt-1">{meta.label}</div>
                 <div className="text-[10px] text-gray-600 mt-0.5">{meta.role}</div>
                 <div className="text-xl font-black text-emerald-400/90 tabular-nums mt-2">
-                  {lat != null ? `${Math.round(lat)}ms` : "—"}
+                  {lat != null ? formatLatencyMs(lat) : "—"}
                 </div>
               </div>
             );
           })}
         </div>
         <div className="mt-4 text-[10px] text-gray-600 flex flex-wrap gap-4">
-          <span>
-            x-unison-fly-region: {infra?.geometry?.fly_mcp ?? "iad"}
-          </span>
-          <span>
-            x-unison-qdrant-region: {infra?.geometry?.qdrant ?? "us-east4"}
-          </span>
+          <span>x-unison-fly-region: {infra?.geometry?.fly_mcp ?? "iad"}</span>
+          <span>x-unison-qdrant-region: {infra?.geometry?.qdrant ?? "us-east4"}</span>
           <span>error_rate: {errorRate.toFixed(2)}%</span>
           <span>requests: {telemetry?.total_queries?.toLocaleString() ?? "0"}</span>
         </div>
@@ -127,19 +170,19 @@ export function OpsPanel({ telemetry, latencyHistory, moat }: Props) {
 
       <div className="bg-gray-950 border border-gray-900 rounded-xl p-4 transform-gpu will-change-transform">
         <div className="text-xs font-mono text-gray-500 uppercase tracking-widest mb-3">
-          Multi-Node Latency Waveform (ms)
+          Edge API Ingress Waveform (admin_poll_ms)
         </div>
         <ResponsiveContainer width="100%" height={140} className="transform-gpu">
-          <AreaChart data={multiRegionLatency} margin={{ top: 4, right: 0, bottom: 0, left: 0 }}>
+          <AreaChart data={edgeWaveform} margin={{ top: 4, right: 0, bottom: 0, left: 0 }}>
             <defs>
-              <linearGradient id="iadGrad" x1="0" y1="0" x2="0" y2="1">
+              <linearGradient id="edgeIngressGrad" x1="0" y1="0" x2="0" y2="1">
                 <stop offset="0%" stopColor={CYAN} stopOpacity={0.25} />
                 <stop offset="100%" stopColor={CYAN} stopOpacity={0} />
               </linearGradient>
             </defs>
             <CartesianGrid stroke="#1f2937" strokeDasharray="3 3" vertical={false} />
             <XAxis dataKey="t" hide />
-            <YAxis hide domain={["auto", "auto"]} />
+            <YAxis hide domain={[0, "auto"]} />
             <Tooltip
               contentStyle={{
                 background: "#111827",
@@ -147,31 +190,14 @@ export function OpsPanel({ telemetry, latencyHistory, moat }: Props) {
                 fontSize: 11,
                 fontFamily: "monospace",
               }}
+              formatter={(value) => [`${sanitizeLatencyMs(Number(value))}ms`, "Edge ingress"]}
             />
             <Area
               type="monotone"
-              dataKey="iad"
+              dataKey="edge"
               stroke={CYAN}
-              fill="url(#iadGrad)"
+              fill="url(#edgeIngressGrad)"
               strokeWidth={1.5}
-              dot={false}
-              isAnimationActive={false}
-            />
-            <Area
-              type="monotone"
-              dataKey="lhr"
-              stroke="#B300FF"
-              fill="none"
-              strokeWidth={1}
-              dot={false}
-              isAnimationActive={false}
-            />
-            <Area
-              type="monotone"
-              dataKey="nrt"
-              stroke="#34d399"
-              fill="none"
-              strokeWidth={1}
               dot={false}
               isAnimationActive={false}
             />
@@ -181,10 +207,13 @@ export function OpsPanel({ telemetry, latencyHistory, moat }: Props) {
 
       <InfraTelemetry
         telemetry={telemetry}
-        latencyHistory={latencyHistory}
+        latencyHistory={adminPoll.history.length > 0 ? adminPoll.history : latencyHistory}
         endpointStatuses={endpointStatuses}
         moat={moat}
         flyMachineCount={regions.length}
+        adminPollMs={adminPoll.lastMs}
+        searchMeanMs={searchColdAvgMs}
+        edgeLatencyHistory={adminPoll.history}
       />
     </div>
   );

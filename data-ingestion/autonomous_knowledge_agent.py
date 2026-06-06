@@ -435,6 +435,32 @@ async def process_github_lane(
 # ─── Storefront catalog revalidation ─────────────────────────────────────────
 
 
+async def warm_mcp_embed_cache(
+    session: aiohttp.ClientSession,
+    *,
+    collections: list[str],
+) -> None:
+    """
+    Dispatch lightweight search probes after upsert so Fly Moka/embed paths heat
+    before consumer traffic (reduces cold OpenAI embed penalty on first hit).
+    """
+    warm_url = os.getenv(
+        "UNISON_MCP_WARM_URL",
+        "https://unison-mcp.fly.dev/mcp/v1/search",
+    )
+    probe_q = os.getenv("UNISON_MCP_WARM_QUERY", "cache warm substrate probe")
+    max_collections = int(os.getenv("KNOWLEDGE_WARM_MAX_COLLECTIONS", "5"))
+
+    for collection in collections[:max_collections]:
+        params = {"q": probe_q, "collection": collection, "limit": "1"}
+        try:
+            async with session.get(warm_url, params=params, timeout=12) as resp:
+                log.info("[CACHE_WARM] %s → HTTP %s", collection, resp.status)
+        except Exception as exc:
+            log.warning("[CACHE_WARM] %s skipped: %s", collection, exc)
+        await asyncio.sleep(0.35)
+
+
 async def trigger_catalog_revalidate(
     session: aiohttp.ClientSession,
     *,
@@ -544,6 +570,9 @@ class KnowledgeIngestionDaemon:
 
         if total > 0 and self.telemetry.collections_touched:
             async with aiohttp.ClientSession() as session:
+                await warm_mcp_embed_cache(
+                    session, collections=self.telemetry.collections_touched
+                )
                 await trigger_catalog_revalidate(
                     session, collections=self.telemetry.collections_touched
                 )

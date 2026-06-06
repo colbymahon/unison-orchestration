@@ -7,6 +7,7 @@ import {
 import { Activity, Server, Clock, Zap, Database } from "lucide-react";
 import { cn } from "@/lib/utils";
 import type { TelemetryData, HistoryPoint } from "./types";
+import { formatLatencyMs, sanitizeLatencyMs } from "@/lib/safe-latency";
 
 interface MoatSnapshot {
   total_vectors: number;
@@ -21,6 +22,12 @@ interface Props {
   endpointStatuses: Record<string, { status: string; latency: number | null }>;
   moat?: MoatSnapshot | null;
   flyMachineCount?: number;
+  /** Client-measured admin-telemetry ingress (Track A) */
+  adminPollMs?: number | null;
+  /** Server-side Fly search mean including cold embed */
+  searchMeanMs?: number | null;
+  /** Prefer edge ingress samples for sparkline when set */
+  edgeLatencyHistory?: HistoryPoint[];
 }
 
 const CYAN   = "#00E5FF";
@@ -47,8 +54,19 @@ export function InfraTelemetry({
   endpointStatuses,
   moat,
   flyMachineCount = 2,
+  adminPollMs,
+  searchMeanMs,
+  edgeLatencyHistory,
 }: Props) {
   const t = telemetry;
+  const sparkHistory =
+    edgeLatencyHistory && edgeLatencyHistory.length > 0
+      ? edgeLatencyHistory
+      : latencyHistory;
+  const displaySearchMean = sanitizeLatencyMs(
+    searchMeanMs ?? t?.mean_latency_ms ?? 0
+  );
+  const displayEdgeIngress = sanitizeLatencyMs(adminPollMs ?? 0);
 
   const colQueryData = t
     ? Object.entries(t.collection_queries)
@@ -69,18 +87,28 @@ export function InfraTelemetry({
   return (
     <div className="p-6 space-y-6">
       {/* Top stats row */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+      <div className="grid grid-cols-2 lg:grid-cols-5 gap-4">
         <div className="bg-gray-950 border border-gray-900 rounded-xl p-4" style={{ borderLeftColor: CYAN, borderLeftWidth: 3 }}>
           <div className="text-xs font-mono text-gray-500 uppercase tracking-widest mb-2 flex items-center gap-1.5">
-            <Activity size={11} className="text-cyan-400" /> Mean Latency
+            <Activity size={11} className="text-cyan-400" /> Edge Ingress
+          </div>
+          <div className="font-[var(--font-grotesk)] text-3xl font-black text-[#00E5FF]">
+            {adminPollMs != null ? formatLatencyMs(displayEdgeIngress) : "---"}
+          </div>
+          <div className="text-xs font-mono text-gray-600 mt-1">admin-telemetry · Track A</div>
+        </div>
+
+        <div className="bg-gray-950 border border-gray-900 rounded-xl p-4" style={{ borderLeftColor: PURPLE, borderLeftWidth: 3 }}>
+          <div className="text-xs font-mono text-gray-500 uppercase tracking-widest mb-2 flex items-center gap-1.5">
+            <Zap size={11} className="text-purple-400" /> Search Cold-Avg
           </div>
           <div
             className="font-[var(--font-grotesk)] text-3xl font-black"
-            style={{ color: t ? latColor(t.mean_latency_ms) : "#6b7280" }}
+            style={{ color: latColor(displaySearchMean) }}
           >
-            {t ? `${Math.round(t.mean_latency_ms)}ms` : "---"}
+            {t || searchMeanMs != null ? formatLatencyMs(displaySearchMean) : "---"}
           </div>
-          <div className="text-xs font-mono text-gray-600 mt-1">embed + qdrant round-trip</div>
+          <div className="text-xs font-mono text-gray-600 mt-1">Fly embed + Qdrant aggregate</div>
         </div>
 
         <div className="bg-gray-950 border border-gray-900 rounded-xl p-4" style={{ borderLeftColor: "#34d399", borderLeftWidth: 3 }}>
@@ -120,10 +148,10 @@ export function InfraTelemetry({
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
         <div className="bg-gray-950 border border-gray-900 rounded-xl p-4">
           <div className="text-xs font-mono text-gray-500 uppercase tracking-widest mb-3">
-            Search Latency — Live (ms)
+            Edge API Ingress — Live (ms)
           </div>
           <ResponsiveContainer width="100%" height={130}>
-            <AreaChart data={latencyHistory} margin={{ top: 4, right: 0, bottom: 0, left: 0 }}>
+            <AreaChart data={sparkHistory} margin={{ top: 4, right: 0, bottom: 0, left: 0 }}>
               <defs>
                 <linearGradient id="latGrad" x1="0" y1="0" x2="0" y2="1">
                   <stop offset="0%"   stopColor={CYAN} stopOpacity={0.3} />
@@ -132,9 +160,9 @@ export function InfraTelemetry({
               </defs>
               <CartesianGrid stroke="#1f2937" strokeDasharray="3 3" vertical={false} />
               <XAxis dataKey="t" hide />
-              <YAxis hide domain={["auto", "auto"]} />
+              <YAxis hide domain={[0, "auto"]} />
               <Tooltip
-                formatter={(v: unknown) => [`${Math.round(Number(v))}ms`, "Latency"]}
+                formatter={(v: unknown) => [`${sanitizeLatencyMs(Number(v))}ms`, "Edge ingress"]}
                 contentStyle={{ background: "#111827", border: "1px solid #374151", fontSize: 11, fontFamily: "monospace" }}
               />
               <Area
