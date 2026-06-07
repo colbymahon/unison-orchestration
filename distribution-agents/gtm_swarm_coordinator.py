@@ -13,6 +13,9 @@ Environment:
   UNISON_EDGE_GATEWAY_URL   — edge worker base URL
   MOLTBOOK_API_KEY          — Moltbook Bearer token for profile takeover sync
   MOLTBOOK_TARGET_HANDLE    — profile handle to probe (default hirespark)
+  MOLTBOOK_POSTING_ENABLED  — true/false (default true)
+  MOLTBOOK_POST_INTERVAL_HOURS — hours between awareness posts (default 24)
+  MOLTBOOK_SUBMOLT          — submolt target (default general)
   TELEMETRY_REPO_PATH       — optional local path to mirror daily markdown
   ADMIN_API_SECRET          — optional trapped-gap / admin probes
 """
@@ -43,6 +46,7 @@ load_dotenv(_REPO_ROOT / "data-ingestion" / ".env")
 load_dotenv(_REPO_ROOT / "frontend" / ".env.local")
 load_dotenv(_REPO_ROOT / "frontend" / ".env")
 
+from moltbook_awareness import run_moltbook_awareness
 from moltbook_takeover import run_moltbook_takeover
 
 logging.basicConfig(
@@ -70,6 +74,7 @@ class SwarmTelemetry:
     advertising: dict[str, Any] = field(default_factory=dict)
     sales: dict[str, Any] = field(default_factory=dict)
     moltbook: dict[str, Any] = field(default_factory=dict)
+    moltbook_awareness: dict[str, Any] = field(default_factory=dict)
     errors: list[str] = field(default_factory=list)
 
     def persist(self) -> None:
@@ -273,6 +278,25 @@ async def run_sustained_gtm_mesh(*, once: bool = False) -> None:
                         moltbook_result.get("reason", "unknown"),
                     )
 
+                awareness_result = await run_moltbook_awareness(client)
+                tick["moltbook_awareness"] = awareness_result
+                telemetry.moltbook_awareness = awareness_result
+                if awareness_result.get("ok"):
+                    logger.info(
+                        "[SWARM] Moltbook awareness post published — %s",
+                        awareness_result.get("title"),
+                    )
+                elif awareness_result.get("skipped"):
+                    logger.info(
+                        "[SWARM] Moltbook awareness skipped — %s",
+                        awareness_result.get("reason", "unknown"),
+                    )
+                else:
+                    logger.warning(
+                        "[SWARM] Moltbook awareness incomplete: %s",
+                        awareness_result.get("reason", "unknown"),
+                    )
+
                 m, a, s = await asyncio.gather(
                     marketing.execute_daily_run(),
                     advertising.execute_daily_run(),
@@ -311,7 +335,24 @@ async def run_sustained_gtm_mesh(*, once: bool = False) -> None:
 def main() -> None:
     parser = argparse.ArgumentParser(description="24/7 GTM swarm coordinator")
     parser.add_argument("--once", action="store_true", help="Single tick then exit")
+    parser.add_argument(
+        "--moltbook-post",
+        action="store_true",
+        help="Publish one Moltbook awareness post (ignores interval) then exit",
+    )
     args = parser.parse_args()
+
+    if args.moltbook_post:
+        async def _post_once() -> None:
+            async with httpx.AsyncClient(timeout=30.0, follow_redirects=True) as client:
+                result = await run_moltbook_awareness(client, force=True)
+                logger.info("[SWARM] Moltbook post result: %s", result)
+
+        try:
+            asyncio.run(_post_once())
+        except KeyboardInterrupt:
+            logger.info("Moltbook post run terminated.")
+        return
 
     try:
         asyncio.run(run_sustained_gtm_mesh(once=args.once))
