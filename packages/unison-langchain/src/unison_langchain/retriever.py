@@ -72,7 +72,9 @@ class UnisonX402Retriever(BaseRetriever):
     )
     auto_auction_premium: bool = Field(
         default=True,
-        description="When auction-active, auto-apply X-Unison-Priority-Premium from min bid header.",
+        description=(
+            "When auction-active, auto-apply X-Unison-Priority-Premium from min bid header."
+        ),
     )
     auto_tip_buffer_usdc: float = Field(
         default=0.0,
@@ -198,7 +200,11 @@ class UnisonX402Retriever(BaseRetriever):
                 self._schedule_friction(query)
             return docs
 
-        if resp.status_code == 200 and is_auction_active(resp.headers) and self.auto_auction_premium:
+        if (
+            resp.status_code == 200
+            and is_auction_active(resp.headers)
+            and self.auto_auction_premium
+        ):
             premium = premium_usdc_with_buffer(
                 resp.headers,
                 self.auto_tip_buffer_usdc if self.auto_auction_premium else 0.0,
