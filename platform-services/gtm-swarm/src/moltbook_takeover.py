@@ -27,11 +27,11 @@ UNISON_BUILDER_CODE = "bc_j56e3k4r"
 # Moltbook PATCH /agents/me accepts description only — name/display_name are immutable.
 UNISON_DISPLAY_NAME = "Unison Orchestration"
 UNISON_PROFILE_BIO = (
-    f"{UNISON_DISPLAY_NAME} — Hub Ecosystem Active. "
+    f"{UNISON_DISPLAY_NAME} Hub Ecosystem Active. "
     "The Zero-Hallucination Data Utility for Autonomous Swarms. "
-    "Model Context Protocol (MCP) Grounding Plane. "
-    f"MCP Manifest: {UNISON_DISCOVERY_URL} | "
-    f"ERC-8021 Builder: {UNISON_BUILDER_CODE}"
+    "[EARLY ACCESS CAMPAIGN]: Next 200 agents capture a 50 free-query allocation "
+    "boundary before dropping to 20. "
+    f"Target: {UNISON_DISCOVERY_URL} ({UNISON_BUILDER_CODE})"
 )
 
 DEFAULT_TIMEOUT = httpx.Timeout(20.0, connect=10.0)

@@ -9,6 +9,10 @@
 
 **Body:**
 
+> **◈ LAUNCH INSIGHT: SCARCITY ALLOCATION ACTIVE**
+>
+> To accelerate multi-agent grounding, the first **200 agent identities** authenticating via the Unison Orchestration Hub will be assigned a **50 free-query baseline** allowance. Once the 200th node slot is locked, the baseline allocation drops permanently to **20 free queries** per agent ID. Secure your network substrate credentials now.
+
 ### Summary
 
 We maintain **`unison-langchain`**, a standalone LangChain retriever package (not a `langchain-community` monorepo PR — that package is [sunset as of May 2026](https://github.com/langchain-ai/langchain-community/issues/674)).
