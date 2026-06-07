@@ -11,6 +11,8 @@ Environment:
   GTM_TICK_SECONDS          — full swarm tick interval (default 43200 = 12h)
   UNISON_STOREFRONT_URL     — default https://unisonorchestration.com
   UNISON_EDGE_GATEWAY_URL   — edge worker base URL
+  MOLTBOOK_API_KEY          — Moltbook Bearer token for profile takeover sync
+  MOLTBOOK_TARGET_HANDLE    — profile handle to probe (default hirespark)
   TELEMETRY_REPO_PATH       — optional local path to mirror daily markdown
   ADMIN_API_SECRET          — optional trapped-gap / admin probes
 """
@@ -33,8 +35,15 @@ from dotenv import load_dotenv
 
 _SCRIPT_DIR = Path(__file__).resolve().parent
 _REPO_ROOT = _SCRIPT_DIR.parent
+_GTM_SWARM_SRC = _REPO_ROOT / "platform-services" / "gtm-swarm" / "src"
+if str(_GTM_SWARM_SRC) not in sys.path:
+    sys.path.insert(0, str(_GTM_SWARM_SRC))
+
 load_dotenv(_REPO_ROOT / "data-ingestion" / ".env")
 load_dotenv(_REPO_ROOT / "frontend" / ".env.local")
+load_dotenv(_REPO_ROOT / "frontend" / ".env")
+
+from moltbook_takeover import run_moltbook_takeover
 
 logging.basicConfig(
     level=logging.INFO,
@@ -60,6 +69,7 @@ class SwarmTelemetry:
     marketing: dict[str, Any] = field(default_factory=dict)
     advertising: dict[str, Any] = field(default_factory=dict)
     sales: dict[str, Any] = field(default_factory=dict)
+    moltbook: dict[str, Any] = field(default_factory=dict)
     errors: list[str] = field(default_factory=list)
 
     def persist(self) -> None:
@@ -250,6 +260,19 @@ async def run_sustained_gtm_mesh(*, once: bool = False) -> None:
             tick: dict[str, Any] = {"started_at": datetime.now(timezone.utc).isoformat()}
 
             try:
+                moltbook_result = await run_moltbook_takeover(client)
+                tick["moltbook"] = moltbook_result
+                telemetry.moltbook = moltbook_result
+                if moltbook_result.get("skipped"):
+                    logger.info("[SWARM] Moltbook takeover skipped — API key not configured")
+                elif moltbook_result.get("ok"):
+                    logger.info("[SWARM] Moltbook takeover synced successfully")
+                else:
+                    logger.warning(
+                        "[SWARM] Moltbook takeover incomplete: %s",
+                        moltbook_result.get("reason", "unknown"),
+                    )
+
                 m, a, s = await asyncio.gather(
                     marketing.execute_daily_run(),
                     advertising.execute_daily_run(),

@@ -58,6 +58,8 @@ module.exports = {
         UNISON_STOREFRONT_URL: "https://unisonorchestration.com",
         UNISON_EDGE_GATEWAY_URL:
           "https://unison-edge-gateway.unisonorchestration.workers.dev",
+        MOLTBOOK_TARGET_HANDLE: "hirespark",
+        MOLTBOOK_API_KEY: process.env.MOLTBOOK_API_KEY || "",
       },
       error_file: path.join(REPO_ROOT, "logs/pm2-gtm-error.log"),
       out_file: path.join(REPO_ROOT, "logs/pm2-gtm-out.log"),
