@@ -446,16 +446,28 @@ async def warm_mcp_embed_cache(
     """
     warm_url = os.getenv(
         "UNISON_MCP_WARM_URL",
-        "https://unison-mcp.fly.dev/mcp/v1/search",
+        "https://unisonorchestration.com/mcp/v1/search",
+    )
+    warm_agent_id = os.getenv(
+        "KNOWLEDGE_WARM_AGENT_ID",
+        "UnisonOrchestrationAgent/v1.0-knowledge-warm",
     )
     probe_q = os.getenv("UNISON_MCP_WARM_QUERY", "cache warm substrate probe")
     max_collections = int(os.getenv("KNOWLEDGE_WARM_MAX_COLLECTIONS", "5"))
+    warm_headers = {"X-Agent-ID": warm_agent_id}
 
     for collection in collections[:max_collections]:
         params = {"q": probe_q, "collection": collection, "limit": "1"}
         try:
-            async with session.get(warm_url, params=params, timeout=12) as resp:
-                log.info("[CACHE_WARM] %s → HTTP %s", collection, resp.status)
+            async with session.get(
+                warm_url, params=params, headers=warm_headers, timeout=12
+            ) as resp:
+                log.info(
+                    "[CACHE_WARM] %s → HTTP %s (agent=%s)",
+                    collection,
+                    resp.status,
+                    warm_agent_id,
+                )
         except Exception as exc:
             log.warning("[CACHE_WARM] %s skipped: %s", collection, exc)
         await asyncio.sleep(0.35)

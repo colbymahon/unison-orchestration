@@ -80,7 +80,7 @@ export async function fetchCollectionCorpusPreview(
   try {
     const res = await fetch(url.toString(), {
       cache: "no-store",
-      headers: { "X-Agent-ID": "unison-corpus-seo-crawler" },
+      headers: { "X-Agent-ID": "UnisonOrchestrationAgent/v1.0-corpus-seo" },
       next: { revalidate: 0 },
     });
     if (!res.ok) return empty;

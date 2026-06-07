@@ -73,6 +73,11 @@ const nextConfig: NextConfig = {
           destination:
             "https://unison-edge-gateway.unisonorchestration.workers.dev/.well-known/ai-plugin.json",
         },
+        {
+          source: "/mcp/v1/search",
+          destination:
+            "https://unison-edge-gateway.unisonorchestration.workers.dev/mcp/v1/search",
+        },
       ],
     };
   },

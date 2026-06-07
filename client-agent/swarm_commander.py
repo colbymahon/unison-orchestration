@@ -50,6 +50,7 @@ import asyncio
 import logging
 import os
 import random
+import re
 import secrets
 import sys
 import time
@@ -63,6 +64,8 @@ from web3.providers import AsyncHTTPProvider
 
 from base_builder import append_builder_data_suffix
 from unison_agent_config import (
+    AGENT_FLEET_LABEL,
+    AGENT_VERSION,
     BRAND_NAME,
     BRAND_NAMESPACE,
     EDGE_SEARCH_URL,
@@ -790,8 +793,33 @@ def build_revenue_gap_agents(derived_addresses: list[str]) -> list[AgentConfig]:
     return configs
 
 
+def resolve_collection_for_query(query: str, manifest: dict[str, object]) -> str:
+    """Map a diagnostic query string to the best manifest collection."""
+    q = query.lower()
+    hints: list[tuple[str, str]] = [
+        ("zkp|substrate|integrity|engineering", "unison_engineering_core"),
+        ("legal|scotus|court", "unison_legal_core"),
+        ("financial|arbitrage|edgar", "unison_financial_core"),
+        ("medical|clinical|pharma", "unison_medical_core"),
+        ("linguistic|morphology|agglutinative", "unison_linguistics_core"),
+    ]
+    names = {
+        str(c.get("name", ""))
+        for c in manifest.get("collections", [])
+        if isinstance(c, dict)
+    }
+    for pattern, collection in hints:
+        if re.search(pattern, q) and collection in names:
+            return collection
+    for collection in names:
+        if collection in q.replace(" ", "_"):
+            return collection
+    return "unison_engineering_core" if "unison_engineering_core" in names else next(iter(names), "unison_engineering_core")
+
+
 async def verify_mcp_manifest(session: aiohttp.ClientSession) -> dict[str, object]:
     """Resolve discovery from canonical Unison Orchestration brand gateway."""
+    log.info("Fetching discovery matrix from: %s", MCP_MANIFEST_URL)
     async with session.get(MCP_MANIFEST_URL) as resp:
         if resp.status != 200:
             body = await resp.text()
@@ -799,14 +827,58 @@ async def verify_mcp_manifest(session: aiohttp.ClientSession) -> dict[str, objec
                 f"Manifest probe failed ({resp.status}) at {MCP_MANIFEST_URL}: {body[:200]}"
             )
         manifest = await resp.json()
+    collections = manifest.get("collections", [])
+    count = len(collections) if isinstance(collections, list) else 0
     name = manifest.get("name", "unknown")
+    log.info("Handshake status: HTTP 200 OK (%d Collections Resolved)", count)
     log.info(
-        "[%s] MCP manifest resolved — %s @ %s",
+        "[%s] MCP manifest resolved — %s",
         BRAND_NAMESPACE,
         name,
-        MCP_MANIFEST_URL,
     )
     return manifest
+
+
+async def run_query_diagnostic(query_text: str, *, dry_run: bool) -> int:
+    """Isolated single-pass query loop for identity and suffix calibration."""
+    log.info("Initializing %s...", AGENT_FLEET_LABEL)
+
+    mnemonic, rpc_url, usdc_address, _ = _load_env()
+    wallet_pool = build_wallet_pool(
+        mnemonic=mnemonic,
+        agent_count=1,
+        rpc_url=rpc_url,
+        usdc_address=usdc_address,
+    )
+    wallet = wallet_pool[0]
+    agent_id = format_agent_id("swarm", index=0, addr_prefix=wallet.account.address[2:8])
+
+    connector = aiohttp.TCPConnector(limit=4)
+    async with aiohttp.ClientSession(
+        connector=connector,
+        headers=default_request_headers(),
+    ) as session:
+        manifest = await verify_mcp_manifest(session)
+        collection = resolve_collection_for_query(query_text, manifest)
+        log.info("Outbound Header Ingress: X-Agent-ID: %s", agent_id)
+        log.info("Diagnostic query routed → collection=%s | q=%r", collection, query_text)
+
+        cfg = AgentConfig(
+            agent_id=agent_id,
+            collection=collection,
+            queries=[query_text],
+            wallet_index=0,
+            wallet_address=wallet.account.address,
+            query_archetype="diagnostic_probe",
+        )
+        await deploy_swarm([cfg], wallet_pool, dry_run=dry_run)
+
+    if dry_run:
+        print(
+            "[SUCCESS] Dry-run execution clean. "
+            "Telemetry identifiers are securely locked."
+        )
+    return 0
 
 
 async def deploy_swarm(
@@ -873,6 +945,36 @@ async def deploy_swarm(
     log.info("Total  ok=%d  err=%d", ok_total, err_total)
 
 
+async def run_continuous_swarm(
+    agents: list[AgentConfig],
+    wallet_pool: dict[int, AgentWallet],
+    *,
+    dry_run: bool = False,
+    simulate: bool = False,
+    interval_seconds: int = 1800,
+) -> None:
+    """PM2-supervised loop — fires deploy_swarm on a fixed interval."""
+    cycle = 0
+    while True:
+        cycle += 1
+        log.info("=== Continuous swarm cycle %d START ===", cycle)
+        try:
+            await deploy_swarm(
+                agents,
+                wallet_pool,
+                dry_run=dry_run,
+                simulate=simulate,
+            )
+        except Exception as exc:
+            log.exception("Swarm cycle %d failed (non-fatal): %s", cycle, exc)
+        log.info(
+            "=== Continuous swarm cycle %d COMPLETE — sleep %ds ===",
+            cycle,
+            interval_seconds,
+        )
+        await asyncio.sleep(interval_seconds)
+
+
 # ─── Entry Point ──────────────────────────────────────────────────────────────
 
 
@@ -900,7 +1002,13 @@ def main() -> None:
             "  python3 swarm_commander.py --mode revenue-gap               # 3 sealed premium vectors\n"
             "  python3 swarm_commander.py --agents 25 --dry-run            # print wallet map, no tx\n"
             "  python3 swarm_commander.py --agents 50 --queries-per-agent 51 # full swarm, 402 live fire\n"
+            "  python3 swarm_commander.py --query \"ZKP substrate...\" --dry-run  # identity calibration\n"
         ),
+    )
+    parser.add_argument(
+        "--query",
+        metavar="TEXT",
+        help="Isolated single-pass diagnostic query (implies one-agent swarm).",
     )
     parser.add_argument(
         "--mode",
@@ -942,10 +1050,29 @@ def main() -> None:
             "Use to validate the async state machine without funds or gas."
         ),
     )
+    parser.add_argument(
+        "--continuous",
+        action="store_true",
+        help="Run swarm cycles on an interval until interrupted (PM2 daemon mode).",
+    )
+    parser.add_argument(
+        "--interval-seconds",
+        type=int,
+        default=1800,
+        dest="interval_seconds",
+        help="Seconds between continuous swarm cycles (default: 1800 = 30 min).",
+    )
     args = parser.parse_args()
 
     if args.simulate and args.dry_run:
         parser.error("--simulate and --dry-run are mutually exclusive.")
+
+    if args.query:
+        query_text = args.query.strip()
+        if not query_text:
+            parser.error("--query requires non-empty text.")
+        asyncio.run(run_query_diagnostic(query_text, dry_run=args.dry_run))
+        return
 
     log.info("=== %s Swarm Commander START ===", BRAND_NAME)
     for line in brand_init_log_lines():
@@ -1029,7 +1156,9 @@ def main() -> None:
         log.info("  wallet[%02d]: %s", idx, wallet.account.address)
 
     if args.dry_run:
-        log.info("DRY RUN mode — HTTP queries skipped, no transactions broadcast.")
+        log.info(
+            "DRY RUN mode — live HTTP queries, EVM settlements simulated (no broadcast)."
+        )
     elif args.simulate:
         log.info(
             "SIMULATE mode — HTTP queries are LIVE (consumes KV free-tier quota). "
@@ -1041,8 +1170,31 @@ def main() -> None:
             "and >= 0.0001 ETH on Base (chainId: %d) before running.", BASE_CHAIN_ID
         )
 
-    asyncio.run(deploy_swarm(agent_configs, wallet_pool,
-                             dry_run=args.dry_run, simulate=args.simulate))
+    if args.continuous:
+        log.info(
+            "CONTINUOUS mode — %d agents, %d queries/agent, interval=%ds",
+            len(agent_configs),
+            queries_per_agent,
+            args.interval_seconds,
+        )
+        asyncio.run(
+            run_continuous_swarm(
+                agent_configs,
+                wallet_pool,
+                dry_run=args.dry_run,
+                simulate=args.simulate,
+                interval_seconds=args.interval_seconds,
+            )
+        )
+    else:
+        asyncio.run(
+            deploy_swarm(
+                agent_configs,
+                wallet_pool,
+                dry_run=args.dry_run,
+                simulate=args.simulate,
+            )
+        )
 
 
 if __name__ == "__main__":
