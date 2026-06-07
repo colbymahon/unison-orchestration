@@ -8,6 +8,12 @@ workers_dev = true
 binding = "FREE_TIER"
 id = "91fdd2e791234210906e25b8dd90ba96"
 
+# Phase 1 — dynamic early-access tier registry (200×50 → 20 baseline)
+# Create: cd edge-routing && npx wrangler kv namespace create PROMOTION_REGISTRY
+[[kv_namespaces]]
+binding = "PROMOTION_REGISTRY"
+id = "f31b332fd1d44f60857c5c64a8da8698"
+
 # Phase B0 zero-result trap — create: wrangler kv namespace create UNISON_ZERO_LOGS
 # Then replace id below and set ADMIN_API_SECRET via wrangler secret put
 [[kv_namespaces]]

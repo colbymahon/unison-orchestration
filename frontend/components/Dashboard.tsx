@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect, useMemo } from "react";
+import React, { useState, useEffect, useMemo, useRef } from "react";
 import {
   AlertTriangle, HardDrive, Radio,
   ServerCrash, SearchX, Globe, RefreshCw,
@@ -46,6 +46,18 @@ interface InfraHealthPayload {
     edge_attestation_live?: boolean;
     last_verification_digest?: string | null;
     last_chunk_count?: string | null;
+  };
+  promotion_campaign?: {
+    global_count: number;
+    cap: number;
+    promo_limit: number;
+    baseline_limit: number;
+    promotional_window_exhausted: boolean;
+    claims_settled: number;
+  };
+  edge_probe_headers?: {
+    free_tier_limit: string | null;
+    promotion_slot: string | null;
   };
 }
 
@@ -100,6 +112,9 @@ export default function Dashboard() {
   });
 
   const pollError = !!ledgerError;
+  const ledgerEverLoaded = useRef(false);
+  if (ledger) ledgerEverLoaded.current = true;
+  const ledgerBootstrapping = ledgerLoading && !ledgerEverLoaded.current;
 
   const [latencyHistory,   setLatencyHistory]   = useState<HistoryPoint[]>([]);
   const [revenueHistory,   setRevenueHistory]   = useState<HistoryPoint[]>([]);
@@ -333,7 +348,7 @@ export default function Dashboard() {
             ledger={ledger}
             revenueHistory={revenueHistory}
             rejectionHistory={rejectionHistory}
-            loading={ledgerLoading}
+            loading={ledgerBootstrapping}
           />
         )}
 
@@ -391,7 +406,21 @@ export default function Dashboard() {
         {/* ── TAB 4: GROWTH (Agentic SEO) ─────────────────────────────── */}
         {activeTab === "growth" && (
           <div className="space-y-6">
-            <AgenticDiscovery telemetry={telemetry} trappedGaps={trappedGaps} />
+            <AgenticDiscovery
+              telemetry={telemetry}
+              trappedGaps={trappedGaps}
+              promotion={
+                infraHealth?.promotion_campaign
+                  ? {
+                      ...infraHealth.promotion_campaign,
+                      edge_free_tier_limit:
+                        infraHealth.edge_probe_headers?.free_tier_limit ?? null,
+                      edge_promotion_slot:
+                        infraHealth.edge_probe_headers?.promotion_slot ?? null,
+                    }
+                  : null
+              }
+            />
 
             <a
               href="/dashboard/revenue-gaps"

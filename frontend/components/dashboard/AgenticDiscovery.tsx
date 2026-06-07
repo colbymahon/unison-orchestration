@@ -1,8 +1,19 @@
 "use client";
 
 import { useMemo } from "react";
-import { Globe, SearchX, Radio, ExternalLink, CheckCircle2, Clock } from "lucide-react";
+import { Globe, SearchX, Radio, ExternalLink, CheckCircle2, Clock, Zap } from "lucide-react";
 import type { TelemetryData, LedgerTelemetryPayload } from "./types";
+
+export interface PromotionCampaignSnapshot {
+  global_count: number;
+  cap: number;
+  promo_limit: number;
+  baseline_limit: number;
+  promotional_window_exhausted: boolean;
+  claims_settled: number;
+  edge_free_tier_limit?: string | null;
+  edge_promotion_slot?: string | null;
+}
 
 const CYAN   = "#00E5FF";
 const PURPLE = "#B300FF";
@@ -10,6 +21,7 @@ const PURPLE = "#B300FF";
 interface Props {
   telemetry: TelemetryData | null;
   trappedGaps: LedgerTelemetryPayload["trapped_gaps"];
+  promotion?: PromotionCampaignSnapshot | null;
 }
 
 const KNOWN_REGISTRIES = [
@@ -43,8 +55,16 @@ const KNOWN_REGISTRIES = [
   },
 ];
 
-export function AgenticDiscovery({ telemetry, trappedGaps }: Props) {
+export function AgenticDiscovery({ telemetry, trappedGaps, promotion }: Props) {
   const t = telemetry;
+
+  const promoCap = promotion?.cap ?? 200;
+  const claimsSettled = promotion?.claims_settled ?? 0;
+  const promoPct = Math.min(100, Math.round((claimsSettled / promoCap) * 100));
+  const promoExhausted = promotion?.promotional_window_exhausted ?? false;
+  const activeLimit = promotion?.promotional_window_exhausted
+    ? (promotion?.baseline_limit ?? 20)
+    : (promotion?.promo_limit ?? 50);
 
   const crawlRate = useMemo(() => {
     if (!t || t.uptime_seconds < 60) return "0.00";
@@ -73,6 +93,65 @@ export function AgenticDiscovery({ telemetry, trappedGaps }: Props) {
 
   return (
     <div className="p-6 space-y-6">
+      <div
+        className={`rounded-xl border p-5 ${
+          promoExhausted
+            ? "bg-red-950/30 border-red-500/40"
+            : "bg-[#0A0F1C]/80 border-cyan-500/25"
+        }`}
+        style={
+          promoExhausted
+            ? { boxShadow: "0 0 24px rgba(239, 68, 68, 0.15)" }
+            : { boxShadow: "0 0 24px rgba(0, 229, 255, 0.08)" }
+        }
+      >
+        <div className="flex items-center gap-2 mb-3">
+          <Zap
+            size={14}
+            className={promoExhausted ? "text-red-400" : "text-cyan-400"}
+          />
+          <span className="font-mono text-xs tracking-widest text-slate-400 uppercase">
+            Campaign Resource Scarcity Funnel
+          </span>
+        </div>
+        <div
+          className={`font-[var(--font-grotesk)] text-2xl font-black tabular-nums ${
+            promoExhausted ? "text-red-400" : "text-cyan-400"
+          }`}
+        >
+          Slot {claimsSettled} / {promoCap} Claims Settled
+        </div>
+        <div className="mt-4 h-2 rounded-full bg-gray-900 overflow-hidden border border-gray-800">
+          <div
+            className={`h-full transition-all duration-500 ${
+              promoExhausted
+                ? "bg-gradient-to-r from-red-600 to-red-400"
+                : "bg-gradient-to-r from-cyan-600 to-cyan-300"
+            }`}
+            style={{ width: `${promoPct}%` }}
+          />
+        </div>
+        <div className="mt-3 flex flex-wrap gap-4 font-mono text-[10px] text-gray-500">
+          <span>Active free-tier limit: {activeLimit} queries/agent</span>
+          {promotion?.edge_promotion_slot && (
+            <span>Edge probe: {promotion.edge_promotion_slot}</span>
+          )}
+          {promotion?.edge_free_tier_limit && (
+            <span>Probe limit header: {promotion.edge_free_tier_limit}</span>
+          )}
+        </div>
+        {promoExhausted ? (
+          <p className="mt-3 font-mono text-xs font-bold text-red-400 uppercase tracking-wide">
+            Promotional window exhausted // baseline dropped to 20 credits
+          </p>
+        ) : (
+          <p className="mt-3 font-mono text-[10px] text-gray-600">
+            Early-access agents receive {promotion?.promo_limit ?? 50} free queries
+            until slot {promoCap} is claimed.
+          </p>
+        )}
+      </div>
+
       <div className="grid grid-cols-2 lg:grid-cols-3 gap-4">
         <div className="bg-gray-950 border border-gray-900 rounded-xl p-5" style={{ borderLeftColor: CYAN, borderLeftWidth: 3 }}>
           <div className="text-xs font-mono text-gray-500 uppercase tracking-widest mb-2 flex items-center gap-1.5">

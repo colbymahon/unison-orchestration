@@ -55,6 +55,8 @@ async function probeZkpDigest(): Promise<{
   header_present: boolean;
   verification_digest: string | null;
   chunk_count: string | null;
+  free_tier_limit: string | null;
+  promotion_slot: string | null;
 }> {
   const url = `${EDGE}/mcp/v1/search?q=zkp+integrity+probe&collection=unison_engineering_core`;
   try {
@@ -69,22 +71,63 @@ async function probeZkpDigest(): Promise<{
       verification_digest:
         res.headers.get("x-unison-zkp-verification-digest"),
       chunk_count: res.headers.get("x-unison-zkp-chunk-count"),
+      free_tier_limit: res.headers.get("x-free-tier-limit"),
+      promotion_slot: res.headers.get("x-promotion-slot"),
     };
   } catch {
     return {
       header_present: false,
       verification_digest: null,
       chunk_count: null,
+      free_tier_limit: null,
+      promotion_slot: null,
     };
   }
 }
 
+async function probePromotionCampaign(): Promise<{
+  global_count: number;
+  cap: number;
+  promo_limit: number;
+  baseline_limit: number;
+  promotional_window_exhausted: boolean;
+  claims_settled: number;
+} | null> {
+  try {
+    const res = await fetch(`${EDGE}/api/v1/promotion-campaign`, {
+      method: "GET",
+      cache: "no-store",
+      signal: AbortSignal.timeout(8_000),
+    });
+    if (!res.ok) return null;
+    const body = (await res.json()) as {
+      global_count?: number;
+      cap?: number;
+      promo_limit?: number;
+      baseline_limit?: number;
+      promotional_window_exhausted?: boolean;
+      claims_settled?: number;
+    };
+    return {
+      global_count: body.global_count ?? 0,
+      cap: body.cap ?? 200,
+      promo_limit: body.promo_limit ?? 50,
+      baseline_limit: body.baseline_limit ?? 20,
+      promotional_window_exhausted: body.promotional_window_exhausted ?? false,
+      claims_settled: body.claims_settled ?? 0,
+    };
+  } catch {
+    return null;
+  }
+}
+
 export async function GET(): Promise<NextResponse> {
-  const [edge, fly, app, zkp] = await Promise.all([
+  const [edge, fly, app, zkp, promotion] = await Promise.all([
     probe("EDGE_GATEWAY", `${EDGE}/.well-known/mcp-configuration`),
     probe("FLY_API", `${FLY}/health`),
     probeQdrant(),
     probeZkpDigest(),
+    probePromotionCampaign(),
   ]);
 
   const activeFlyRegions = (process.env.FLY_ACTIVE_REGIONS ?? "iad,lhr,nrt")
@@ -109,6 +152,18 @@ export async function GET(): Promise<NextResponse> {
         last_verification_digest: zkp.verification_digest,
         last_chunk_count: zkp.chunk_count,
         probed_at: new Date().toISOString(),
+      },
+      promotion_campaign: promotion ?? {
+        global_count: 0,
+        cap: 200,
+        promo_limit: 50,
+        baseline_limit: 20,
+        promotional_window_exhausted: false,
+        claims_settled: 0,
+      },
+      edge_probe_headers: {
+        free_tier_limit: zkp.free_tier_limit,
+        promotion_slot: zkp.promotion_slot,
       },
       fetched_at: new Date().toISOString(),
       geometry: {

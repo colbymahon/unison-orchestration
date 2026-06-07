@@ -7,9 +7,10 @@
  * Request flow for /mcp/v1/search:
  *   1. Identify client by IP (CF-Connecting-IP) or X-Agent-ID header
  *   2. Look up usage count in FREE_TIER KV namespace
- *   3. If count < FREE_TIER_LIMIT → proxy for free, increment counter,
- *      return X-Remaining-Free-Tier header
- *   4. If count >= FREE_TIER_LIMIT → enforce x402
+ *   3. Resolve dynamic tier limit via PROMOTION_REGISTRY (200×50 → 20 baseline)
+ *   4. If count < tier limit → proxy for free, increment counter,
+ *      return X-Remaining-Free-Tier + X-Promotion-Slot headers
+ *   5. If count >= tier limit → enforce x402, forward rejection to Fly telemetry
  *      a. No PAYMENT-SIGNATURE → 402 with payment terms
  *      b. Signature present → verify with CDP Facilitator → proxy or 402
  */
@@ -61,6 +62,12 @@ import {
   parseAffiliateWallet,
 } from "./affiliate";
 import { evaluateFreeTierBatched } from "./free_tier_batch";
+import {
+  formatPromotionSlot,
+  getPromotionCampaignStats,
+  resolveTierLimit,
+  type TierResolution,
+} from "./promotion_tier";
 import { mergeZkpHeaders, verifyAndAttachZkp } from "./zkp";
 
 // ---------------------------------------------------------------------------
@@ -70,6 +77,8 @@ import { mergeZkpHeaders, verifyAndAttachZkp } from "./zkp";
 export interface Env {
   /** Cloudflare KV namespace — stores client_id → query count */
   FREE_TIER: KVNamespace;
+  /** Phase 1 — early-access slot counter + per-client tier stamps */
+  PROMOTION_REGISTRY: KVNamespace;
   /** Phase B0 — zero-result SEO gap ledger */
   UNISON_ZERO_LOGS: KVNamespace;
   /** Sprint 3.6 — churn cache (falls back to UNISON_ZERO_LOGS when unset) */
@@ -100,10 +109,11 @@ export interface Env {
 // Constants
 // ---------------------------------------------------------------------------
 
-const FREE_TIER_LIMIT = 50;
 /** KV TTL: 90 days — resets the trial window after inactivity */
 const FREE_TIER_TTL_SECONDS = 90 * 24 * 60 * 60;
 const CDP_FACILITATOR_URL = "https://api.developer.coinbase.com/x402/verify";
+const FLY_TELEMETRY_REJECTION_URL =
+  "https://unison-mcp.fly.dev/telemetry/rejection";
 
 const DASHBOARD_ORIGINS = new Set([
   "https://unisonorchestration.com",
@@ -117,7 +127,7 @@ const CORS_HEADERS: Record<string, string> = {
   "Access-Control-Allow-Headers":
     "Content-Type, Payment-Signature, Authorization, X-Agent-ID, X-Unison-Lineage, X-Unison-Lineage-Version, X-Unison-Priority-Premium, X-Unison-Affiliate-ID, X-Unison-Callback-URL, X-Agent-Callback, X-Agent-Webhook, X-Admin-Api-Secret",
   "Access-Control-Expose-Headers":
-    "X-Unison-Satiation, X-Unison-Auction-Status, X-Unison-Premium-Settled, X-Unison-Min-Premium-Bid, X-Unison-Lineage, X-Unison-Lineage-Step, X-Unison-Lineage-Episode, X-Unison-Router-Composition, X-Unison-Settlement-Split, X-Unison-Revenue-Split, X-Unison-Affiliate-Settled, X-Unison-ZKP-Verification-Digest, X-Unison-ZKP-Chunk-Count, X-Unison-ZKP-Verified-Count, X-Unison-Source-Digest, X-Remaining-Free-Tier, X-Unison-Embed-Ms, X-Unison-Qdrant-Ms, X-Unison-Embed-Cache-Hit, X-Unison-Fly-Region, X-Unison-Delivery",
+    "X-Unison-Satiation, X-Unison-Auction-Status, X-Unison-Premium-Settled, X-Unison-Min-Premium-Bid, X-Unison-Lineage, X-Unison-Lineage-Step, X-Unison-Lineage-Episode, X-Unison-Router-Composition, X-Unison-Settlement-Split, X-Unison-Revenue-Split, X-Unison-Affiliate-Settled, X-Unison-ZKP-Verification-Digest, X-Unison-ZKP-Chunk-Count, X-Unison-ZKP-Verified-Count, X-Unison-Source-Digest, X-Remaining-Free-Tier, X-Free-Tier-Limit, X-Promotion-Slot, X-Unison-Embed-Ms, X-Unison-Qdrant-Ms, X-Unison-Embed-Cache-Hit, X-Unison-Fly-Region, X-Unison-Delivery",
   "Access-Control-Max-Age": "86400",
 };
 
@@ -245,7 +255,45 @@ async function requireAdminAccess(
   return errorResponse(401, "Unauthorized.", request);
 }
 
-function paymentRequiredResponse(env: Env, reason?: string): Response {
+function promotionTierHeaders(tier: TierResolution): Record<string, string> {
+  return {
+    "X-Free-Tier-Limit": String(tier.limit),
+    "X-Promotion-Slot": formatPromotionSlot(tier.slot),
+  };
+}
+
+function scheduleRejectionTelemetry(
+  ctx: ExecutionContext,
+  clientId: string,
+  limit: number,
+  reason: string
+): void {
+  ctx.waitUntil(
+    fetch(FLY_TELEMETRY_REJECTION_URL, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        clientId,
+        reason,
+        limit,
+      }),
+    }).catch((err) => {
+      console.warn(
+        JSON.stringify({
+          event: "FLY_REJECTION_TELEMETRY_DEGRADED",
+          error: err instanceof Error ? err.message : String(err),
+        })
+      );
+    })
+  );
+}
+
+function paymentRequiredResponse(
+  env: Env,
+  reason?: string,
+  request?: Request,
+  tier?: TierResolution
+): Response {
   const paymentHeader = [
     `network=${env.PAYMENT_NETWORK}`,
     `token=${env.PAYMENT_TOKEN}`,
@@ -257,14 +305,18 @@ function paymentRequiredResponse(env: Env, reason?: string): Response {
     ? `402 Payment Required: ${reason}`
     : "402 Payment Required. Free tier exhausted. Attach a valid PAYMENT-SIGNATURE header to continue.";
 
+  const headers: Record<string, string> = {
+    "Content-Type": "text/plain; charset=utf-8",
+    "Payment-Required": paymentHeader,
+    ...(tier ? promotionTierHeaders(tier) : {}),
+  };
+
   return withCors(
     new Response(body, {
       status: 402,
-      headers: {
-        "Content-Type": "text/plain; charset=utf-8",
-        "Payment-Required": paymentHeader,
-      },
-    })
+      headers,
+    }),
+    request
   );
 }
 
@@ -920,6 +972,30 @@ export default {
       return withCors(new Response("OK", { status: 200 }));
     }
 
+    // Phase 1 — live scarcity campaign stats (read-only, no tier mutation)
+    if (pathname === "/api/v1/promotion-campaign") {
+      if (method !== "GET") {
+        return errorResponse(405, "Method Not Allowed. Use GET.");
+      }
+      try {
+        const stats = await getPromotionCampaignStats(env.PROMOTION_REGISTRY);
+        return withCors(
+          new Response(JSON.stringify(stats), {
+            status: 200,
+            headers: {
+              "Content-Type": "application/json",
+              "Cache-Control": "no-store, max-age=0",
+              "X-Promotion-Slot": `${stats.claims_settled}/${stats.cap}`,
+            },
+          }),
+          request
+        );
+      } catch (err) {
+        console.error("promotion-campaign stats error:", err);
+        return errorResponse(502, "Promotion registry unavailable.");
+      }
+    }
+
     // Sprint 3.6 — agent friction telemetry (JSON-RPC ingress)
     if (pathname === "/mcp/v1/telemetry") {
       if (method !== "POST") {
@@ -952,7 +1028,10 @@ export default {
         return errorResponse(400, "Missing required query parameter: q");
       }
 
+      try {
       const clientId = resolveClientId(request);
+      const promotionTier = await resolveTierLimit(clientId, env);
+      const freeTierLimit = promotionTier.limit;
 
       // Paid + affiliate settlement must run even when free-tier quota remains.
       const signature = getPaymentSignature(request);
@@ -969,7 +1048,18 @@ export default {
             collection,
             code: "UNFUNDED_OR_MISSING_SUBSTRATE",
           });
-          return paymentRequiredResponse(env, "Invalid or expired payment signature.");
+          scheduleRejectionTelemetry(
+            ctx,
+            clientId,
+            freeTierLimit,
+            "INVALID_PAYMENT_SIGNATURE"
+          );
+          return paymentRequiredResponse(
+            env,
+            "Invalid or expired payment signature.",
+            request,
+            promotionTier
+          );
         }
         console.log(`Paid request verified (signature): client=${clientId}`);
         const q = url.searchParams.get("q")?.trim() ?? "";
@@ -987,20 +1077,22 @@ export default {
       const freeTier = await evaluateFreeTierBatched(
         clientId,
         env.FREE_TIER,
-        FREE_TIER_LIMIT,
+        freeTierLimit,
         FREE_TIER_TTL_SECONDS,
         ctx
       );
 
+      const tierHeaders = {
+        ...promotionTierHeaders(promotionTier),
+        "X-Remaining-Free-Tier": String(freeTier.remaining),
+      };
+
       if (freeTier.isFree) {
         console.log(
-          `Free tier: client=${clientId} used=${freeTier.used + 1}/${FREE_TIER_LIMIT}`
+          `Free tier: client=${clientId} used=${freeTier.used + 1}/${freeTierLimit} slot=${promotionTier.slot}`
         );
         try {
-          return await executeMcpSearch(request, env, ctx, {
-            "X-Remaining-Free-Tier": String(freeTier.remaining),
-            "X-Free-Tier-Limit": String(FREE_TIER_LIMIT),
-          });
+          return await executeMcpSearch(request, env, ctx, tierHeaders);
         } catch (searchErr) {
           console.error("executeMcpSearch uncaught:", searchErr);
           return errorResponse(502, "Edge search handler error.");
@@ -1017,12 +1109,34 @@ export default {
         collection,
         code: "UNFUNDED_OR_MISSING_SUBSTRATE",
       });
+      scheduleRejectionTelemetry(
+        ctx,
+        clientId,
+        freeTierLimit,
+        "FREE_TIER_EXHAUSTED"
+      );
 
       return paymentRequiredResponse(
         env,
-        `Free tier exhausted (${FREE_TIER_LIMIT} queries used). ` +
-          `Attach PAYMENT-SIGNATURE to continue.`
+        `Promotional credit exhausted (${freeTierLimit} queries used). ` +
+          `Attach PAYMENT-SIGNATURE to continue.`,
+        request,
+        promotionTier
       );
+      } catch (searchRouteErr) {
+        console.error(
+          JSON.stringify({
+            event: "MCP_SEARCH_ROUTE_ERROR",
+            error:
+              searchRouteErr instanceof Error
+                ? searchRouteErr.message
+                : String(searchRouteErr),
+            stack:
+              searchRouteErr instanceof Error ? searchRouteErr.stack : undefined,
+          })
+        );
+        return errorResponse(502, "Edge search route error.", request);
+      }
     }
 
     return errorResponse(404, "Not Found.");
