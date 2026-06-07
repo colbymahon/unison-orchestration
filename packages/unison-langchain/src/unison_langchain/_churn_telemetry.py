@@ -102,4 +102,5 @@ def submit_attestation_review(
         timeout=DEFAULT_TIMEOUT,
     )
     resp.raise_for_status()
-    return resp.json()
+    payload: dict[str, Any] = resp.json()
+    return payload

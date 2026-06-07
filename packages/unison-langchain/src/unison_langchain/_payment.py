@@ -15,6 +15,7 @@ Required env vars for paid operation:
 from __future__ import annotations
 
 import os
+from typing import Any
 
 import requests
 
@@ -27,7 +28,7 @@ _BASE_BUILDER_DATA_SUFFIX = bytes.fromhex(
 )
 
 
-def _append_builder_data_suffix(tx: dict) -> dict:
+def _append_builder_data_suffix(tx: dict[str, Any]) -> dict[str, Any]:
     data = tx.get("data", b"")
     if isinstance(data, str):
         data = bytes.fromhex(data[2:] if data.startswith("0x") else data)
@@ -102,17 +103,16 @@ def settle_and_fetch(
     usdc    = w3.eth.contract(address=Web3.to_checksum_address(usdc_addr), abi=abi)
     units   = int(amount * 10**6)
 
-    tx = _append_builder_data_suffix(
-        usdc.functions.transfer(
-            Web3.to_checksum_address(destination), units
-        ).build_transaction({
-            "from":     account.address,
-            "nonce":    w3.eth.get_transaction_count(account.address),
-            "gas":      _GAS_LIMIT,
-            "gasPrice": w3.eth.gas_price,
-            "chainId":  _BASE_CHAIN_ID,
-        })
-    )
+    built_tx = usdc.functions.transfer(
+        Web3.to_checksum_address(destination), units
+    ).build_transaction({
+        "from":     account.address,
+        "nonce":    w3.eth.get_transaction_count(account.address),
+        "gas":      _GAS_LIMIT,
+        "gasPrice": w3.eth.gas_price,
+        "chainId":  _BASE_CHAIN_ID,
+    })
+    tx = _append_builder_data_suffix(dict(built_tx))
     signed  = w3.eth.account.sign_transaction(tx, key)
     tx_hash = w3.eth.send_raw_transaction(signed.raw_transaction)
     receipt = w3.eth.wait_for_transaction_receipt(tx_hash, timeout=_RECEIPT_TIMEOUT)
