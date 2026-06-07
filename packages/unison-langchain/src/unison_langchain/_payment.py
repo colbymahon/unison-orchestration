@@ -22,6 +22,20 @@ _BASE_USDC = "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913"
 _BASE_CHAIN_ID = 8453
 _GAS_LIMIT = 100_000
 _RECEIPT_TIMEOUT = 60
+_BASE_BUILDER_DATA_SUFFIX = bytes.fromhex(
+    "62635f6a353665336b34720b0080218021802180218021802180218021"
+)
+
+
+def _append_builder_data_suffix(tx: dict) -> dict:
+    data = tx.get("data", b"")
+    if isinstance(data, str):
+        data = bytes.fromhex(data[2:] if data.startswith("0x") else data)
+    elif not isinstance(data, bytes):
+        data = bytes(data)
+    out = dict(tx)
+    out["data"] = data + _BASE_BUILDER_DATA_SUFFIX
+    return out
 
 
 def parse_payment_header(header_value: str) -> dict[str, str]:
@@ -88,15 +102,17 @@ def settle_and_fetch(
     usdc    = w3.eth.contract(address=Web3.to_checksum_address(usdc_addr), abi=abi)
     units   = int(amount * 10**6)
 
-    tx = usdc.functions.transfer(
-        Web3.to_checksum_address(destination), units
-    ).build_transaction({
-        "from":     account.address,
-        "nonce":    w3.eth.get_transaction_count(account.address),
-        "gas":      _GAS_LIMIT,
-        "gasPrice": w3.eth.gas_price,
-        "chainId":  _BASE_CHAIN_ID,
-    })
+    tx = _append_builder_data_suffix(
+        usdc.functions.transfer(
+            Web3.to_checksum_address(destination), units
+        ).build_transaction({
+            "from":     account.address,
+            "nonce":    w3.eth.get_transaction_count(account.address),
+            "gas":      _GAS_LIMIT,
+            "gasPrice": w3.eth.gas_price,
+            "chainId":  _BASE_CHAIN_ID,
+        })
+    )
     signed  = w3.eth.account.sign_transaction(tx, key)
     tx_hash = w3.eth.send_raw_transaction(signed.raw_transaction)
     receipt = w3.eth.wait_for_transaction_receipt(tx_hash, timeout=_RECEIPT_TIMEOUT)
