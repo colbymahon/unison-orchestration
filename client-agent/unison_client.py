@@ -34,6 +34,17 @@ import requests
 from dotenv import load_dotenv
 from web3 import Web3
 
+from base_builder import append_builder_data_suffix
+from unison_agent_config import (
+    BRAND_NAME,
+    BRAND_NAMESPACE,
+    EDGE_SEARCH_URL,
+    MCP_MANIFEST_URL,
+    brand_init_log_lines,
+    default_request_headers,
+    format_agent_id,
+)
+
 load_dotenv()
 
 logging.basicConfig(
@@ -46,7 +57,7 @@ log = logging.getLogger("unison.client")
 
 # ─── Constants ───────────────────────────────────────────────────────────────
 
-EDGE_URL = "https://unison-edge-gateway.unisonorchestration.workers.dev/mcp/v1/search"
+EDGE_URL = EDGE_SEARCH_URL
 BASE_CHAIN_ID = 8453
 USDC_DECIMALS = 6  # USDC uses 6 decimal places — 0.005 USDC = 5_000 base units
 GAS_LIMIT = 100_000
@@ -99,7 +110,7 @@ def _load_env() -> tuple[Web3, object, object, str | None]:
         address=Web3.to_checksum_address(os.environ["USDC_CONTRACT_ADDRESS"]),
         abi=ERC20_ABI,
     )
-    agent_id = os.getenv("AGENT_ID")
+    agent_id = os.getenv("AGENT_ID") or format_agent_id("client", index=0)
     return w3, account, usdc, agent_id
 
 
@@ -162,14 +173,16 @@ def execute_payment(
         amount_usdc, amount_units, dest_checksum,
     )
 
-    tx = usdc.functions.transfer(dest_checksum, amount_units).build_transaction(
-        {
-            "from": account.address,
-            "nonce": w3.eth.get_transaction_count(account.address),
-            "gas": GAS_LIMIT,
-            "gasPrice": w3.eth.gas_price,
-            "chainId": BASE_CHAIN_ID,
-        }
+    tx = append_builder_data_suffix(
+        usdc.functions.transfer(dest_checksum, amount_units).build_transaction(
+            {
+                "from": account.address,
+                "nonce": w3.eth.get_transaction_count(account.address),
+                "gas": GAS_LIMIT,
+                "gasPrice": w3.eth.gas_price,
+                "chainId": BASE_CHAIN_ID,
+            }
+        )
     )
 
     signed = w3.eth.account.sign_transaction(tx, os.environ["AGENT_PRIVATE_KEY"])
@@ -209,11 +222,9 @@ def query_unison(
     Returns the raw TSV payload string, or None on unrecoverable error.
     """
     params = {"collection": collection, "q": query_text}
-    headers: dict[str, str] = {}
-    if agent_id:
-        headers["X-Agent-ID"] = agent_id
+    headers = default_request_headers(agent_id)
 
-    log.info("Querying %s: '%s'", collection, query_text)
+    log.info("[%s] Querying %s: '%s'", BRAND_NAMESPACE, collection, query_text)
 
     # ── First attempt ─────────────────────────────────────────────────────────
     resp = requests.get(EDGE_URL, params=params, headers=headers, timeout=30)
@@ -306,7 +317,9 @@ def print_tsv(tsv: str, max_rows: int = 10) -> None:
 
 
 def main() -> None:
-    log.info("=== Unison Autonomous x402 Client START ===")
+    log.info("=== %s Autonomous x402 Client START ===", BRAND_NAME)
+    for line in brand_init_log_lines():
+        log.info(line)
 
     w3, account, usdc, agent_id = _load_env()
     log.info("Agent wallet: %s", account.address)

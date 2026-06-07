@@ -61,6 +61,17 @@ from eth_account import Account
 from web3 import AsyncWeb3
 from web3.providers import AsyncHTTPProvider
 
+from base_builder import append_builder_data_suffix
+from unison_agent_config import (
+    BRAND_NAME,
+    BRAND_NAMESPACE,
+    EDGE_SEARCH_URL,
+    MCP_MANIFEST_URL,
+    brand_init_log_lines,
+    default_request_headers,
+    format_agent_id,
+)
+
 load_dotenv()
 Account.enable_unaudited_hdwallet_features()
 
@@ -74,7 +85,7 @@ log = logging.getLogger("unison.swarm")
 
 # ─── Constants ────────────────────────────────────────────────────────────────
 
-EDGE_URL = "https://unison-edge-gateway.unisonorchestration.workers.dev/mcp/v1/search"
+EDGE_URL = EDGE_SEARCH_URL
 # Chain ID is read from env so the same codebase runs on both networks:
 #   Base Mainnet  → BASE_CHAIN_ID=8453   (default)
 #   Base Sepolia  → BASE_CHAIN_ID=84532
@@ -248,15 +259,17 @@ async def execute_x402_payment_async(
     )
     gas_price = await wallet.w3.eth.gas_price
 
-    tx = await wallet.usdc.functions.transfer(
-        dest_checksum, amount_units
-    ).build_transaction({
-        "from": wallet.account.address,
-        "nonce": nonce,
-        "gas": GAS_LIMIT,
-        "gasPrice": gas_price,
-        "chainId": BASE_CHAIN_ID,
-    })
+    tx = append_builder_data_suffix(
+        await wallet.usdc.functions.transfer(
+            dest_checksum, amount_units
+        ).build_transaction({
+            "from": wallet.account.address,
+            "nonce": nonce,
+            "gas": GAS_LIMIT,
+            "gasPrice": gas_price,
+            "chainId": BASE_CHAIN_ID,
+        })
+    )
 
     signed = wallet.account.sign_transaction(tx)
     tx_hash_bytes = await wallet.w3.eth.send_raw_transaction(signed.raw_transaction)
@@ -294,7 +307,7 @@ async def agent_worker(
     agent_log = logging.getLogger(f"unison.swarm.{config.agent_id}")
     results: list[dict] = []
 
-    headers = {"X-Agent-ID": config.agent_id}
+    headers = default_request_headers(config.agent_id)
 
     for query in config.queries:
         params = {"collection": config.collection, "q": query}
@@ -715,7 +728,7 @@ class DynamicSwarmFactory:
             queries = random.choices(seeds, k=queries_per_agent)
 
             configs.append(AgentConfig(
-                agent_id=f"agent-swarm-{i:03d}-{addr[2:8].lower()}",
+                agent_id=format_agent_id("swarm", index=i, addr_prefix=addr[2:8]),
                 collection=collection,
                 queries=queries,
                 wallet_index=i,
@@ -728,19 +741,19 @@ class DynamicSwarmFactory:
 
 DEFAULT_AGENTS: list[AgentConfig] = [
     AgentConfig(
-        agent_id="agent-agronomy-01",
+        agent_id=format_agent_id("agronomy", index=1),
         collection="unison_agronomy_core",
         queries=["soil chemistry N-P-K ratios", "irrigation scheduling evapotranspiration"],
         wallet_index=0,
     ),
     AgentConfig(
-        agent_id="agent-cyber-01",
+        agent_id=format_agent_id("cyber", index=1),
         collection="unison_cyber_core",
         queries=["telegraphic cipher substitution matrix", "RSA key exchange foundations"],
         wallet_index=1,
     ),
     AgentConfig(
-        agent_id="agent-materials-01",
+        agent_id=format_agent_id("materials", index=1),
         collection="unison_materials_core",
         queries=["cryogenic tensile limits", "FCC lattice parameters and slip systems"],
         wallet_index=2,
@@ -766,7 +779,7 @@ def build_revenue_gap_agents(derived_addresses: list[str]) -> list[AgentConfig]:
         addr = derived_addresses[i]
         configs.append(
             AgentConfig(
-                agent_id=f"agent-revenue-gap-{i:02d}-{addr[2:8].lower()}",
+                agent_id=format_agent_id("revenue-gap", index=i, addr_prefix=addr[2:8]),
                 collection=collection,
                 queries=[query],
                 wallet_index=i,
@@ -775,6 +788,25 @@ def build_revenue_gap_agents(derived_addresses: list[str]) -> list[AgentConfig]:
             )
         )
     return configs
+
+
+async def verify_mcp_manifest(session: aiohttp.ClientSession) -> dict[str, object]:
+    """Resolve discovery from canonical Unison Orchestration brand gateway."""
+    async with session.get(MCP_MANIFEST_URL) as resp:
+        if resp.status != 200:
+            body = await resp.text()
+            raise RuntimeError(
+                f"Manifest probe failed ({resp.status}) at {MCP_MANIFEST_URL}: {body[:200]}"
+            )
+        manifest = await resp.json()
+    name = manifest.get("name", "unknown")
+    log.info(
+        "[%s] MCP manifest resolved — %s @ %s",
+        BRAND_NAMESPACE,
+        name,
+        MCP_MANIFEST_URL,
+    )
+    return manifest
 
 
 async def deploy_swarm(
@@ -805,8 +837,13 @@ async def deploy_swarm(
 
     t0 = time.monotonic()
     connector = aiohttp.TCPConnector(limit=len(agents) * 4)
+    session_headers = default_request_headers()
 
-    async with aiohttp.ClientSession(connector=connector) as session:
+    async with aiohttp.ClientSession(
+        connector=connector,
+        headers=session_headers,
+    ) as session:
+        await verify_mcp_manifest(session)
         tasks = [
             agent_worker(cfg, wallet_pool[cfg.wallet_index], session,
                          dry_run=dry_run, simulate=simulate)
@@ -910,7 +947,9 @@ def main() -> None:
     if args.simulate and args.dry_run:
         parser.error("--simulate and --dry-run are mutually exclusive.")
 
-    log.info("=== Unison Swarm Commander START ===")
+    log.info("=== %s Swarm Commander START ===", BRAND_NAME)
+    for line in brand_init_log_lines():
+        log.info(line)
     log.info("Profile   : %s", args.mode)
 
     agents = args.agents

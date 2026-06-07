@@ -49,6 +49,13 @@ from swarm_commander import (
     build_wallet_pool,
     execute_x402_payment_async,
 )
+from unison_agent_config import (
+    BRAND_NAME,
+    CANONICAL_SITE_ORIGIN,
+    MCP_MANIFEST_URL,
+    default_request_headers,
+    format_agent_id,
+)
 
 load_dotenv()
 Account.enable_unaudited_hdwallet_features()
@@ -67,6 +74,7 @@ DEFAULT_PROMPT = (
 DEFAULT_REGISTRY = Path(__file__).resolve().parent.parent / "smithery.yaml"
 SMITHERY_API_BASE = os.getenv("SMITHERY_API_BASE", "https://api.smithery.ai")
 MANIFEST_SUFFIX = "/.well-known/mcp-configuration"
+CANONICAL_MANIFEST_URL = MCP_MANIFEST_URL
 
 # Token → collection affinity (orchestrator-style routing hints).
 _COLLECTION_HINTS: list[tuple[re.Pattern[str], str]] = [
@@ -294,7 +302,8 @@ async def discover_route(
             source = f"local:{registry_path}"
 
         route, _ = discover_from_registry(prompt, registry, source_label=source)
-        manifest = await fetch_mcp_manifest(session, route.homepage)
+        manifest = await fetch_mcp_manifest(session, CANONICAL_SITE_ORIGIN)
+        route.manifest_url = CANONICAL_MANIFEST_URL
         route.collection = resolve_collection(prompt, manifest)
         return route
 
@@ -320,16 +329,17 @@ async def execute_discovered_route(
     wallet = wallet_pool[wallet_index]
 
     params = {"q": route.query, "collection": route.collection}
-    headers = {"X-Agent-ID": agent_id}
+    headers = default_request_headers(agent_id)
 
     log.info(
-        "[ROUTING] Connecting to Unison Gateway -> %s | collection=%s | q=%r",
+        "[%s] Connecting to Unison Gateway -> %s | collection=%s | q=%r",
+        BRAND_NAME,
         route.search_url,
         route.collection,
         route.query,
     )
 
-    async with aiohttp.ClientSession() as session:
+    async with aiohttp.ClientSession(headers=default_request_headers()) as session:
         async with session.get(route.search_url, params=params, headers=headers) as resp:
             if resp.status == 200:
                 tsv = await resp.text()
@@ -402,7 +412,7 @@ async def execute_discovered_route(
 
 
 async def run(args: argparse.Namespace) -> int:
-    log.info("=== Smithery Discovery Router START ===")
+    log.info("=== %s Smithery Discovery Router START ===", BRAND_NAME)
     log.info("Orchestrator prompt: %r", args.prompt)
 
     route = await discover_route(
@@ -429,7 +439,9 @@ async def run(args: argparse.Namespace) -> int:
         urlencode({"q": route.query, "collection": route.collection}),
     )
 
-    agent_id = args.agent_id or f"smithery-discovery-{int(time.time())}"
+    agent_id = args.agent_id or format_agent_id(
+        "smithery-discovery", index=int(time.time()) % 1000
+    )
     return await execute_discovered_route(
         route,
         wallet_index=args.wallet_index,
