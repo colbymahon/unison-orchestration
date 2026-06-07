@@ -1,6 +1,9 @@
 "use client";
 
+import type { LedgerTelemetryPayload } from "@/components/dashboard/types";
 import { normalizeAffiliateLedgerPayload } from "@/lib/dashboard-edge";
+import { ledgerDisplayFingerprint } from "@/lib/sticky-ledger";
+import { OPS_SESSION_LOST_EVENT, signalOpsSessionLost } from "@/lib/ops-session-events";
 import { parseJsonResponseBody } from "@/lib/stream-json";
 import { useCallback, useEffect, useRef, useState } from "react";
 
@@ -23,6 +26,21 @@ interface CacheEntry<T> {
 
 const globalCache = new Map<string, CacheEntry<unknown>>();
 const inflight = new Map<string, Promise<unknown>>();
+
+function payloadsEqual<T>(url: string, prev: T | null, next: T): boolean {
+  if (prev == null) return false;
+  if (url.includes("/api/v1/ledger-telemetry")) {
+    return (
+      ledgerDisplayFingerprint(prev as unknown as LedgerTelemetryPayload) ===
+      ledgerDisplayFingerprint(next as unknown as LedgerTelemetryPayload)
+    );
+  }
+  try {
+    return JSON.stringify(prev) === JSON.stringify(next);
+  } catch {
+    return false;
+  }
+}
 
 /** Accept full ledger payload or legacy { gaps, count } trap-only shape */
 function normalizePayload(url: string, body: unknown): unknown {
@@ -99,6 +117,7 @@ async function fetchDeduped<T>(
     const res = await fetcher(url, { cache: "no-store", ...init });
     const body = await parseJsonResponseBody(res);
     if (!res.ok) {
+      signalOpsSessionLost(res.status, body);
       const err = (body as { error?: string }).error ?? `HTTP ${res.status}`;
       throw new Error(err);
     }
@@ -132,6 +151,11 @@ export function useLiveFetch<T>(
     fetcher,
   } = options;
 
+  const fetchInitRef = useRef(fetchInit);
+  const fetcherRef = useRef(fetcher);
+  fetchInitRef.current = fetchInit;
+  fetcherRef.current = fetcher;
+
   const [data, setData] = useState<T | null>(() => {
     if (!url) return null;
     const c = globalCache.get(url) as CacheEntry<T> | undefined;
@@ -140,45 +164,67 @@ export function useLiveFetch<T>(
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(!data && !!url);
   const mounted = useRef(true);
+  const hasLoadedRef = useRef(!!data);
+  const pollStoppedRef = useRef(false);
 
   const mutate = useCallback(async () => {
     if (!url) return;
-    setLoading(true);
+    const isInitial = !hasLoadedRef.current;
+    if (isInitial) setLoading(true);
     setError(null);
     try {
       globalCache.delete(url);
-      const body = await fetchDeduped<T>(url, 0, fetchInit, fetcher);
+      const body = await fetchDeduped<T>(
+        url,
+        0,
+        fetchInitRef.current,
+        fetcherRef.current
+      );
       if (mounted.current) {
-        setData(body);
+        setData((prev) => (payloadsEqual(url, prev, body) ? prev : body));
         setError(null);
+        hasLoadedRef.current = true;
       }
     } catch (e) {
       if (mounted.current) {
         setError(e instanceof Error ? e.message : String(e));
       }
     } finally {
-      if (mounted.current) setLoading(false);
+      if (mounted.current && isInitial) setLoading(false);
     }
-  }, [url, fetchInit, fetcher]);
+  }, [url]);
 
   useEffect(() => {
     mounted.current = true;
     if (!url) return;
 
+    hasLoadedRef.current = !!globalCache.get(url);
     void mutate();
+
+    const onSessionLost = () => {
+      pollStoppedRef.current = true;
+    };
+    window.addEventListener(OPS_SESSION_LOST_EVENT, onSessionLost);
 
     let pollId: ReturnType<typeof setInterval> | undefined;
     if (pollIntervalMs && pollIntervalMs > 0) {
       pollId = setInterval(() => {
-        void fetchDeduped<T>(url, dedupingInterval, fetchInit, fetcher)
+        if (pollStoppedRef.current) return;
+        void fetchDeduped<T>(
+          url,
+          dedupingInterval,
+          fetchInitRef.current,
+          fetcherRef.current
+        )
           .then((body) => {
             if (mounted.current) {
-              setData(body);
+              setData((prev) => (payloadsEqual(url, prev, body) ? prev : body));
               setError(null);
+              hasLoadedRef.current = true;
             }
           })
           .catch((e) => {
-            if (mounted.current) {
+            if (mounted.current && !hasLoadedRef.current) {
               setError(e instanceof Error ? e.message : String(e));
             }
           });
@@ -194,10 +240,12 @@ export function useLiveFetch<T>(
 
     return () => {
       mounted.current = false;
+      pollStoppedRef.current = false;
+      window.removeEventListener(OPS_SESSION_LOST_EVENT, onSessionLost);
       if (pollId) clearInterval(pollId);
       if (revalidateOnFocus) window.removeEventListener("focus", onFocus);
     };
-  }, [url, mutate, pollIntervalMs, dedupingInterval, fetchInit, fetcher, revalidateOnFocus]);
+  }, [url, mutate, pollIntervalMs, dedupingInterval, revalidateOnFocus]);
 
   return { data, error, loading, mutate };
 }

@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useState, type ReactNode } from "react";
 import { startAuthentication, startRegistration } from "@simplewebauthn/browser";
 import { Fingerprint, Shield, Loader2 } from "lucide-react";
+import { OPS_SESSION_LOST_EVENT } from "@/lib/ops-session-events";
 
 type SessionState = {
   loading: boolean;
@@ -42,6 +43,26 @@ export default function DashboardAuthGate({ children }: { children: ReactNode })
 
   useEffect(() => {
     void refreshSession();
+  }, [refreshSession]);
+
+  useEffect(() => {
+    const onSessionLost = () => {
+      setSession({
+        loading: false,
+        authenticated: false,
+        needsRegistration: false,
+        error: "Session expired — authenticate with Touch ID again.",
+      });
+    };
+    const onFocus = () => {
+      void refreshSession();
+    };
+    window.addEventListener(OPS_SESSION_LOST_EVENT, onSessionLost);
+    window.addEventListener("focus", onFocus);
+    return () => {
+      window.removeEventListener(OPS_SESSION_LOST_EVENT, onSessionLost);
+      window.removeEventListener("focus", onFocus);
+    };
   }, [refreshSession]);
 
   const runRegister = async () => {

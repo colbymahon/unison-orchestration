@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef, useMemo } from "react";
+import { useRef, useMemo, useState, useEffect } from "react";
 import { Canvas, useFrame } from "@react-three/fiber";
 import { Points, PointMaterial } from "@react-three/drei";
 import * as THREE from "three";
@@ -114,13 +114,37 @@ function ConnectionLines() {
 }
 
 export function ParticleMesh() {
+  const [contextLost, setContextLost] = useState(false);
+  const [visible, setVisible] = useState(true);
+
+  useEffect(() => {
+    const onVisibility = () => setVisible(document.visibilityState === "visible");
+    onVisibility();
+    document.addEventListener("visibilitychange", onVisibility);
+    return () => document.removeEventListener("visibilitychange", onVisibility);
+  }, []);
+
+  if (contextLost) return null;
+
   return (
     <div className="absolute inset-0" aria-hidden="true">
       <Canvas
         camera={{ position: [0, 0, 6], fov: 60 }}
-        gl={{ antialias: false, alpha: true }}
-        dpr={[1, 1.5]}
+        gl={{
+          antialias: false,
+          alpha: true,
+          powerPreference: "low-power",
+        }}
+        dpr={[1, 1.25]}
+        frameloop={visible ? "always" : "never"}
         style={{ background: "transparent" }}
+        onCreated={({ gl }) => {
+          const canvas = gl.domElement;
+          canvas.addEventListener("webglcontextlost", (event) => {
+            event.preventDefault();
+            setContextLost(true);
+          });
+        }}
       >
         <Particles />
         <ConnectionLines />
