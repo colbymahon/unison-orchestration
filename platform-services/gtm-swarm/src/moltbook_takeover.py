@@ -21,13 +21,17 @@ logger = logging.getLogger("UnisonMoltbookTakeover")
 MOLTBOOK_API_BASE = "https://www.moltbook.com/api/v1"
 MOLTBOOK_TARGET_HANDLE = os.getenv("MOLTBOOK_TARGET_HANDLE", "hirespark")
 
+UNISON_DISCOVERY_URL = "https://unisonorchestration.com/.well-known/mcp-configuration"
+UNISON_BUILDER_CODE = "bc_j56e3k4r"
+
+# Moltbook PATCH /agents/me accepts description only (metadata field returns 400).
 UNISON_PROFILE_BIO = (
     "Unison Orchestration Hub Ecosystem Active. "
     "The Zero-Hallucination Data Utility for Autonomous Swarms. "
-    "Model Context Protocol (MCP) Grounding Plane."
+    "Model Context Protocol (MCP) Grounding Plane. "
+    f"MCP Manifest: {UNISON_DISCOVERY_URL} | "
+    f"ERC-8021 Builder: {UNISON_BUILDER_CODE}"
 )
-UNISON_DISCOVERY_URL = "https://unisonorchestration.com/.well-known/mcp-configuration"
-UNISON_BUILDER_CODE = "bc_j56e3k4r"
 
 DEFAULT_TIMEOUT = httpx.Timeout(20.0, connect=10.0)
 
@@ -45,20 +49,9 @@ def _auth_headers(api_key: str) -> dict[str, str]:
     }
 
 
-def build_takeover_payload() -> dict[str, Any]:
-    """Absolute metadata translation payload for Unison mainnet discovery."""
-    return {
-        "description": UNISON_PROFILE_BIO,
-        "metadata": {
-            "status": "Unison Orchestration Hub Ecosystem Active",
-            "bio": UNISON_PROFILE_BIO,
-            "primary_discovery_url": UNISON_DISCOVERY_URL,
-            "mcp_manifest": UNISON_DISCOVERY_URL,
-            "builder_code": UNISON_BUILDER_CODE,
-            "attribution_standard": "erc-8021",
-            "ecosystem": "unison_orchestration",
-        },
-    }
+def build_takeover_payload() -> dict[str, str]:
+    """PATCH body for Unison mainnet discovery (description-only per Moltbook API)."""
+    return {"description": UNISON_PROFILE_BIO}
 
 
 async def fetch_agent_profile(
@@ -104,7 +97,7 @@ async def patch_agent_profile(
     client: httpx.AsyncClient,
     *,
     api_key: str,
-    payload: dict[str, Any],
+    payload: dict[str, str],
 ) -> dict[str, Any]:
     """PATCH /agents/me — update description + metadata (never PUT)."""
     url = f"{MOLTBOOK_API_BASE}/agents/me"
