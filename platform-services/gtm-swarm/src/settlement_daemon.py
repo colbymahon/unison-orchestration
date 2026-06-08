@@ -23,6 +23,7 @@ from __future__ import annotations
 import json
 import logging
 import os
+import re
 import subprocess
 import sys
 import time
@@ -68,6 +69,22 @@ FREE_TIER_NS_DEFAULT = "91fdd2e791234210906e25b8dd90ba96"
 TRANSFER_TOPIC = Web3.keccak(text="Transfer(address,address,uint256)").hex()
 STATE_FILE = _GTM_STATE / "settlement_daemon_state.json"
 WALLET_MAP_FILE = _GTM_STATE / "wallet_agent_map.json"
+CREATOR_MAP_FILE = _GTM_STATE / "collection_creator_map.json"
+
+CREATOR_SHARE_BPS = 7000
+PLATFORM_SHARE_BPS = 3000
+REVENUE_SPLIT_TERMS = "70:30"
+
+_COLLECTION_SCAN = re.compile(rb"unison_[a-z_]+_core")
+
+# Mirrors edge-routing/src/revenue_split.ts — 70% creator / 30% platform.
+_COLLECTION_CREATOR_MAP: dict[str, str] = {
+    "unison_medical_core": "0x6EEdD389eBaCDfEb609e93799644e54ba2C7328a",
+    "unison_engineering_core": "0xCde0B5656B5AaF203d5c902c68CE3321B0b1cd14",
+    "unison_legal_core": "0xe8584C1F61D0fDa7F0192a27C233faF4c6d288e5",
+    "unison_financial_core": "0xe8584C1F61D0fDa7F0192a27C233faF4c6d288e5",
+    "unison_cyber_core": "0xCde0B5656B5AaF203d5c902c68CE3321B0b1cd14",
+}
 
 ERC20_TRANSFER_SELECTOR = bytes.fromhex("a9059cbb")
 AGENT_SCAN_PREFIX = b"UnisonOrchestrationAgent/"
@@ -106,6 +123,69 @@ def _load_wallet_map() -> dict[str, str]:
         return {k.lower(): v for k, v in raw.items() if isinstance(v, str)}
     except (json.JSONDecodeError, OSError):
         return {}
+
+
+def _load_collection_creator_map() -> dict[str, str]:
+    merged = dict(_COLLECTION_CREATOR_MAP)
+    if not CREATOR_MAP_FILE.exists():
+        return merged
+    try:
+        raw = json.loads(CREATOR_MAP_FILE.read_text(encoding="utf-8"))
+        for key, val in raw.items():
+            if isinstance(key, str) and isinstance(val, str) and val.startswith("0x"):
+                merged[key.strip().lower()] = val.strip()
+    except (json.JSONDecodeError, OSError):
+        pass
+    return merged
+
+
+def _resolve_collection_creator(collection_id: str, platform_address: str) -> str:
+    slug = (collection_id or "").strip().lower()
+    creator_map = _load_collection_creator_map()
+    mapped = creator_map.get(slug)
+    if mapped:
+        return Web3.to_checksum_address(mapped)
+    return Web3.to_checksum_address(platform_address)
+
+
+def _extract_collection_from_calldata(calldata: bytes) -> str:
+    """Best-effort collection slug decode from optional calldata stamp."""
+    if _SUFFIX_BYTES in calldata:
+        prefix = calldata[: calldata.index(_SUFFIX_BYTES)]
+    else:
+        prefix = calldata
+    match = _COLLECTION_SCAN.search(prefix)
+    if match:
+        return match.group(0).decode("ascii", errors="ignore").lower()
+    return "unison_public_domain"
+
+
+def _calculate_revenue_split(amount_usdc: float) -> tuple[float, float]:
+    creator_usdc = round((amount_usdc * CREATOR_SHARE_BPS) / 10_000, 6)
+    platform_usdc = round(amount_usdc - creator_usdc, 6)
+    return creator_usdc, platform_usdc
+
+
+def _log_revenue_split_allocation(
+    *,
+    collection_id: str,
+    amount_usdc: float,
+    creator_address: str,
+    platform_address: str,
+    tx_hash: str,
+) -> None:
+    creator_usdc, platform_usdc = _calculate_revenue_split(amount_usdc)
+    logger.info(
+        "[SPLIT ENGAGED] Collection: %s -> Creator (70%%): %s (%.6f USDC) | "
+        "Platform (30%%): %s (%.6f USDC) | terms=%s tx=%s",
+        collection_id,
+        creator_address,
+        creator_usdc,
+        platform_address,
+        platform_usdc,
+        REVENUE_SPLIT_TERMS,
+        tx_hash,
+    )
 
 
 def _coerce_bytes(data: str | bytes | None) -> bytes:
@@ -359,7 +439,7 @@ def _process_transfer_log(
     log_entry: dict[str, Any],
     *,
     payment_dest: str,
-    kv: CloudflareKvClient,
+    kv: KvClient,
     min_payment_usdc: float,
     query_price_usdc: float,
     credit_mode: str,
@@ -402,16 +482,36 @@ def _process_transfer_log(
     client_key = _client_kv_key(agent_label)
     credits = max(1, int(amount_usdc / query_price_usdc))
 
+    collection_id = _extract_collection_from_calldata(calldata)
+    platform_address = Web3.to_checksum_address(payment_dest)
+    creator_address = _resolve_collection_creator(collection_id, platform_address)
+
+    try:
+        _log_revenue_split_allocation(
+            collection_id=collection_id,
+            amount_usdc=amount_usdc,
+            creator_address=creator_address,
+            platform_address=platform_address,
+            tx_hash=tx_hash_hex,
+        )
+    except Exception as split_exc:
+        logger.warning(
+            "Revenue split allocation deferred for tx %s: %s",
+            tx_hash_hex,
+            split_exc,
+        )
+
     ok = _apply_payment_credits(kv, client_key, credits, mode=credit_mode)
     if ok:
         logger.info(
             "[REVENUE ENGAGED] Account %s cleared via onchain settlement tx %s "
-            "(amount=%.6f USDC credits=%d mode=%s)",
+            "(amount=%.6f USDC credits=%d mode=%s collection=%s)",
             client_key,
             tx_hash_hex,
             amount_usdc,
             credits,
             credit_mode,
+            collection_id,
         )
     return ok
 

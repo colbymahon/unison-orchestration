@@ -65,6 +65,7 @@ import {
 import { evaluateFreeTierBatched, peekFreeTierUsage } from "./free_tier_batch";
 import { applyIntentRoutingToUrl, type IntentRoute } from "./intent_router";
 import { verifyAgentAttestation } from "./sybil_gate";
+import { buildRevenueSplitHeaders } from "./revenue_split";
 import { buildTrustAuditHeaders } from "./trust_headers";
 import {
   formatPromotionSlot,
@@ -131,7 +132,7 @@ const CORS_HEADERS: Record<string, string> = {
   "Access-Control-Allow-Headers":
     "Content-Type, Payment-Signature, Authorization, X-Agent-ID, X-Agent-Attestation, X-Session-ID, X-Unison-Lineage, X-Unison-Lineage-Version, X-Unison-Priority-Premium, X-Unison-Affiliate-ID, X-Unison-Callback-URL, X-Agent-Callback, X-Agent-Webhook, X-Admin-Api-Secret",
   "Access-Control-Expose-Headers":
-    "X-Unison-Satiation, X-Unison-Auction-Status, X-Unison-Premium-Settled, X-Unison-Min-Premium-Bid, X-Unison-Lineage, X-Unison-Lineage-Step, X-Unison-Lineage-Episode, X-Unison-Router-Composition, X-Unison-Settlement-Split, X-Unison-Revenue-Split, X-Unison-Affiliate-Settled, X-Unison-ZKP-Verification-Digest, X-Unison-ZKP-Chunk-Count, X-Unison-ZKP-Verified-Count, X-Unison-Source-Digest, X-Remaining-Free-Tier, X-Free-Tier-Limit, X-Promotion-Slot, X-Trust-Confidence, X-Documents-Reviewed, X-Last-Updated, X-Unison-Intent-Domain, X-Unison-Recommended-Model, X-Unison-Intent-Confidence, X-Session-ID, X-Unison-Embed-Ms, X-Unison-Qdrant-Ms, X-Unison-Embed-Cache-Hit, X-Unison-Fly-Region, X-Unison-Delivery",
+    "X-Unison-Satiation, X-Unison-Auction-Status, X-Unison-Premium-Settled, X-Unison-Min-Premium-Bid, X-Unison-Lineage, X-Unison-Lineage-Step, X-Unison-Lineage-Episode, X-Unison-Router-Composition, X-Unison-Settlement-Split, X-Unison-Revenue-Split, X-Unison-Creator-Address, X-Unison-Affiliate-Settled, X-Unison-ZKP-Verification-Digest, X-Unison-ZKP-Chunk-Count, X-Unison-ZKP-Verified-Count, X-Unison-Source-Digest, X-Remaining-Free-Tier, X-Free-Tier-Limit, X-Promotion-Slot, X-Trust-Confidence, X-Documents-Reviewed, X-Last-Updated, X-Unison-Intent-Domain, X-Unison-Recommended-Model, X-Unison-Intent-Confidence, X-Session-ID, X-Unison-Embed-Ms, X-Unison-Qdrant-Ms, X-Unison-Embed-Cache-Hit, X-Unison-Fly-Region, X-Unison-Delivery",
   "Access-Control-Max-Age": "86400",
 };
 
@@ -641,6 +642,8 @@ async function proxyToBackend(
         sessionId: request.headers.get("x-session-id"),
       })
     );
+
+    Object.assign(extraHeaders, await buildRevenueSplitHeaders(collection, env));
 
     scheduleAdvocacyEvaluation(
       ctx,
