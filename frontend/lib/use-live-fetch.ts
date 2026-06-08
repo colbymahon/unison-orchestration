@@ -78,8 +78,10 @@ function normalizePayload(url: string, body: unknown): unknown {
     affiliate_ledger: null,
     churn_logs: [],
     attestation_reviews: null,
+    global_metrics: null,
     sources: {
       fly_mcp: false,
+      global_metrics_kv: false,
       edge_kv: true,
       affiliate_kv: true,
       churn_kv: false,

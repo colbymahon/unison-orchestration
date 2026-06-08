@@ -87,9 +87,12 @@ export function mergeLedgerSnapshot(
     incoming.churn_logs.length > 0 ? incoming.churn_logs : prev.churn_logs;
   const attestation_reviews =
     incoming.attestation_reviews ?? prev.attestation_reviews;
+  const global_metrics = incoming.global_metrics ?? prev.global_metrics;
 
   const sources = {
     fly_mcp: incoming.sources.fly_mcp || prev.sources.fly_mcp,
+    global_metrics_kv:
+      incoming.sources.global_metrics_kv || prev.sources.global_metrics_kv,
     edge_kv: incoming.sources.edge_kv || prev.sources.edge_kv,
     affiliate_kv: incoming.sources.affiliate_kv || prev.sources.affiliate_kv,
     churn_kv: incoming.sources.churn_kv || prev.sources.churn_kv,
@@ -112,6 +115,7 @@ export function mergeLedgerSnapshot(
     affiliate_ledger,
     churn_logs,
     attestation_reviews,
+    global_metrics,
     estimated_leakage_usd:
       trapped_gaps.length > 0
         ? incoming.estimated_leakage_usd

@@ -55,8 +55,14 @@ export interface LedgerTelemetryResponse {
       verified: boolean;
     }>;
   } | null;
+  global_metrics: {
+    total_queries: number;
+    total_402_blocks: number;
+    updated_at: string;
+  } | null;
   sources: {
     fly_mcp: boolean;
+    global_metrics_kv: boolean;
     edge_kv: boolean;
     affiliate_kv: boolean;
     churn_kv: boolean;
@@ -93,6 +99,9 @@ export async function fetchLedgerTelemetry(): Promise<LedgerTelemetryResponse> {
     flyOk = false;
   }
 
+  let global_metrics: LedgerTelemetryResponse["global_metrics"] = null;
+  let globalMetricsKvOk = false;
+
   let trapped_gaps: TrappedGapRow[] = [];
   let edgeKvOk = false;
   let affiliate_ledger: EdgeAffiliateLedgerTelemetry | null = null;
@@ -107,6 +116,29 @@ export async function fetchLedgerTelemetry(): Promise<LedgerTelemetryResponse> {
     : undefined;
 
   if (adminHeaders) {
+    try {
+      const res = await fetch(`${EDGE_BASE}/api/admin/global-metrics`, {
+        headers: adminHeaders,
+        cache: "no-store",
+        signal: AbortSignal.timeout(6_000),
+      });
+      if (res.ok) {
+        const body = (await res.json()) as {
+          total_queries?: number;
+          total_402_blocks?: number;
+          updated_at?: string;
+        };
+        global_metrics = {
+          total_queries: Math.max(0, Number(body.total_queries) || 0),
+          total_402_blocks: Math.max(0, Number(body.total_402_blocks) || 0),
+          updated_at: body.updated_at ?? fetched_at,
+        };
+        globalMetricsKvOk = true;
+      }
+    } catch {
+      globalMetricsKvOk = false;
+    }
+
     try {
       const res = await fetch(`${EDGE_BASE}/api/admin/trapped-gaps`, {
         headers: adminHeaders,
@@ -172,11 +204,19 @@ export async function fetchLedgerTelemetry(): Promise<LedgerTelemetryResponse> {
     reviewsKvOk = false;
   }
 
-  const total_handled_requests = fly?.total_queries ?? 0;
-  const blocked_402_rejections = fly?.total_402_rejections ?? 0;
-  // Fly queries and edge 402 blocks are disjoint — never subtract 402 from Fly totals.
-  const settled_usdc_payments =
-    computeSettledQueryCount(total_handled_requests) * QUERY_PRICE_USDC;
+  const globalQueriesCount =
+    global_metrics?.total_queries ??
+    fly?.total_queries ??
+    0;
+  const global402Count =
+    global_metrics?.total_402_blocks ??
+    fly?.total_402_rejections ??
+    0;
+  const total_handled_requests = globalQueriesCount;
+  const blocked_402_rejections = global402Count;
+  const consistentRevenue =
+    computeSettledQueryCount(globalQueriesCount) * QUERY_PRICE_USDC;
+  const settled_usdc_payments = consistentRevenue;
 
   const estimated_leakage_usd = trapped_gaps.reduce(
     (s, g) => s + (g.accumulated_lost_revenue ?? 0),
@@ -199,8 +239,10 @@ export async function fetchLedgerTelemetry(): Promise<LedgerTelemetryResponse> {
     affiliate_ledger,
     churn_logs,
     attestation_reviews,
+    global_metrics,
     sources: {
       fly_mcp: flyOk,
+      global_metrics_kv: globalMetricsKvOk,
       edge_kv: edgeKvOk,
       affiliate_kv: affiliateKvOk,
       churn_kv: churnKvOk,

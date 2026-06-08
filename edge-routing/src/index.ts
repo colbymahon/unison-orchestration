@@ -77,6 +77,11 @@ import {
   resolveTierLimit,
   type TierResolution,
 } from "./promotion_tier";
+import {
+  getGlobalMetricsSnapshot,
+  scheduleGlobal402Block,
+  scheduleGlobalQuerySuccess,
+} from "./global_metrics";
 import { mergeZkpHeaders, verifyAndAttachZkp } from "./zkp";
 
 // ---------------------------------------------------------------------------
@@ -94,6 +99,8 @@ export interface Env {
   UNISON_CHURN_CACHE?: KVNamespace;
   /** Phase 2a — episodic agent lineage graph */
   UNISON_LINEAGE?: KVNamespace;
+  /** Global telemetry counters — unified across Fly regions */
+  GLOBAL_METRICS?: KVNamespace;
   LINEAGE_SESSION_SECRET?: string;
 
   BACKEND_URL: string;
@@ -273,10 +280,12 @@ function promotionTierHeaders(tier: TierResolution): Record<string, string> {
 
 function scheduleRejectionTelemetry(
   ctx: ExecutionContext,
+  env: Env,
   clientId: string,
   limit: number,
   reason: string
 ): void {
+  scheduleGlobal402Block(ctx, env);
   ctx.waitUntil(
     fetch(FLY_TELEMETRY_REJECTION_URL, {
       method: "POST",
@@ -671,6 +680,13 @@ async function proxyToBackend(
     );
   }
 
+  if (
+    incomingUrl.pathname === "/mcp/v1/search" &&
+    backendResponse.status === 200
+  ) {
+    scheduleGlobalQuerySuccess(ctx, env);
+  }
+
   const proxied = withCors(backendResponse);
 
   for (const [key, val] of Object.entries(extraHeaders)) {
@@ -838,6 +854,34 @@ export default {
     }
 
     // Phase B0 — Admin + /admin-telemetry/:endpoint (zero-hop dashboard reads)
+    if (adminPath === "/api/admin/global-metrics") {
+      if (method !== "GET") {
+        return errorResponse(405, "Method Not Allowed. Use GET.", request);
+      }
+      const authBlock = await requireAdminAccess(request, adminAuthEnv, pathname);
+      if (authBlock) return authBlock;
+      const metrics = await getGlobalMetricsSnapshot(env);
+      return withCors(
+        new Response(
+          JSON.stringify(
+            metrics ?? {
+              total_queries: 0,
+              total_402_blocks: 0,
+              updated_at: new Date().toISOString(),
+            }
+          ),
+          {
+            status: 200,
+            headers: {
+              "Content-Type": "application/json",
+              "Cache-Control": "no-store",
+            },
+          }
+        ),
+        request
+      );
+    }
+
     if (adminPath === "/api/admin/trapped-gaps") {
       if (method !== "GET") {
         return errorResponse(405, "Method Not Allowed. Use GET.", request);
@@ -1132,6 +1176,7 @@ export default {
           });
           scheduleRejectionTelemetry(
             ctx,
+            env,
             clientId,
             50,
             "INVALID_PAYMENT_SIGNATURE"
@@ -1255,6 +1300,7 @@ export default {
       });
       scheduleRejectionTelemetry(
         ctx,
+        env,
         clientId,
         freeTierLimit,
         "FREE_TIER_EXHAUSTED"

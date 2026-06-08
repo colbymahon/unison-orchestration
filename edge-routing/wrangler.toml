@@ -27,6 +27,11 @@ id = "977472f20ce947fa8cd2f841559aeec9"
 binding = "UNISON_LINEAGE"
 id = "13ee59286b9a42cbaa368699259747d2"
 
+# Global telemetry counters — unified across Fly regions (iad, lhr, nrt)
+[[kv_namespaces]]
+binding = "GLOBAL_METRICS"
+id = "3f4efb5efd0c478bbe35c697842d4c0d"
+
 [vars]
 # BACKEND_URL is set via `wrangler secret put BACKEND_URL` (production).
 # For local dev, set in .dev.vars (git-ignored): BACKEND_URL=http://localhost:3000

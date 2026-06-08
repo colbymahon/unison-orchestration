@@ -198,8 +198,14 @@ export interface LedgerTelemetryPayload {
   affiliate_ledger: EdgeAffiliateLedgerTelemetry | null;
   churn_logs: ChurnLogRow[];
   attestation_reviews: AttestationReviewsBlock | null;
+  global_metrics: {
+    total_queries: number;
+    total_402_blocks: number;
+    updated_at: string;
+  } | null;
   sources: {
     fly_mcp: boolean;
+    global_metrics_kv: boolean;
     edge_kv: boolean;
     affiliate_kv: boolean;
     churn_kv: boolean;
