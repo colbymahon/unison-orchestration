@@ -16,6 +16,18 @@ export interface SybilGateEnv {
 /**
  * Extract the raw agent label from client id or request header.
  */
+/** PM2 swarms, cache-warmers, and corpus crawlers — exempt from free-tier caps. */
+export function isInternalInfrastructureSwarm(
+  clientId: string,
+  agentHeader: string | null
+): boolean {
+  const agentLabel = resolveAgentLabel(clientId, agentHeader);
+  return (
+    agentLabel.startsWith(INTERNAL_AGENT_PREFIX) ||
+    clientId.startsWith(`agent:${INTERNAL_AGENT_PREFIX}`)
+  );
+}
+
 export function resolveAgentLabel(
   clientId: string,
   agentHeader: string | null

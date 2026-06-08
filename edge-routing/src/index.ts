@@ -64,7 +64,10 @@ import {
 } from "./affiliate";
 import { evaluateFreeTierBatched, peekFreeTierUsage } from "./free_tier_batch";
 import { applyIntentRoutingToUrl, type IntentRoute } from "./intent_router";
-import { verifyAgentAttestation } from "./sybil_gate";
+import {
+  isInternalInfrastructureSwarm,
+  verifyAgentAttestation,
+} from "./sybil_gate";
 import { buildRevenueSplitHeaders } from "./revenue_split";
 import { buildTrustAuditHeaders } from "./trust_headers";
 import {
@@ -1144,6 +1147,27 @@ export default {
             env,
             ctx,
             { "X-Tier": "paid" },
+            intentRoute
+          );
+        } catch (searchErr) {
+          console.error("executeMcpSearch uncaught:", searchErr);
+          return errorResponse(502, "Edge search handler error.");
+        }
+      }
+
+      // Internal PM2 swarms bypass free-tier accounting and 402 enforcement.
+      if (isInternalInfrastructureSwarm(clientId, request.headers.get("x-agent-id"))) {
+        try {
+          const { searchRequest, intentRoute } = withIntentRoutedRequest(request);
+          return await executeMcpSearch(
+            searchRequest,
+            env,
+            ctx,
+            {
+              "X-Tier": "internal",
+              "X-Free-Tier-Limit": "unlimited",
+              "X-Remaining-Free-Tier": "unlimited",
+            },
             intentRoute
           );
         } catch (searchErr) {
