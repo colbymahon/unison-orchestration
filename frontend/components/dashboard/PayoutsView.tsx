@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import {
   ExternalLink,
   RefreshCw,
@@ -8,10 +8,12 @@ import {
   Wallet,
   Landmark,
   ArrowRightLeft,
+  Shield,
 } from "lucide-react";
 import { useLiveFetch } from "@/lib/use-live-fetch";
 import { DASHBOARD_FETCH_BASE } from "@/lib/dashboard-fetch";
 import type { TreasuryPayload } from "@/lib/treasury-types";
+import type { MasterTreasuryConfigResponse } from "@/lib/treasury-master-types";
 import { basescanAddressUrl } from "@/lib/treasury-config";
 import { TelemetryCard, TelemetryValue } from "./TelemetryCard";
 
@@ -45,16 +47,68 @@ export function PayoutsView({ loading: externalLoading }: Props) {
     pollIntervalMs: TREASURY_POLL_MS,
   });
 
+  const {
+    data: masterConfig,
+    loading: masterLoading,
+    mutate: refreshMaster,
+  } = useLiveFetch<MasterTreasuryConfigResponse>("/api/v1/treasury/master", {
+    ...DASHBOARD_FETCH_BASE,
+    pollIntervalMs: TREASURY_POLL_MS,
+  });
+
+  const [masterWallet, setMasterWallet] = useState("");
+  const [overridePlatform, setOverridePlatform] = useState(false);
+  const [overrideCreator, setOverrideCreator] = useState(false);
   const [editSlug, setEditSlug] = useState("unison_medical_core");
   const [editWallet, setEditWallet] = useState("");
   const [saving, setSaving] = useState(false);
+  const [savingMaster, setSavingMaster] = useState(false);
   const [saveMessage, setSaveMessage] = useState<string | null>(null);
+  const [masterSaveMessage, setMasterSaveMessage] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!masterConfig) return;
+    setMasterWallet(masterConfig.master_wallet_address);
+    setOverridePlatform(masterConfig.override_platform_treasury);
+    setOverrideCreator(masterConfig.override_creator_allocations);
+  }, [masterConfig]);
 
   const isLoading = externalLoading || (loading && !treasury);
 
   const handleRefresh = useCallback(() => {
     void refreshTreasury();
-  }, [refreshTreasury]);
+    void refreshMaster();
+  }, [refreshTreasury, refreshMaster]);
+
+  const handleSaveMaster = useCallback(async () => {
+    setSavingMaster(true);
+    setMasterSaveMessage(null);
+    try {
+      const res = await fetch("/api/v1/treasury/master", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          master_wallet_address: masterWallet,
+          override_platform_treasury: overridePlatform,
+          override_creator_allocations: overrideCreator,
+        }),
+      });
+      const body = (await res.json().catch(() => ({}))) as {
+        error?: string;
+        ok?: boolean;
+      };
+      if (!res.ok) {
+        setMasterSaveMessage(body.error ?? `HTTP ${res.status}`);
+        return;
+      }
+      setMasterSaveMessage("Master wallet routing saved");
+      void refreshMaster();
+    } catch (e) {
+      setMasterSaveMessage(e instanceof Error ? e.message : "Save failed");
+    } finally {
+      setSavingMaster(false);
+    }
+  }, [masterWallet, overridePlatform, overrideCreator, refreshMaster]);
 
   const handleSave = useCallback(async () => {
     setSaving(true);
@@ -119,6 +173,88 @@ export function PayoutsView({ loading: externalLoading }: Props) {
             </span>
           ) : null}
         </div>
+      </div>
+
+      <div className="max-w-3xl mx-auto rounded-xl border border-purple-400/20 bg-purple-400/[0.04] p-6 text-center">
+        <div className="flex items-center justify-center gap-2 mb-3">
+          <Shield className="w-4 h-4 text-purple-400" aria-hidden="true" />
+          <h3 className="font-brand text-sm font-semibold text-white uppercase tracking-wider">
+            Master Wallet Routing Substrate
+          </h3>
+        </div>
+        <p className="font-data text-[10px] text-white/35 mb-5">
+          High-priority override tier — redirects platform and/or creator allocation targets to your
+          personal Base wallet. Persists to{" "}
+          <code className="text-purple-300/80">.agent_state/treasury_config.json</code>
+          {masterConfig?.config_writable === false ? (
+            <span className="text-amber-400/80"> · use TREASURY_CONFIG_JSON on serverless hosts</span>
+          ) : null}
+        </p>
+
+        <label className="block text-left public-code-enclave mb-4">
+          <span className="font-data text-[10px] text-white/40 uppercase block text-center mb-2">
+            Master wallet address (0x…)
+          </span>
+          <input
+            type="text"
+            value={masterWallet}
+            onChange={(e) => setMasterWallet(e.target.value)}
+            className="w-full rounded-lg border border-white/10 bg-black/40 px-3 py-2.5 font-data text-sm text-white/80 text-center"
+            placeholder="0xYourPersonalBaseWallet"
+          />
+        </label>
+
+        <div className="flex flex-col sm:flex-row items-center justify-center gap-6 mb-5">
+          <label className="inline-flex items-center gap-3 cursor-pointer">
+            <input
+              type="checkbox"
+              checked={overridePlatform}
+              onChange={(e) => setOverridePlatform(e.target.checked)}
+              className="w-4 h-4 accent-cyan-400"
+            />
+            <span className="font-data text-xs text-white/60">Override platform treasury (30%)</span>
+          </label>
+          <label className="inline-flex items-center gap-3 cursor-pointer">
+            <input
+              type="checkbox"
+              checked={overrideCreator}
+              onChange={(e) => setOverrideCreator(e.target.checked)}
+              className="w-4 h-4 accent-purple-400"
+            />
+            <span className="font-data text-xs text-white/60">Override creator allocations (70%)</span>
+          </label>
+        </div>
+
+        {(overridePlatform || overrideCreator) && masterWallet ? (
+          <p className="font-data text-[10px] text-emerald-400/80 mb-4" role="status">
+            Active routing → {shortAddress(masterWallet)}
+            {overridePlatform && overrideCreator
+              ? " (100% allocation paths)"
+              : overridePlatform
+                ? " (platform leg)"
+                : " (creator leg)"}
+          </p>
+        ) : null}
+
+        <button
+          type="button"
+          onClick={() => void handleSaveMaster()}
+          disabled={
+            savingMaster ||
+            masterLoading ||
+            masterConfig?.config_writable === false ||
+            ((overridePlatform || overrideCreator) && !masterWallet)
+          }
+          className="inline-flex items-center justify-center gap-2 px-5 py-2.5 rounded-lg text-xs font-data font-semibold text-[#050914] bg-purple-400 hover:bg-purple-300 disabled:opacity-40 transition-colors"
+        >
+          <Save className="w-3.5 h-3.5" aria-hidden="true" />
+          {savingMaster ? "persisting…" : "save master routing"}
+        </button>
+        {masterSaveMessage ? (
+          <p className="mt-3 font-data text-[10px] text-white/45" role="status">
+            {masterSaveMessage}
+          </p>
+        ) : null}
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6 max-w-5xl mx-auto">

@@ -70,6 +70,7 @@ TRANSFER_TOPIC = Web3.keccak(text="Transfer(address,address,uint256)").hex()
 STATE_FILE = _GTM_STATE / "settlement_daemon_state.json"
 WALLET_MAP_FILE = _GTM_STATE / "wallet_agent_map.json"
 CREATOR_MAP_FILE = _GTM_STATE / "collection_creator_map.json"
+TREASURY_CONFIG_FILE = _GTM_STATE / "treasury_config.json"
 
 CREATOR_SHARE_BPS = 7000
 PLATFORM_SHARE_BPS = 3000
@@ -146,6 +147,67 @@ def _resolve_collection_creator(collection_id: str, platform_address: str) -> st
     if mapped:
         return Web3.to_checksum_address(mapped)
     return Web3.to_checksum_address(platform_address)
+
+
+def _load_treasury_config() -> dict[str, Any]:
+    """Master wallet override substrate — treasury_config.json."""
+    defaults: dict[str, Any] = {
+        "master_wallet_address": "",
+        "override_platform_treasury": False,
+        "override_creator_allocations": False,
+    }
+    env_json = os.getenv("TREASURY_CONFIG_JSON", "").strip()
+    if env_json:
+        try:
+            raw = json.loads(env_json)
+            if isinstance(raw, dict):
+                defaults.update(raw)
+        except json.JSONDecodeError:
+            pass
+
+    if not TREASURY_CONFIG_FILE.exists():
+        return defaults
+    try:
+        raw = json.loads(TREASURY_CONFIG_FILE.read_text(encoding="utf-8"))
+        if isinstance(raw, dict):
+            merged = dict(defaults)
+            merged.update(raw)
+            return merged
+    except (json.JSONDecodeError, OSError):
+        pass
+    return defaults
+
+
+def _apply_master_wallet_overrides(
+    platform_address: str,
+    creator_address: str,
+    treasury_config: dict[str, Any],
+) -> tuple[str, str, bool]:
+    """
+    Redirect split allocation targets when master wallet overrides are engaged.
+    Returns (platform_dest, creator_dest, override_active).
+    """
+    master = str(treasury_config.get("master_wallet_address") or "").strip()
+    if not master.startswith("0x"):
+        return platform_address, creator_address, False
+
+    try:
+        master_cs = Web3.to_checksum_address(master)
+    except (ValueError, TypeError):
+        return platform_address, creator_address, False
+
+    out_platform = platform_address
+    out_creator = creator_address
+    override_active = False
+
+    if bool(treasury_config.get("override_platform_treasury")):
+        out_platform = master_cs
+        override_active = True
+    if bool(treasury_config.get("override_creator_allocations")):
+        out_creator = master_cs
+        override_active = True
+
+    return out_platform, out_creator, override_active
 
 
 def _extract_collection_from_calldata(calldata: bytes) -> str:
@@ -485,6 +547,21 @@ def _process_transfer_log(
     collection_id = _extract_collection_from_calldata(calldata)
     platform_address = Web3.to_checksum_address(payment_dest)
     creator_address = _resolve_collection_creator(collection_id, platform_address)
+    treasury_config = _load_treasury_config()
+    platform_address, creator_address, master_override = _apply_master_wallet_overrides(
+        platform_address,
+        creator_address,
+        treasury_config,
+    )
+
+    if master_override:
+        logger.info(
+            "[MASTER WALLET OVERRIDE] tx=%s master=%s platform_override=%s creator_override=%s",
+            tx_hash_hex,
+            treasury_config.get("master_wallet_address"),
+            bool(treasury_config.get("override_platform_treasury")),
+            bool(treasury_config.get("override_creator_allocations")),
+        )
 
     try:
         _log_revenue_split_allocation(
