@@ -23,6 +23,7 @@ import { InfraTelemetry } from "./dashboard/InfraTelemetry";
 import { AgenticDiscovery } from "./dashboard/AgenticDiscovery";
 import { LiveTerminal } from "./dashboard/LiveTerminal";
 import { AgentRegistryView } from "./dashboard/AgentRegistryView";
+import { PayoutsView } from "./dashboard/PayoutsView";
 import type { HistoryPoint } from "./dashboard/types";
 
 interface MoatCollectionRow {
@@ -77,6 +78,7 @@ const SYSTEM_CONFIG = {
 type TabId =
   | "overview"
   | "ledger"
+  | "treasury"
   | "registry"
   | "ops"
   | "growth"
@@ -84,13 +86,14 @@ type TabId =
   | "terminal";
 
 const TABS: Array<{ id: TabId; label: string }> = [
-  { id: "overview", label: "Overview"       },
-  { id: "ledger",   label: "Ledger"         },
-  { id: "registry", label: "Agent Registry" },
-  { id: "ops",      label: "Ops"            },
-  { id: "growth",   label: "Growth"         },
-  { id: "moat",     label: "Data Moat"      },
-  { id: "terminal", label: "Terminal"       },
+  { id: "overview", label: "Overview"           },
+  { id: "ledger",   label: "Ledger"             },
+  { id: "treasury", label: "Treasury & Payouts" },
+  { id: "registry", label: "Agent Registry"     },
+  { id: "ops",      label: "Ops"                },
+  { id: "growth",   label: "Growth"             },
+  { id: "moat",     label: "Data Moat"          },
+  { id: "terminal", label: "Terminal"           },
 ];
 
 // ── Root Component ────────────────────────────────────────────────────────────
@@ -374,12 +377,17 @@ export default function Dashboard() {
           />
         )}
 
-        {/* ── TAB 3: AGENT REGISTRY ───────────────────────────────────── */}
+        {/* ── TAB 3: TREASURY & PAYOUTS ─────────────────────────────── */}
+        {activeTab === "treasury" && (
+          <PayoutsView loading={ledgerBootstrapping} />
+        )}
+
+        {/* ── TAB 4: AGENT REGISTRY ───────────────────────────────────── */}
         {activeTab === "registry" && (
           <AgentRegistryView loading={ledgerBootstrapping} />
         )}
 
-        {/* ── TAB 4: OPS ──────────────────────────────────────────────── */}
+        {/* ── TAB 5: OPS ──────────────────────────────────────────────── */}
         {activeTab === "ops" && (
           <div className="space-y-6">
             <OpsPanel

@@ -47,6 +47,7 @@ const PRIVATE_PREFIXES = [
   "/api/v1/ledger-telemetry",
   "/api/v1/agent-registry",
   "/api/v1/workflows",
+  "/api/v1/treasury",
   "/api/v1/infra-health",
   "/api/v1/private",
   "/api/admin",
