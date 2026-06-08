@@ -84,6 +84,7 @@ import {
 } from "./global_metrics";
 import { mergeZkpHeaders, verifyAndAttachZkp } from "./zkp";
 import { loadTreasuryConfig, saveTreasuryConfig } from "./treasury_config";
+import { loadCreatorTrustWeights } from "./creator_trust_weights";
 
 // ---------------------------------------------------------------------------
 // Environment bindings
@@ -769,11 +770,13 @@ async function executeMcpSearch(
       mergedTier["X-Unison-Recommended-Model"] = intentRoute.model;
       mergedTier["X-Unison-Intent-Confidence"] = String(intentRoute.confidence);
     }
+    const trustWeights = await loadCreatorTrustWeights(env.FREE_TIER);
     const plan = resolveCompositionPlan(
       q,
       collection,
       url.searchParams,
-      env.PAYMENT_DEST ?? ""
+      env.PAYMENT_DEST ?? "",
+      trustWeights
     );
 
     if (plan.active && plan.legs.length > 1) {
@@ -785,7 +788,8 @@ async function executeMcpSearch(
         collection,
         lineageCtx,
         mergedTier,
-        affiliateWallet
+        affiliateWallet,
+        trustWeights
       );
       if (
         routingEvent.affiliate_wallet &&

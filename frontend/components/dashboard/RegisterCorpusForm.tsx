@@ -105,20 +105,27 @@ export function RegisterCorpusForm() {
           slug,
           creator_wallet: wallet,
           domain,
+          raw_data: payload,
+          format_type: payloadFormat === "json" ? "json" : payloadFormat === "tsv" ? "tsv" : "auto",
         }),
       });
 
       const body = (await res.json().catch(() => ({}))) as {
         status?: string;
         slug?: string;
+        ingest?: string;
         error?: string;
         message?: string;
       };
 
       if (res.status === 201) {
+        const ingestState = body.ingest ?? (payload.length > 0 ? "processing" : "skipped");
         setStatus({
           kind: "success",
-          message: `Corpus registered: ${body.slug ?? slug}. Payload staged for Phase 2d embedding (${payloadFormat.toUpperCase()}, ${payload.length.toLocaleString()} chars).`,
+          message:
+            ingestState === "processing"
+              ? `Corpus registered: ${body.slug ?? slug}. Ingestion pipeline active (${payloadFormat.toUpperCase()}, ${payload.length.toLocaleString()} chars).`
+              : `Corpus registered: ${body.slug ?? slug}. Add a TSV/JSON payload to trigger embedding.`,
         });
         return;
       }

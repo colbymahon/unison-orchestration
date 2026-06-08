@@ -11,6 +11,14 @@ const CREATOR_API_BASE =
 
 const SLUG_RE = /^[a-z0-9][a-z0-9_-]{2,63}$/;
 
+type RegisterCorpusBody = {
+  slug?: string;
+  creator_wallet?: string;
+  domain?: string;
+  raw_data?: string;
+  format_type?: string;
+};
+
 async function authorizeRequest(): Promise<boolean> {
   const cookieStore = await cookies();
   const session = cookieStore.get(SESSION_COOKIE)?.value;
@@ -22,6 +30,41 @@ function unauthorized(): NextResponse {
     { error: "WEBAUTHN_REQUIRED", message: "Valid ops session cookie required." },
     { status: 401, headers: { "Cache-Control": "no-store" } }
   );
+}
+
+function clusterHeaders(secret: string): Record<string, string> {
+  return {
+    "Content-Type": "application/json",
+    Authorization: `Bearer ${secret}`,
+    "X-Admin-Api-Secret": secret,
+  };
+}
+
+function triggerCreatorIngest(
+  secret: string,
+  slug: string,
+  rawData: string,
+  formatType: string
+): void {
+  const ingestUrl = `${CREATOR_API_BASE}/api/v1/creator/ingest`;
+  void fetch(ingestUrl, {
+    method: "POST",
+    headers: clusterHeaders(secret),
+    body: JSON.stringify({
+      slug,
+      raw_data: rawData,
+      format_type: formatType,
+    }),
+    cache: "no-store",
+  }).catch((err) => {
+    console.error(
+      JSON.stringify({
+        event: "CREATOR_INGEST_ASYNC_FAILED",
+        slug,
+        error: err instanceof Error ? err.message : String(err),
+      })
+    );
+  });
 }
 
 export async function POST(req: NextRequest): Promise<NextResponse> {
@@ -37,9 +80,9 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
     );
   }
 
-  let body: { slug?: string; creator_wallet?: string; domain?: string };
+  let body: RegisterCorpusBody;
   try {
-    body = (await req.json()) as typeof body;
+    body = (await req.json()) as RegisterCorpusBody;
   } catch {
     return NextResponse.json(
       { error: "invalid_json", message: "Request body must be JSON" },
@@ -50,6 +93,8 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
   const slug = body.slug?.trim().toLowerCase() ?? "";
   const creator_wallet = body.creator_wallet?.trim() ?? "";
   const domain = body.domain?.trim() ?? "";
+  const raw_data = body.raw_data ?? "";
+  const format_type = (body.format_type?.trim().toLowerCase() || "auto") as string;
 
   if (!slug || !SLUG_RE.test(slug)) {
     return NextResponse.json(
@@ -83,11 +128,7 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
   try {
     const upstream = await fetch(upstreamUrl, {
       method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${secret}`,
-        "X-Admin-Api-Secret": secret,
-      },
+      headers: clusterHeaders(secret),
       body: JSON.stringify({ slug, creator_wallet, domain }),
       cache: "no-store",
     });
@@ -95,23 +136,41 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
     const payload = (await upstream.json().catch(() => ({}))) as Record<string, unknown>;
     const status = upstream.status;
 
-    if (status === 201 || status === 400 || status === 409) {
+    if (status === 400 || status === 409) {
       return NextResponse.json(payload, {
         status,
         headers: { "Cache-Control": "no-store" },
       });
     }
 
+    if (status !== 201) {
+      return NextResponse.json(
+        {
+          error: "upstream_error",
+          message:
+            typeof payload.message === "string"
+              ? payload.message
+              : `Creator API returned HTTP ${status}`,
+          upstream_status: status,
+        },
+        { status: status >= 500 ? 502 : status, headers: { "Cache-Control": "no-store" } }
+      );
+    }
+
+    const hasPayload = raw_data.trim().length > 0;
+    if (hasPayload) {
+      triggerCreatorIngest(secret, slug, raw_data, format_type);
+    }
+
     return NextResponse.json(
       {
-        error: "upstream_error",
-        message:
-          typeof payload.message === "string"
-            ? payload.message
-            : `Creator API returned HTTP ${status}`,
-        upstream_status: status,
+        status: "registered",
+        slug,
+        ingest: hasPayload ? "processing" : "skipped",
+        domain,
+        kv_sync: payload.kv_sync ?? false,
       },
-      { status: status >= 500 ? 502 : status, headers: { "Cache-Control": "no-store" } }
+      { status: 201, headers: { "Cache-Control": "no-store" } }
     );
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);

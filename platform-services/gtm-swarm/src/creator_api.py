@@ -9,6 +9,7 @@ Routes:
   POST /api/v1/creator/register  — sanitize + insert creator row
   POST /api/v1/creator/ingest     — chunk, embed, upsert creator payload
   GET  /api/v1/creator/manifest  — cluster-auth gated registry read
+  GET  /api/v1/creator/weights   — trust_score map for edge routing
 
 Environment:
   ADMIN_API_SECRET   — Bearer / X-Admin-Api-Secret for manifest authorization
@@ -29,6 +30,7 @@ from typing import Any
 from aiohttp import web
 from dotenv import load_dotenv
 
+from creator_kv_sync import build_trust_weights_map, sync_trust_weights_to_kv
 from ingestion_pipeline import ingest_creator_payload
 from memory_manager import CreatorRegistryStore
 
@@ -110,7 +112,15 @@ async def handle_creator_register(request: web.Request) -> web.Response:
             400,
         )
 
-    return _json_response({"status": "registered", "slug": slug}, 201)
+    kv_sync = await asyncio.to_thread(sync_trust_weights_to_kv, store)
+    return _json_response(
+        {
+            "status": "registered",
+            "slug": slug,
+            "kv_sync": bool(kv_sync.get("ok")),
+        },
+        201,
+    )
 
 
 async def handle_creator_ingest(request: web.Request) -> web.Response:
@@ -172,11 +182,13 @@ async def handle_creator_ingest(request: web.Request) -> web.Response:
 
     if ok:
         store.update_upload_status(slug, "completed")
+        kv_sync = await asyncio.to_thread(sync_trust_weights_to_kv, store)
         return _json_response(
             {
                 "status": "ingested",
                 "slug": slug,
                 "upload_status": "completed",
+                "kv_sync": bool(kv_sync.get("ok")),
             },
             201,
         )
@@ -189,6 +201,29 @@ async def handle_creator_ingest(request: web.Request) -> web.Response:
             "upload_status": "failed",
         },
         500,
+    )
+
+
+async def handle_creator_weights(request: web.Request) -> web.Response:
+    if not authorize_cluster_request(request):
+        return _json_response(
+            {
+                "error": "unauthorized",
+                "message": "Valid cluster authorization required (Bearer ADMIN_API_SECRET).",
+            },
+            401,
+        )
+
+    store: CreatorRegistryStore = request.app["creator_store"]
+    weights = build_trust_weights_map(store)
+    kv_sync = await asyncio.to_thread(sync_trust_weights_to_kv, store)
+    return _json_response(
+        {
+            "status": "ok",
+            "count": len(weights),
+            "weights": weights,
+            "kv_sync": bool(kv_sync.get("ok")),
+        }
     )
 
 
@@ -219,6 +254,7 @@ def create_app(db_path: str | Path | None = None) -> web.Application:
     app["creator_store"] = CreatorRegistryStore(db_path)
     app.router.add_post("/api/v1/creator/register", handle_creator_register)
     app.router.add_post("/api/v1/creator/ingest", handle_creator_ingest)
+    app.router.add_get("/api/v1/creator/weights", handle_creator_weights)
     app.router.add_get("/api/v1/creator/manifest", handle_creator_manifest)
     return app
 

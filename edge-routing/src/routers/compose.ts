@@ -16,6 +16,11 @@ import {
   normalizeHexWallet,
 } from "../affiliate";
 import { mergeZkpHeaders, verifyAndAttachZkp } from "../zkp";
+import {
+  applyTrustWeightToHitCount,
+  type CreatorTrustWeights,
+  trustScoreForCollection,
+} from "../creator_trust_weights";
 
 export const ROUTER_COMPOSITION_HEADER = "X-Unison-Router-Composition";
 export const SETTLEMENT_SPLIT_HEADER = "X-Unison-Settlement-Split";
@@ -36,13 +41,28 @@ export interface CompositeSearchResult {
   totalHits: number;
 }
 
-function mergeTsvBodies(results: LegFetchResult[]): string {
-  if (results.length === 0) {
+function sortLegResultsByTrust(
+  results: LegFetchResult[],
+  weights: CreatorTrustWeights
+): LegFetchResult[] {
+  return [...results].sort((a, b) => {
+    const scoreA = trustScoreForCollection(weights, a.leg.collection);
+    const scoreB = trustScoreForCollection(weights, b.leg.collection);
+    return scoreB - scoreA;
+  });
+}
+
+function mergeTsvBodies(
+  results: LegFetchResult[],
+  weights: CreatorTrustWeights = {}
+): string {
+  const ordered = sortLegResultsByTrust(results, weights);
+  if (ordered.length === 0) {
     return "Sequence\tURL\tContent\n";
   }
   const lines: string[] = [];
   let header = "";
-  for (const { leg, body } of results) {
+  for (const { leg, body } of ordered) {
     const trimmed = body.trim();
     if (!trimmed) continue;
     const parts = trimmed.split("\n");
@@ -102,7 +122,8 @@ export function buildRevenueRoutingEvent(
   legResults: LegFetchResult[],
   lineageCtx: LineageSearchContext | null,
   treasuryWallet: string,
-  affiliateWallet: string | null = null
+  affiliateWallet: string | null = null,
+  trustWeights: CreatorTrustWeights = {}
 ): Record<string, unknown> {
   const partnerMargins = plan.legs
     .filter((l) => l.providerId !== "unison_core")
@@ -166,6 +187,12 @@ export function buildRevenueRoutingEvent(
       baseUSDCFee: r.leg.baseUSDCFee,
       settlementLabel: r.leg.settlementLabel,
       hitCount: r.hitCount,
+      trust_score: trustScoreForCollection(trustWeights, r.leg.collection),
+      weighted_hit_count: applyTrustWeightToHitCount(
+        r.hitCount,
+        r.leg.collection,
+        trustWeights
+      ),
       walletAddress: normalizeHexWallet(r.leg.baseWalletAddress),
     })),
     treasury_premium_usdc: treasuryPremium,
@@ -202,14 +229,19 @@ export async function executeCompositeSearch(
   primaryCollection: string,
   lineageCtx: LineageSearchContext | null,
   extraHeaders: Record<string, string>,
-  affiliateWallet: string | null = null
+  affiliateWallet: string | null = null,
+  trustWeights: CreatorTrustWeights = {}
 ): Promise<CompositeSearchResult> {
   const legResults = await Promise.all(
     plan.legs.map((leg) => fetchLeg(env.BACKEND_URL, request, leg, query))
   );
 
-  const combinedBody = mergeTsvBodies(legResults);
-  const totalHits = legResults.reduce((s, r) => s + r.hitCount, 0);
+  const combinedBody = mergeTsvBodies(legResults, trustWeights);
+  const totalHits = legResults.reduce(
+    (s, r) =>
+      s + applyTrustWeightToHitCount(r.hitCount, r.leg.collection, trustWeights),
+    0
+  );
   const routingEvent = buildRevenueRoutingEvent(
     query,
     primaryCollection,
@@ -217,7 +249,8 @@ export async function executeCompositeSearch(
     legResults,
     lineageCtx,
     env.PAYMENT_DEST,
-    affiliateWallet
+    affiliateWallet,
+    trustWeights
   );
 
   console.log(JSON.stringify(routingEvent));

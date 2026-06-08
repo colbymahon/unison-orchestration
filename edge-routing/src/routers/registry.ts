@@ -2,6 +2,11 @@
  * Phase 2c — Compound Contract Registry (partner pipelines)
  */
 
+import {
+  trustScoreForCollection,
+  type CreatorTrustWeights,
+} from "../creator_trust_weights";
+
 export type UsdcAmount = string;
 
 export interface PartnerRegistryEntry {
@@ -95,11 +100,23 @@ function pickCollection(entry: PartnerRegistryEntry, fallback: string): string {
 /**
  * Detect horizontal composition from query semantics or explicit params.
  */
+function sortLegsByTrust(
+  legs: CompositionLeg[],
+  weights: CreatorTrustWeights
+): CompositionLeg[] {
+  return [...legs].sort((a, b) => {
+    const scoreA = trustScoreForCollection(weights, a.collection);
+    const scoreB = trustScoreForCollection(weights, b.collection);
+    return scoreB - scoreA;
+  });
+}
+
 export function resolveCompositionPlan(
   query: string,
   primaryCollection: string,
   searchParams: URLSearchParams,
-  treasuryWallet: string
+  treasuryWallet: string,
+  trustWeights: CreatorTrustWeights = {}
 ): CompositionPlan {
   const explicit = searchParams.get("collections");
   if (explicit?.includes(",")) {
@@ -117,11 +134,12 @@ export function resolveCompositionPlan(
       };
     });
     const total = legs.reduce((s, l) => s + Number(l.baseUSDCFee), 0);
+    const ordered = sortLegsByTrust(legs, trustWeights);
     return {
-      active: legs.length > 1,
-      legs,
+      active: ordered.length > 1,
+      legs: ordered,
       totalUsdc: total,
-      splitHeader: legs
+      splitHeader: ordered
         .map((l) => formatFee(l.baseUSDCFee, l.settlementLabel))
         .join(" | "),
     };
@@ -141,11 +159,12 @@ export function resolveCompositionPlan(
       searchUrl: entry.searchEndpointUrl,
     }));
     const total = legs.reduce((s, l) => s + Number(l.baseUSDCFee), 0);
+    const ordered = sortLegsByTrust(legs, trustWeights);
     return {
       active: true,
-      legs,
+      legs: ordered,
       totalUsdc: total,
-      splitHeader: legs.map((l) => formatFee(l.baseUSDCFee, l.settlementLabel)).join(" | "),
+      splitHeader: ordered.map((l) => formatFee(l.baseUSDCFee, l.settlementLabel)).join(" | "),
     };
   }
 
@@ -195,10 +214,11 @@ export function resolveCompositionPlan(
   }
 
   const total = legs.reduce((s, l) => s + Number(l.baseUSDCFee), 0);
+  const ordered = sortLegsByTrust(legs, trustWeights);
   return {
-    active: legs.length > 1,
-    legs,
+    active: ordered.length > 1,
+    legs: ordered,
     totalUsdc: total,
-    splitHeader: legs.map((l) => formatFee(l.baseUSDCFee, l.settlementLabel)).join(" | "),
+    splitHeader: ordered.map((l) => formatFee(l.baseUSDCFee, l.settlementLabel)).join(" | "),
   };
 }
