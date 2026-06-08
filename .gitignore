@@ -40,6 +40,7 @@ frontend/.webauthn/
 # Autonomous agent runtime state (PM2 / daemons)
 data-ingestion/.agent_state/
 distribution-agents/.agent_state/
+platform-services/gtm-swarm/.agent_state/
 logs/
 
 # Node
