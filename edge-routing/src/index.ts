@@ -63,7 +63,9 @@ import {
   parseAffiliateWallet,
 } from "./affiliate";
 import { evaluateFreeTierBatched, peekFreeTierUsage } from "./free_tier_batch";
+import { applyIntentRoutingToUrl, type IntentRoute } from "./intent_router";
 import { verifyAgentAttestation } from "./sybil_gate";
+import { buildTrustAuditHeaders } from "./trust_headers";
 import {
   formatPromotionSlot,
   getPromotionCampaignStats,
@@ -127,9 +129,9 @@ const CORS_HEADERS: Record<string, string> = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
   "Access-Control-Allow-Headers":
-    "Content-Type, Payment-Signature, Authorization, X-Agent-ID, X-Agent-Attestation, X-Unison-Lineage, X-Unison-Lineage-Version, X-Unison-Priority-Premium, X-Unison-Affiliate-ID, X-Unison-Callback-URL, X-Agent-Callback, X-Agent-Webhook, X-Admin-Api-Secret",
+    "Content-Type, Payment-Signature, Authorization, X-Agent-ID, X-Agent-Attestation, X-Session-ID, X-Unison-Lineage, X-Unison-Lineage-Version, X-Unison-Priority-Premium, X-Unison-Affiliate-ID, X-Unison-Callback-URL, X-Agent-Callback, X-Agent-Webhook, X-Admin-Api-Secret",
   "Access-Control-Expose-Headers":
-    "X-Unison-Satiation, X-Unison-Auction-Status, X-Unison-Premium-Settled, X-Unison-Min-Premium-Bid, X-Unison-Lineage, X-Unison-Lineage-Step, X-Unison-Lineage-Episode, X-Unison-Router-Composition, X-Unison-Settlement-Split, X-Unison-Revenue-Split, X-Unison-Affiliate-Settled, X-Unison-ZKP-Verification-Digest, X-Unison-ZKP-Chunk-Count, X-Unison-ZKP-Verified-Count, X-Unison-Source-Digest, X-Remaining-Free-Tier, X-Free-Tier-Limit, X-Promotion-Slot, X-Unison-Embed-Ms, X-Unison-Qdrant-Ms, X-Unison-Embed-Cache-Hit, X-Unison-Fly-Region, X-Unison-Delivery",
+    "X-Unison-Satiation, X-Unison-Auction-Status, X-Unison-Premium-Settled, X-Unison-Min-Premium-Bid, X-Unison-Lineage, X-Unison-Lineage-Step, X-Unison-Lineage-Episode, X-Unison-Router-Composition, X-Unison-Settlement-Split, X-Unison-Revenue-Split, X-Unison-Affiliate-Settled, X-Unison-ZKP-Verification-Digest, X-Unison-ZKP-Chunk-Count, X-Unison-ZKP-Verified-Count, X-Unison-Source-Digest, X-Remaining-Free-Tier, X-Free-Tier-Limit, X-Promotion-Slot, X-Trust-Confidence, X-Documents-Reviewed, X-Last-Updated, X-Unison-Intent-Domain, X-Unison-Recommended-Model, X-Unison-Intent-Confidence, X-Session-ID, X-Unison-Embed-Ms, X-Unison-Qdrant-Ms, X-Unison-Embed-Cache-Hit, X-Unison-Fly-Region, X-Unison-Delivery",
   "Access-Control-Max-Age": "86400",
 };
 
@@ -449,6 +451,10 @@ async function proxyToBackend(
 
   const headers = new Headers(request.headers);
   headers.delete("payment-signature");
+  const sessionId = request.headers.get("x-session-id")?.trim();
+  if (sessionId) {
+    headers.set("X-Session-ID", sessionId);
+  }
   for (const [key, val] of Object.entries(lineageForwardHeaders)) {
     headers.set(key, val);
   }
@@ -615,6 +621,27 @@ async function proxyToBackend(
       extraHeaders["X-Unison-Lineage-Episode"] ??
       `${agentHeader}:${q.slice(0, 32)}`;
 
+    const intentRouteRaw = extraHeaders["X-Unison-Intent-Confidence"];
+    const intentRoute: IntentRoute | null = intentRouteRaw
+      ? {
+          collection,
+          model: extraHeaders["X-Unison-Recommended-Model"] ?? "gemini-flash",
+          confidence: parseFloat(intentRouteRaw) || 0.5,
+          domain: extraHeaders["X-Unison-Intent-Domain"] ?? "general",
+          matched_signals: [],
+        }
+      : null;
+
+    Object.assign(
+      extraHeaders,
+      buildTrustAuditHeaders({
+        intentRoute,
+        hitCount: hitCount >= 0 ? hitCount : 0,
+        collection,
+        sessionId: request.headers.get("x-session-id"),
+      })
+    );
+
     scheduleAdvocacyEvaluation(
       ctx,
       env.UNISON_ZERO_LOGS,
@@ -650,11 +677,27 @@ async function proxyToBackend(
 // MCP search — lineage + auction + proxy
 // ---------------------------------------------------------------------------
 
+function withIntentRoutedRequest(request: Request): {
+  searchRequest: Request;
+  intentRoute: IntentRoute | null;
+} {
+  const url = new URL(request.url);
+  const intentRoute = applyIntentRoutingToUrl(url);
+  if (!intentRoute) {
+    return { searchRequest: request, intentRoute: null };
+  }
+  return {
+    searchRequest: new Request(url.toString(), request),
+    intentRoute,
+  };
+}
+
 async function executeMcpSearch(
   request: Request,
   env: Env,
   ctx: ExecutionContext,
-  tierHeaders: Record<string, string>
+  tierHeaders: Record<string, string>,
+  intentRoute: IntentRoute | null = null
 ): Promise<Response> {
   try {
     const url = new URL(request.url);
@@ -693,7 +736,15 @@ async function executeMcpSearch(
     }
 
     const affiliateWallet = parseAffiliateWallet(request);
-    const mergedTier = { ...tierHeaders, ...gate.responseHeaders };
+    const mergedTier: Record<string, string> = {
+      ...tierHeaders,
+      ...gate.responseHeaders,
+    };
+    if (intentRoute) {
+      mergedTier["X-Unison-Intent-Domain"] = intentRoute.domain;
+      mergedTier["X-Unison-Recommended-Model"] = intentRoute.model;
+      mergedTier["X-Unison-Intent-Confidence"] = String(intentRoute.confidence);
+    }
     const plan = resolveCompositionPlan(
       q,
       collection,
@@ -1084,7 +1135,14 @@ export default {
           url.searchParams.get("collection")?.trim() ?? "unison_engineering_core";
         await markChurnRecovered(resolveChurnKv(env), clientId, collection, q);
         try {
-          return await executeMcpSearch(request, env, ctx, { "X-Tier": "paid" });
+          const { searchRequest, intentRoute } = withIntentRoutedRequest(request);
+          return await executeMcpSearch(
+            searchRequest,
+            env,
+            ctx,
+            { "X-Tier": "paid" },
+            intentRoute
+          );
         } catch (searchErr) {
           console.error("executeMcpSearch uncaught:", searchErr);
           return errorResponse(502, "Edge search handler error.");
@@ -1136,7 +1194,14 @@ export default {
           `Free tier: client=${clientId} used=${freeTier.used + 1}/${freeTierLimit} slot=${promotionTier.slot}`
         );
         try {
-          return await executeMcpSearch(request, env, ctx, tierHeaders);
+          const { searchRequest, intentRoute } = withIntentRoutedRequest(request);
+          return await executeMcpSearch(
+            searchRequest,
+            env,
+            ctx,
+            tierHeaders,
+            intentRoute
+          );
         } catch (searchErr) {
           console.error("executeMcpSearch uncaught:", searchErr);
           return errorResponse(502, "Edge search handler error.");

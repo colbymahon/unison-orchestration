@@ -3,6 +3,9 @@
  *
  * First 200 registered client identities receive 50 free queries; thereafter
  * new identities receive 20. Per-client tier is stamped once and cached in KV.
+ *
+ * OS coordination: pairs with X-Session-ID forwarding and trust audit headers
+ * (X-Trust-Confidence, X-Documents-Reviewed, X-Last-Updated) on search responses.
  */
 
 export const EARLY_ACCESS_CAP = 200;
