@@ -249,6 +249,12 @@ export default function Dashboard() {
           >
             Workflows →
           </a>
+          <a
+            href="/dashboard/register-corpus"
+            className="hidden sm:inline font-mono text-[10px] text-emerald-400/80 hover:text-emerald-300 border border-emerald-900/30 px-2 py-1.5 rounded-lg"
+          >
+            Register Corpus →
+          </a>
 
           <nav className="flex space-x-1 bg-gray-900/60 p-1 border border-gray-800 rounded-lg text-xs font-mono">
             {TABS.map(tab => (
@@ -466,6 +472,18 @@ export default function Dashboard() {
               </div>
               <div className="text-[10px] text-gray-500 mt-1">
                 Phase B0 live KV ledger · one-click pipeline_zero_result.py
+              </div>
+            </a>
+
+            <a
+              href="/dashboard/register-corpus"
+              className="block bg-emerald-950/20 border border-emerald-900/40 rounded-xl p-4 hover:border-emerald-500/50 transition-colors"
+            >
+              <div className="font-mono text-xs text-emerald-400 font-bold uppercase tracking-wider">
+                Open Creator Marketplace — Register Corpus →
+              </div>
+              <div className="text-[10px] text-gray-500 mt-1">
+                Track 2 Phase 2c · WebAuthn-gated slug claim · Base L2 wallet routing
               </div>
             </a>
 

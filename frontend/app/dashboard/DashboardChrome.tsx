@@ -58,6 +58,17 @@ function ContextNav() {
           GAPS
         </Link>
         <Link
+          href="/dashboard/register-corpus"
+          prefetch={false}
+          className={`px-3 py-2 rounded-md font-mono text-[10px] font-bold uppercase tracking-widest transition-all duration-200 ${
+            pathname === "/dashboard/register-corpus"
+              ? "text-emerald-400 bg-emerald-400/10 border border-emerald-400/25"
+              : "text-gray-600 hover:text-emerald-400/70 border border-transparent"
+          }`}
+        >
+          CORPUS
+        </Link>
+        <Link
           href="/"
           prefetch={false}
           className={`px-4 py-2 rounded-md font-mono text-[11px] font-bold uppercase tracking-widest transition-all duration-200 ${
