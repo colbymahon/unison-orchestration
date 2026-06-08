@@ -100,5 +100,42 @@ module.exports = {
       merge_logs: true,
       time: true,
     },
+    {
+      name: "unison-402-daemon",
+      script: PYTHON_BIN,
+      args: [
+        path.join(
+          REPO_ROOT,
+          "platform-services/gtm-swarm/src/settlement_daemon.py"
+        ),
+      ],
+      cwd: REPO_ROOT,
+      autorestart: true,
+      max_restarts: 50,
+      min_uptime: "30s",
+      max_memory_restart: "400M",
+      env: {
+        PYTHONUNBUFFERED: "1",
+        BASE_CHAIN_ID: "8453",
+        USDC_CONTRACT_ADDRESS:
+          process.env.USDC_CONTRACT_ADDRESS ||
+          "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913",
+        PAYMENT_DEST:
+          process.env.PAYMENT_DEST ||
+          "0xE37BEA19c284eebc561735588e773C097115668B",
+        CF_FREE_TIER_NAMESPACE_ID: "91fdd2e791234210906e25b8dd90ba96",
+        SETTLEMENT_POLL_SECONDS: "12",
+        SETTLEMENT_MIN_PAYMENT_USDC: "0.005",
+        SETTLEMENT_QUERY_PRICE_USDC: "0.005",
+        SETTLEMENT_CREDIT_MODE: "decrement",
+        BASE_RPC_URL: process.env.BASE_RPC_URL || "",
+        CLOUDFLARE_ACCOUNT_ID: process.env.CLOUDFLARE_ACCOUNT_ID || "",
+        CLOUDFLARE_API_TOKEN: process.env.CLOUDFLARE_API_TOKEN || "",
+      },
+      error_file: path.join(REPO_ROOT, "logs/pm2-402-daemon-error.log"),
+      out_file: path.join(REPO_ROOT, "logs/pm2-402-daemon-out.log"),
+      merge_logs: true,
+      time: true,
+    },
   ],
 };
