@@ -34,6 +34,7 @@ pub struct TaskRecord {
     pub created_at: f64,
     pub completed_at: Option<f64>,
     pub result_digest: Option<String>,
+    pub workflow_dsl: Option<String>,
 }
 
 pub struct TaskQueueStore {
@@ -61,11 +62,16 @@ impl TaskQueueStore {
                status TEXT NOT NULL DEFAULT 'pending',
                created_at REAL NOT NULL,
                completed_at REAL,
-               result_digest TEXT
+               result_digest TEXT,
+               workflow_dsl TEXT
              );
              CREATE INDEX IF NOT EXISTS idx_task_queue_status_created
                ON task_queue (status, created_at ASC);",
         )?;
+        let _ = conn.execute(
+            "ALTER TABLE task_queue ADD COLUMN workflow_dsl TEXT",
+            [],
+        );
         info!("Task queue persistence online: {}", path.display());
         Ok(Self {
             path,
@@ -106,6 +112,7 @@ impl TaskQueueStore {
         session_id: &str,
         collection: &str,
         query: &str,
+        workflow_dsl: Option<&str>,
     ) -> Result<TaskRecord, TaskQueueError> {
         let agent_id = agent_id.trim();
         let session_id = session_id.trim();
@@ -127,9 +134,17 @@ impl TaskQueueStore {
         conn.execute(
             "INSERT INTO task_queue
              (task_id, agent_id, session_id, collection, query, status,
-              created_at, completed_at, result_digest)
-             VALUES (?1, ?2, ?3, ?4, ?5, 'pending', ?6, NULL, NULL)",
-            params![task_id, agent_id, session_id, collection, query, created_at],
+              created_at, completed_at, result_digest, workflow_dsl)
+             VALUES (?1, ?2, ?3, ?4, ?5, 'pending', ?6, NULL, NULL, ?7)",
+            params![
+                task_id,
+                agent_id,
+                session_id,
+                collection,
+                query,
+                created_at,
+                workflow_dsl
+            ],
         )?;
         Ok(TaskRecord {
             task_id,
@@ -141,6 +156,7 @@ impl TaskQueueStore {
             created_at,
             completed_at: None,
             result_digest: None,
+            workflow_dsl: workflow_dsl.map(str::to_owned),
         })
     }
 
@@ -153,7 +169,7 @@ impl TaskQueueStore {
         let row = conn
             .query_row(
                 "SELECT task_id, agent_id, session_id, collection, query, status,
-                        created_at, completed_at, result_digest
+                        created_at, completed_at, result_digest, workflow_dsl
                  FROM task_queue WHERE task_id = ?1",
                 params![task_id],
                 row_to_task,
@@ -168,7 +184,7 @@ impl TaskQueueStore {
         let row = conn
             .query_row(
                 "SELECT task_id, agent_id, session_id, collection, query, status,
-                        created_at, completed_at, result_digest
+                        created_at, completed_at, result_digest, workflow_dsl
                  FROM task_queue
                  WHERE status = 'pending'
                  ORDER BY created_at ASC
@@ -265,7 +281,7 @@ impl TaskQueueStore {
         let conn = self.conn.lock().map_err(|_| TaskQueueError::Poisoned)?;
         let mut stmt = conn.prepare(
             "SELECT task_id, agent_id, session_id, collection, query, status,
-                    created_at, completed_at, result_digest
+                    created_at, completed_at, result_digest, workflow_dsl
              FROM task_queue
              ORDER BY created_at DESC
              LIMIT ?1",
@@ -300,6 +316,7 @@ fn row_to_task(row: &rusqlite::Row<'_>) -> rusqlite::Result<TaskRecord> {
         created_at: row.get(6)?,
         completed_at: row.get(7)?,
         result_digest: row.get(8)?,
+        workflow_dsl: row.get(9)?,
     })
 }
 

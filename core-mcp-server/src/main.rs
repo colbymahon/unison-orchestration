@@ -46,6 +46,7 @@ use tracing::{info, instrument};
 mod persistence;
 mod retrieval;
 mod task_queue;
+mod workflow_store;
 
 use persistence::{
     increment_persistent_counter, read_persistent_counter, TelemetryStore, KEY_LATENCY_SAMPLES,
@@ -55,6 +56,7 @@ use persistence::{
 use retrieval::{EmbedService, QdrantPool};
 use retrieval::qdrant::QdrantScoredPoint;
 use task_queue::{TaskQueueStore, TaskQueueSummary, TaskRecord};
+use workflow_store::{WorkflowRecord, WorkflowStore};
 
 // ---------------------------------------------------------------------------
 // Constants
@@ -93,6 +95,8 @@ struct AppState {
     agent_session_ids: Mutex<HashMap<String, HashSet<String>>>,
     /// Phase 2 Commit 2 — async background task queue (NVMe-backed SQLite).
     task_queue: Arc<TaskQueueStore>,
+    /// Phase 2 Pillar 2 — visual workflow canvas DSL persistence.
+    workflow_store: Arc<WorkflowStore>,
 }
 
 // ---------------------------------------------------------------------------
@@ -871,6 +875,7 @@ struct EnqueueTaskPayload {
     session_id: String,
     collection: String,
     query: String,
+    workflow_dsl: Option<String>,
 }
 
 #[derive(Debug, Serialize)]
@@ -917,6 +922,7 @@ async fn enqueue_task_handler(
         &payload.session_id,
         &payload.collection,
         &payload.query,
+        payload.workflow_dsl.as_deref(),
     ) {
         Ok(record) => (
             StatusCode::CREATED,
@@ -1046,6 +1052,172 @@ async fn registry_agents_handler(State(state): State<Arc<AppState>>) -> Response
         .into_response()
 }
 
+// ---------------------------------------------------------------------------
+// Routes: /api/v1/workflows — visual canvas DSL persistence + publish
+// ---------------------------------------------------------------------------
+
+#[derive(Debug, Deserialize)]
+struct UpsertWorkflowPayload {
+    workflow_id: Option<String>,
+    name: String,
+    dsl_json: String,
+}
+
+#[derive(Debug, Serialize)]
+struct WorkflowResponse {
+    workflow_id: String,
+    name: String,
+    dsl_json: String,
+    created_at: f64,
+    updated_at: f64,
+    published_count: i64,
+}
+
+impl From<WorkflowRecord> for WorkflowResponse {
+    fn from(record: WorkflowRecord) -> Self {
+        Self {
+            workflow_id: record.workflow_id,
+            name: record.name,
+            dsl_json: record.dsl_json,
+            created_at: record.created_at,
+            updated_at: record.updated_at,
+            published_count: record.published_count,
+        }
+    }
+}
+
+#[derive(Debug, Deserialize)]
+struct PublishWorkflowPayload {
+    agent_id: String,
+    session_id: String,
+    collection: String,
+    query: String,
+}
+
+async fn list_workflows_handler(State(state): State<Arc<AppState>>) -> Response {
+    match state.workflow_store.list_workflows(50) {
+        Ok(rows) => {
+            let workflows: Vec<WorkflowResponse> = rows.into_iter().map(Into::into).collect();
+            (StatusCode::OK, Json(serde_json::json!({ "workflows": workflows }))).into_response()
+        }
+        Err(err) => {
+            tracing::error!("list_workflows failed: {err}");
+            (
+                StatusCode::INTERNAL_SERVER_ERROR,
+                Json(serde_json::json!({"error": "workflow list degraded"})),
+            )
+                .into_response()
+        }
+    }
+}
+
+async fn upsert_workflow_handler(
+    State(state): State<Arc<AppState>>,
+    Json(payload): Json<UpsertWorkflowPayload>,
+) -> Response {
+    match state.workflow_store.upsert_workflow(
+        payload.workflow_id.as_deref(),
+        &payload.name,
+        &payload.dsl_json,
+    ) {
+        Ok(record) => (StatusCode::OK, Json(WorkflowResponse::from(record))).into_response(),
+        Err(workflow_store::WorkflowStoreError::InvalidInput(msg)) => (
+            StatusCode::BAD_REQUEST,
+            Json(serde_json::json!({"error": msg})),
+        )
+            .into_response(),
+        Err(err) => {
+            tracing::error!("upsert_workflow failed: {err}");
+            (
+                StatusCode::INTERNAL_SERVER_ERROR,
+                Json(serde_json::json!({"error": "workflow save degraded"})),
+            )
+                .into_response()
+        }
+    }
+}
+
+async fn get_workflow_handler(
+    State(state): State<Arc<AppState>>,
+    Path(workflow_id): Path<String>,
+) -> Response {
+    match state.workflow_store.get_workflow(&workflow_id) {
+        Ok(Some(record)) => (StatusCode::OK, Json(WorkflowResponse::from(record))).into_response(),
+        Ok(None) => (
+            StatusCode::NOT_FOUND,
+            Json(serde_json::json!({"error": "workflow not found"})),
+        )
+            .into_response(),
+        Err(err) => {
+            tracing::error!("get_workflow({workflow_id}) failed: {err}");
+            (
+                StatusCode::INTERNAL_SERVER_ERROR,
+                Json(serde_json::json!({"error": "workflow read degraded"})),
+            )
+                .into_response()
+        }
+    }
+}
+
+async fn publish_workflow_handler(
+    State(state): State<Arc<AppState>>,
+    Path(workflow_id): Path<String>,
+    Json(payload): Json<PublishWorkflowPayload>,
+) -> Response {
+    let workflow = match state.workflow_store.get_workflow(&workflow_id) {
+        Ok(Some(w)) => w,
+        Ok(None) => {
+            return (
+                StatusCode::NOT_FOUND,
+                Json(serde_json::json!({"error": "workflow not found"})),
+            )
+                .into_response();
+        }
+        Err(err) => {
+            tracing::error!("publish_workflow load failed: {err}");
+            return (
+                StatusCode::INTERNAL_SERVER_ERROR,
+                Json(serde_json::json!({"error": "workflow load degraded"})),
+            )
+                .into_response();
+        }
+    };
+
+    match state.task_queue.enqueue_task(
+        &payload.agent_id,
+        &payload.session_id,
+        &payload.collection,
+        &payload.query,
+        Some(&workflow.dsl_json),
+    ) {
+        Ok(record) => {
+            let _ = state.workflow_store.increment_published(&workflow_id);
+            (
+                StatusCode::CREATED,
+                Json(serde_json::json!({
+                    "task_id": record.task_id,
+                    "status": record.status,
+                    "workflow_id": workflow_id,
+                })),
+            )
+                .into_response()
+        }
+        Err(task_queue::TaskQueueError::InvalidInput(msg)) => (
+            StatusCode::BAD_REQUEST,
+            Json(serde_json::json!({"error": msg})),
+        )
+            .into_response(),
+        Err(err) => {
+            tracing::error!("publish_workflow enqueue failed: {err}");
+            (
+                StatusCode::INTERNAL_SERVER_ERROR,
+                Json(serde_json::json!({"error": "workflow publish degraded"})),
+            )
+                .into_response()
+        }
+    }
+}
+
 async fn get_task_handler(
     State(state): State<Arc<AppState>>,
     Path(task_id): Path<String>,
@@ -1149,6 +1321,12 @@ async fn main() -> anyhow::Result<()> {
         task_queue.db_path().display()
     );
 
+    let workflow_store = Arc::new(WorkflowStore::open_with_fallback());
+    info!(
+        "Workflow vault bound: {}",
+        workflow_store.db_path().display()
+    );
+
     let state = Arc::new(AppState {
         embed,
         qdrant,
@@ -1157,6 +1335,7 @@ async fn main() -> anyhow::Result<()> {
         agent_registry: Mutex::new(HashMap::new()),
         agent_session_ids: Mutex::new(HashMap::new()),
         task_queue,
+        workflow_store,
     });
 
     let cors = CorsLayer::new()
@@ -1185,6 +1364,9 @@ async fn main() -> anyhow::Result<()> {
         .route("/api/v1/tasks",                    post(enqueue_task_handler))
         .route("/api/v1/tasks/summary",            get(task_summary_handler))
         .route("/api/v1/registry/agents",          get(registry_agents_handler))
+        .route("/api/v1/workflows",               get(list_workflows_handler).post(upsert_workflow_handler))
+        .route("/api/v1/workflows/:id",            get(get_workflow_handler))
+        .route("/api/v1/workflows/:id/publish",    post(publish_workflow_handler))
         .route("/api/v1/tasks/:id",                 get(get_task_handler))
         .with_state(state)
         .layer(cors);

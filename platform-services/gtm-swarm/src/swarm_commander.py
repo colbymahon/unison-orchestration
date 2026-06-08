@@ -23,6 +23,7 @@ if str(_SRC) not in sys.path:
 from intent_router import route_agent_intent  # noqa: E402
 from memory_manager import AgentMemoryManager  # noqa: E402
 from task_queue import TaskQueueStore  # noqa: E402
+from workflow_executor import resolve_workflow_execution  # noqa: E402
 
 log = logging.getLogger("unison.task_coordinator")
 
@@ -92,12 +93,19 @@ async def process_single_task(
     task_id = task["task_id"]
     agent_id = task["agent_id"]
     session_id = task["session_id"]
-    query = task["query"]
-    collection = task["collection"]
 
-    route = route_agent_intent(query)
-    if route.get("confidence", 0) > 0 and collection in ("", "unison_public_domain"):
-        collection = str(route.get("collection", collection))
+    resolved = resolve_workflow_execution(task)
+    query = resolved["query"]
+    collection = resolved["collection"]
+    execution_plan = resolved.get("execution_plan", [])
+
+    if not execution_plan or execution_plan == ["flat_task"]:
+        route = route_agent_intent(query)
+        if route.get("confidence", 0) > 0 and collection in (
+            "",
+            "unison_public_domain",
+        ):
+            collection = str(route.get("collection", collection))
 
     envelope = memory.compose_institutional_query(query, agent_id, session_id)
     composed_query = str(envelope.get("composed_query", query))
@@ -108,7 +116,7 @@ async def process_single_task(
         {
             "query": query,
             "composed_query": composed_query,
-            "route": route,
+            "execution_plan": execution_plan,
             "task_id": task_id,
         },
     )
@@ -122,7 +130,8 @@ async def process_single_task(
     )
 
     if status_code == 200 and tsv:
-        digest = compress_result_digest(tsv)
+        plan_tag = "|".join(execution_plan[:6])
+        digest = f"{compress_result_digest(tsv)}|plan={plan_tag}"
         updated = store.update_task_status(task_id, "completed", digest)
         log.info(
             "Task %s completed — collection=%s bytes=%d",

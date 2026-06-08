@@ -240,6 +240,13 @@ export default function Dashboard() {
         </div>
 
         <div className="flex flex-wrap items-center gap-2">
+          <a
+            href="/dashboard/workflows"
+            className="hidden sm:inline font-mono text-[10px] text-purple-400/80 hover:text-purple-300 border border-purple-900/30 px-2 py-1.5 rounded-lg"
+          >
+            Workflows →
+          </a>
+
           <nav className="flex space-x-1 bg-gray-900/60 p-1 border border-gray-800 rounded-lg text-xs font-mono">
             {TABS.map(tab => (
               <button

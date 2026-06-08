@@ -48,10 +48,17 @@ class TaskQueueStore:
                     status TEXT NOT NULL DEFAULT 'pending',
                     created_at REAL NOT NULL,
                     completed_at REAL,
-                    result_digest TEXT
+                    result_digest TEXT,
+                    workflow_dsl TEXT
                 )
                 """
             )
+            try:
+                conn.execute(
+                    "ALTER TABLE task_queue ADD COLUMN workflow_dsl TEXT"
+                )
+            except sqlite3.OperationalError:
+                pass
             conn.execute(
                 """
                 CREATE INDEX IF NOT EXISTS idx_task_queue_status_created
@@ -66,6 +73,7 @@ class TaskQueueStore:
         session_id: str,
         collection: str,
         query: str,
+        workflow_dsl: str | None = None,
     ) -> str:
         aid = agent_id.strip()
         sid = session_id.strip()
@@ -81,10 +89,10 @@ class TaskQueueStore:
                 """
                 INSERT INTO task_queue
                 (task_id, agent_id, session_id, collection, query, status,
-                 created_at, completed_at, result_digest)
-                VALUES (?, ?, ?, ?, ?, 'pending', ?, NULL, NULL)
+                 created_at, completed_at, result_digest, workflow_dsl)
+                VALUES (?, ?, ?, ?, ?, 'pending', ?, NULL, NULL, ?)
                 """,
-                (task_id, aid, sid, col, q, now),
+                (task_id, aid, sid, col, q, now, workflow_dsl),
             )
             conn.commit()
         return task_id
@@ -96,7 +104,7 @@ class TaskQueueStore:
             row = conn.execute(
                 """
                 SELECT task_id, agent_id, session_id, collection, query, status,
-                       created_at, completed_at, result_digest
+                       created_at, completed_at, result_digest, workflow_dsl
                 FROM task_queue
                 WHERE status = 'pending'
                 ORDER BY created_at ASC
@@ -127,6 +135,7 @@ class TaskQueueStore:
                 "created_at": row["created_at"],
                 "completed_at": None,
                 "result_digest": None,
+                "workflow_dsl": row["workflow_dsl"],
                 "claimed_at": now,
             }
 
@@ -138,7 +147,7 @@ class TaskQueueStore:
             row = conn.execute(
                 """
                 SELECT task_id, agent_id, session_id, collection, query, status,
-                       created_at, completed_at, result_digest
+                       created_at, completed_at, result_digest, workflow_dsl
                 FROM task_queue
                 WHERE task_id = ?
                 """,

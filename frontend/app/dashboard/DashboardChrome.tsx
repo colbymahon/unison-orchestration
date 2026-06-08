@@ -36,6 +36,17 @@ function ContextNav() {
           [ OPERATIONAL AXIS ]
         </Link>
         <Link
+          href="/dashboard/workflows"
+          prefetch={false}
+          className={`px-3 py-2 rounded-md font-mono text-[10px] font-bold uppercase tracking-widest transition-all duration-200 ${
+            pathname === "/dashboard/workflows"
+              ? "text-purple-400 bg-purple-400/10 border border-purple-400/25"
+              : "text-gray-600 hover:text-purple-400/70 border border-transparent"
+          }`}
+        >
+          FLOWS
+        </Link>
+        <Link
           href="/dashboard/revenue-gaps"
           prefetch={false}
           className={`px-3 py-2 rounded-md font-mono text-[10px] font-bold uppercase tracking-widest transition-all duration-200 ${
