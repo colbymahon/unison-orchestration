@@ -23,7 +23,12 @@ if str(_SRC) not in sys.path:
 from intent_router import route_agent_intent  # noqa: E402
 from memory_manager import AgentMemoryManager  # noqa: E402
 from task_queue import TaskQueueStore  # noqa: E402
-from workflow_executor import resolve_workflow_execution  # noqa: E402
+from workflow_executor import (  # noqa: E402
+    detect_phase3_pack,
+    execute_phase3_pack,
+    parse_workflow_dsl,
+    resolve_workflow_execution,
+)
 
 log = logging.getLogger("unison.task_coordinator")
 
@@ -94,7 +99,43 @@ async def process_single_task(
     agent_id = task["agent_id"]
     session_id = task["session_id"]
 
-    resolved = resolve_workflow_execution(task)
+    workflow_doc = None
+    raw_dsl = task.get("workflow_dsl")
+    if isinstance(raw_dsl, str):
+        workflow_doc = parse_workflow_dsl(raw_dsl)
+
+    pack_info = detect_phase3_pack(task, workflow_doc)
+    if pack_info is not None:
+        log.info(
+            "Phase 3 pack detected: %s for task %s",
+            pack_info.get("pack"),
+            task_id,
+        )
+        memory.save_agent_context(
+            agent_id,
+            session_id,
+            {
+                "phase3_pack": pack_info.get("pack"),
+                "node": pack_info.get("node"),
+                "task_id": task_id,
+            },
+        )
+        ok, digest = await execute_phase3_pack(pack_info, session)
+        if ok:
+            plan_tag = f"phase3:{pack_info.get('pack')}"
+            full_digest = f"{digest}|plan={plan_tag}"
+            updated = store.update_task_status(task_id, "completed", full_digest)
+            log.info("Task %s Phase 3 pack completed", task_id)
+            return updated or {
+                "task_id": task_id,
+                "status": "completed",
+                "result_digest": full_digest,
+            }
+        store.update_task_status(task_id, "failed", digest)
+        log.error("Task %s Phase 3 pack failed: %s", task_id, digest[:120])
+        return {"task_id": task_id, "status": "failed"}
+
+    resolved = resolve_workflow_execution(task, workflow_doc)
     query = resolved["query"]
     collection = resolved["collection"]
     execution_plan = resolved.get("execution_plan", [])

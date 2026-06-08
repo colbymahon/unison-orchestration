@@ -10,7 +10,16 @@ export const WORKFLOW_NODE_TYPES = [
   "Action",
 ] as const;
 
-export type WorkflowNodeType = (typeof WORKFLOW_NODE_TYPES)[number];
+export const PHASE3_PACK_NODE_TYPES = [
+  "COMPLIANCE_AUDIT_NODE",
+  "ENTERPRISE_RESEARCH_NODE",
+] as const;
+
+export type WorkflowNodeType =
+  | (typeof WORKFLOW_NODE_TYPES)[number]
+  | (typeof PHASE3_PACK_NODE_TYPES)[number];
+
+export type WorkflowPackId = "COMMERCIAL_COMPLIANCE" | "ENTERPRISE_RESEARCH";
 
 export interface WorkflowNodeDSL {
   id: string;
@@ -24,7 +33,9 @@ export type WorkflowNodeData =
   | IntentRouterNodeData
   | ContextSearchNodeData
   | VerificationAgentNodeData
-  | ActionNodeData;
+  | ActionNodeData
+  | CompliancePackNodeData
+  | ResearchPackNodeData;
 
 export interface TriggerNodeData {
   event: "manual" | "schedule" | "webhook";
@@ -54,6 +65,16 @@ export interface ActionNodeData {
   label?: string;
 }
 
+export interface CompliancePackNodeData {
+  label?: string;
+  collections: string[];
+}
+
+export interface ResearchPackNodeData {
+  label?: string;
+  collections: string[];
+}
+
 export interface WorkflowEdgeDSL {
   id: string;
   source: string;
@@ -70,6 +91,7 @@ export interface WorkflowDocument {
   id: string;
   name: string;
   version: 1;
+  pack?: WorkflowPackId;
   nodes: WorkflowNodeDSL[];
   edges: WorkflowEdgeDSL[];
   metadata: WorkflowMetadata;
@@ -114,6 +136,20 @@ export function defaultNodeData(type: WorkflowNodeType): WorkflowNodeData {
       };
     case "Action":
       return { action: "enqueue_digest", label: "Action" };
+    case "COMPLIANCE_AUDIT_NODE":
+      return {
+        label: "Compliance Audit",
+        collections: ["unison_legal_core", "unison_cyber_core"],
+      };
+    case "ENTERPRISE_RESEARCH_NODE":
+      return {
+        label: "Enterprise Research",
+        collections: [
+          "unison_medical_core",
+          "unison_financial_core",
+          "unison_public_domain",
+        ],
+      };
   }
 }
 
@@ -174,6 +210,116 @@ export function createEmptyWorkflow(name = "Untitled Workflow"): WorkflowDocumen
     metadata: {
       agent_id: "workflow-canvas-operator",
       session_id: `sess-${crypto.randomUUID().slice(0, 8)}`,
+    },
+    created_at: now,
+    updated_at: now,
+  };
+}
+
+export function createCompliancePackWorkflow(): WorkflowDocument {
+  const now = new Date().toISOString();
+  const triggerId = `trigger-${crypto.randomUUID().slice(0, 8)}`;
+  const packId = `compliance-${crypto.randomUUID().slice(0, 8)}`;
+  const actionId = `action-${crypto.randomUUID().slice(0, 8)}`;
+  return {
+    id: crypto.randomUUID(),
+    name: "Commercial Compliance Node",
+    version: 1,
+    pack: "COMMERCIAL_COMPLIANCE",
+    nodes: [
+      {
+        id: triggerId,
+        type: "Trigger",
+        position: { x: 80, y: 200 },
+        data: {
+          event: "manual",
+          query:
+            "Review SaaS master services agreement for GDPR data processing and SOC2 security controls",
+          draft_text:
+            "Review SaaS master services agreement for GDPR data processing and SOC2 security controls",
+          label: "Contract Draft Input",
+        } as TriggerNodeData & { draft_text?: string },
+      },
+      {
+        id: packId,
+        type: "COMPLIANCE_AUDIT_NODE",
+        position: { x: 400, y: 200 },
+        data: {
+          label: "Legal + Cyber Cross-Audit",
+          collections: ["unison_legal_core", "unison_cyber_core"],
+        } as CompliancePackNodeData,
+      },
+      {
+        id: actionId,
+        type: "Action",
+        position: { x: 720, y: 200 },
+        data: { action: "enqueue_digest", label: "Publish Audit" },
+      },
+    ],
+    edges: [
+      { id: "e1", source: triggerId, target: packId },
+      { id: "e2", source: packId, target: actionId },
+    ],
+    metadata: {
+      agent_id: "compliance-pack-operator",
+      session_id: `sess-${crypto.randomUUID().slice(0, 8)}`,
+      description: "Phase 3 Pack 1 — Commercial Compliance Node",
+    },
+    created_at: now,
+    updated_at: now,
+  };
+}
+
+export function createResearchPackWorkflow(): WorkflowDocument {
+  const now = new Date().toISOString();
+  const triggerId = `trigger-${crypto.randomUUID().slice(0, 8)}`;
+  const packId = `research-${crypto.randomUUID().slice(0, 8)}`;
+  const actionId = `action-${crypto.randomUUID().slice(0, 8)}`;
+  return {
+    id: crypto.randomUUID(),
+    name: "Enterprise Research Node",
+    version: 1,
+    pack: "ENTERPRISE_RESEARCH",
+    nodes: [
+      {
+        id: triggerId,
+        type: "Trigger",
+        position: { x: 80, y: 200 },
+        data: {
+          event: "manual",
+          query:
+            "GLP-1 competitive landscape and payer reimbursement trajectory for 2026",
+          label: "Research Topic",
+        },
+      },
+      {
+        id: packId,
+        type: "ENTERPRISE_RESEARCH_NODE",
+        position: { x: 400, y: 200 },
+        data: {
+          label: "Deep Multi-Pass Brief",
+          collections: [
+            "unison_medical_core",
+            "unison_financial_core",
+            "unison_public_domain",
+          ],
+        } as ResearchPackNodeData,
+      },
+      {
+        id: actionId,
+        type: "Action",
+        position: { x: 720, y: 200 },
+        data: { action: "enqueue_digest", label: "Publish Brief" },
+      },
+    ],
+    edges: [
+      { id: "e1", source: triggerId, target: packId },
+      { id: "e2", source: packId, target: actionId },
+    ],
+    metadata: {
+      agent_id: "research-pack-operator",
+      session_id: `sess-${crypto.randomUUID().slice(0, 8)}`,
+      description: "Phase 3 Pack 2 — Enterprise Research Node",
     },
     created_at: now,
     updated_at: now,
@@ -279,7 +425,12 @@ export function validateWorkflow(doc: WorkflowDocument): string[] {
   if (trigger && !(trigger.data as TriggerNodeData).query?.trim()) {
     errors.push("Trigger query cannot be empty.");
   }
-  if (!doc.nodes.some((n) => n.type === "Action")) {
+  const hasPack = doc.nodes.some((n) =>
+    PHASE3_PACK_NODE_TYPES.includes(
+      n.type as (typeof PHASE3_PACK_NODE_TYPES)[number]
+    )
+  );
+  if (!hasPack && !doc.nodes.some((n) => n.type === "Action")) {
     errors.push("At least one Action node is required to publish.");
   }
   return errors;

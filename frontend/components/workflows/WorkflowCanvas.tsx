@@ -28,22 +28,27 @@ import {
 } from "lucide-react";
 import {
   WORKFLOW_NODE_TYPES,
+  PHASE3_PACK_NODE_TYPES,
   type WorkflowDocument,
   type WorkflowNodeDSL,
   type WorkflowNodeType,
   type WorkflowNodeData,
   createEmptyWorkflow,
+  createCompliancePackWorkflow,
+  createResearchPackWorkflow,
   defaultNodeData,
   validateWorkflow,
   compileWorkflowToTask,
 } from "@/lib/workflow-dsl";
 
-const NODE_COLORS: Record<WorkflowNodeType, string> = {
+const NODE_COLORS: Record<string, string> = {
   Trigger: "#00E5FF",
   IntentRouter: "#B300FF",
   ContextSearch: "#34d399",
   VerificationAgent: "#f59e0b",
   Action: "#ef4444",
+  COMPLIANCE_AUDIT_NODE: "#f43f5e",
+  ENTERPRISE_RESEARCH_NODE: "#a78bfa",
 };
 
 function WorkflowNodeCard({ data, type }: NodeProps) {
@@ -69,7 +74,7 @@ function WorkflowNodeCard({ data, type }: NodeProps) {
   );
 }
 
-const nodeTypes = WORKFLOW_NODE_TYPES.reduce(
+const nodeTypes = [...WORKFLOW_NODE_TYPES, ...PHASE3_PACK_NODE_TYPES].reduce(
   (acc, t) => {
     acc[t] = WorkflowNodeCard;
     return acc;
@@ -146,6 +151,15 @@ export function WorkflowCanvas() {
     },
     [setEdges]
   );
+
+  const loadPack = (doc: WorkflowDocument) => {
+    setWorkflow(doc);
+    const flow = docToFlow(doc);
+    setNodes(flow.nodes);
+    setEdges(flow.edges);
+    setSelectedId(null);
+    setStatus(`Loaded ${doc.name}`);
+  };
 
   const addNode = (type: WorkflowNodeType) => {
     const id = `${type.toLowerCase()}-${crypto.randomUUID().slice(0, 8)}`;
@@ -242,6 +256,26 @@ export function WorkflowCanvas() {
       <aside className="lg:w-52 shrink-0 bg-white/5 backdrop-blur-xl border border-white/10 rounded-xl p-4 space-y-3">
         <div className="text-[10px] font-mono text-gray-500 uppercase tracking-widest">
           Node Palette
+        </div>
+        <div className="text-[9px] font-mono text-purple-400 uppercase tracking-widest pt-2 border-t border-gray-800">
+          Phase 3 Packs
+        </div>
+        <button
+          type="button"
+          onClick={() => loadPack(createCompliancePackWorkflow())}
+          className="w-full text-left px-3 py-2 rounded-lg border border-rose-900/40 bg-rose-950/20 font-mono text-[10px] text-rose-300 hover:border-rose-500/40"
+        >
+          Pack 1 · Compliance Node
+        </button>
+        <button
+          type="button"
+          onClick={() => loadPack(createResearchPackWorkflow())}
+          className="w-full text-left px-3 py-2 rounded-lg border border-purple-900/40 bg-purple-950/20 font-mono text-[10px] text-purple-300 hover:border-purple-500/40"
+        >
+          Pack 2 · Research Node
+        </button>
+        <div className="text-[9px] font-mono text-gray-600 uppercase tracking-widest pt-2">
+          Core Nodes
         </div>
         {WORKFLOW_NODE_TYPES.map((type) => (
           <button

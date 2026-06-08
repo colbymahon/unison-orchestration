@@ -9,9 +9,14 @@ import json
 import logging
 from typing import Any
 
+from compliance_pack import execute_compliance_audit
 from intent_router import route_agent_intent
+from research_pack import EnterpriseResearchRunner, process_deep_brief
 
 log = logging.getLogger("unison.workflow_executor")
+
+PHASE3_COMPLIANCE_NODE = "COMPLIANCE_AUDIT_NODE"
+PHASE3_RESEARCH_NODE = "ENTERPRISE_RESEARCH_NODE"
 
 DOMAIN_COLLECTION = {
     "medical": "unison_medical_core",
@@ -142,3 +147,99 @@ def resolve_workflow_execution(
         "verification_min_score": verification_min_score,
         "require_attestation": require_attestation,
     }
+
+
+def _extract_trigger_payload(doc: dict[str, Any]) -> str:
+    for node in doc.get("nodes", []):
+        if not isinstance(node, dict) or node.get("type") != "Trigger":
+            continue
+        data = node.get("data", {})
+        if isinstance(data, dict):
+            q = str(data.get("query", "")).strip()
+            draft = str(data.get("draft_text", "")).strip()
+            return draft or q
+    return ""
+
+
+def detect_phase3_pack(
+    task: dict[str, Any],
+    workflow_doc: dict[str, Any] | None = None,
+) -> dict[str, Any] | None:
+    """
+    Identify Phase 3 vertical pack nodes in workflow_dsl.
+    Returns pack routing descriptor or None for standard execution.
+    """
+    doc = workflow_doc
+    if doc is None:
+        raw = task.get("workflow_dsl")
+        if isinstance(raw, str):
+            doc = parse_workflow_dsl(raw)
+    if not doc:
+        return None
+
+    pack_tag = str(doc.get("pack", "")).strip().upper()
+    nodes = doc.get("nodes", [])
+    node_types = {
+        str(n.get("type", "")).upper()
+        for n in nodes
+        if isinstance(n, dict)
+    }
+
+    payload = _extract_trigger_payload(doc) or str(task.get("query", "")).strip()
+
+    if (
+        PHASE3_COMPLIANCE_NODE in node_types
+        or pack_tag == "COMMERCIAL_COMPLIANCE"
+    ):
+        draft = payload
+        for node in nodes:
+            if (
+                isinstance(node, dict)
+                and str(node.get("type", "")).upper() == PHASE3_COMPLIANCE_NODE
+            ):
+                data = node.get("data", {})
+                if isinstance(data, dict) and data.get("draft_text"):
+                    draft = str(data["draft_text"]).strip()
+        return {
+            "pack": "compliance",
+            "payload": draft,
+            "node": PHASE3_COMPLIANCE_NODE,
+        }
+
+    if (
+        PHASE3_RESEARCH_NODE in node_types
+        or pack_tag == "ENTERPRISE_RESEARCH"
+    ):
+        return {
+            "pack": "research",
+            "payload": payload,
+            "node": PHASE3_RESEARCH_NODE,
+        }
+
+    return None
+
+
+async def execute_phase3_pack(
+    pack_info: dict[str, Any],
+    session: Any,
+) -> tuple[bool, str]:
+    """
+    Run Phase 3 pack engine and return (success, result_digest).
+    """
+    pack = pack_info.get("pack")
+    payload = str(pack_info.get("payload", "")).strip()
+    if not payload:
+        return False, "phase3_error:empty_payload"
+
+    if pack == "compliance":
+        result = await execute_compliance_audit(payload, session=session)
+        digest = f"compliance_audit:{json.dumps(result, ensure_ascii=False)[:3500]}"
+        ok = result.get("status") in {"flagged", "cleared"}
+        return ok, digest
+
+    if pack == "research":
+        brief = await process_deep_brief(payload, session=session)
+        digest = EnterpriseResearchRunner.compress_brief_digest(brief)
+        return bool(brief.strip()), digest
+
+    return False, "phase3_error:unknown_pack"
