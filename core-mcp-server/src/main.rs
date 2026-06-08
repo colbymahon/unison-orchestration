@@ -9,6 +9,8 @@
 //!   POST /telemetry/agent-heartbeat                     Edge-forwarded agent registry upsert
 //!   POST /api/v1/tasks                                  Enqueue async background task
 //!   GET  /api/v1/tasks/:id                              Poll task status + result digest
+//!   GET  /api/v1/tasks/summary                          Queue status histogram + recent tasks
+//!   GET  /api/v1/registry/agents                        Edge-synced agent registry snapshot
 //!
 //! Telemetry now tracks:
 //!   - Total queries dispatched + per-collection breakdown
@@ -52,7 +54,7 @@ use persistence::{
 };
 use retrieval::{EmbedService, QdrantPool};
 use retrieval::qdrant::QdrantScoredPoint;
-use task_queue::{TaskQueueStore, TaskRecord};
+use task_queue::{TaskQueueStore, TaskQueueSummary, TaskRecord};
 
 // ---------------------------------------------------------------------------
 // Constants
@@ -940,6 +942,110 @@ async fn enqueue_task_handler(
     }
 }
 
+#[derive(Debug, Serialize)]
+struct TaskSummaryResponse {
+    queue_summary: TaskQueueSummary,
+    recent_tasks: Vec<TaskStatusResponse>,
+}
+
+async fn task_summary_handler(State(state): State<Arc<AppState>>) -> Response {
+    match state.task_queue.status_summary() {
+        Ok(summary) => {
+            let recent = state
+                .task_queue
+                .list_recent_tasks(25)
+                .unwrap_or_default()
+                .into_iter()
+                .map(TaskStatusResponse::from)
+                .collect();
+            (
+                StatusCode::OK,
+                Json(TaskSummaryResponse {
+                    queue_summary: summary,
+                    recent_tasks: recent,
+                }),
+            )
+                .into_response()
+        }
+        Err(err) => {
+            tracing::error!("task_summary failed: {err}");
+            (
+                StatusCode::INTERNAL_SERVER_ERROR,
+                Json(serde_json::json!({"error": "task summary degraded"})),
+            )
+                .into_response()
+        }
+    }
+}
+
+#[derive(Debug, Serialize)]
+struct RegistryAgentResponse {
+    agent_id: String,
+    attestation_hash: Option<String>,
+    query_count: u64,
+    session_count: u64,
+    status: String,
+    last_seen_at: f64,
+    first_seen_at: f64,
+}
+
+#[derive(Debug, Serialize)]
+struct RegistryAgentsResponse {
+    agents: Vec<RegistryAgentResponse>,
+    active_sessions_count: u64,
+}
+
+async fn registry_agents_handler(State(state): State<Arc<AppState>>) -> Response {
+    let registry = state.agent_registry.lock().unwrap_or_else(|e| e.into_inner());
+    let sessions = state.agent_session_ids.lock().unwrap_or_else(|e| e.into_inner());
+    let agent_totals = state.telemetry.agent_totals();
+
+    let mut agents: Vec<RegistryAgentResponse> = registry
+        .values()
+        .map(|r| {
+            let disk_queries = agent_totals.get(&r.agent_id).copied().unwrap_or(0);
+            let query_count = r.query_count.max(disk_queries);
+            RegistryAgentResponse {
+                agent_id: r.agent_id.clone(),
+                attestation_hash: r.attestation_hash.clone(),
+                query_count,
+                session_count: r.session_count,
+                status: r.status.clone(),
+                last_seen_at: r.last_seen_at,
+                first_seen_at: r.first_seen_at,
+            }
+        })
+        .collect();
+
+    for (agent_id, count) in agent_totals {
+        if registry.contains_key(&agent_id) {
+            continue;
+        }
+        agents.push(RegistryAgentResponse {
+            agent_id: agent_id.clone(),
+            attestation_hash: None,
+            query_count: count,
+            session_count: sessions.get(&agent_id).map(|s| s.len() as u64).unwrap_or(0),
+            status: if count > 0 { "active" } else { "idle" }.to_string(),
+            last_seen_at: 0.0,
+            first_seen_at: 0.0,
+        });
+    }
+
+    agents.sort_by(|a, b| b.query_count.cmp(&a.query_count));
+
+    let active_sessions_count: u64 = sessions.values().map(|s| s.len() as u64).sum();
+
+    (
+        StatusCode::OK,
+        Json(RegistryAgentsResponse {
+            agents,
+            active_sessions_count,
+        }),
+    )
+        .into_response()
+}
+
 async fn get_task_handler(
     State(state): State<Arc<AppState>>,
     Path(task_id): Path<String>,
@@ -1077,6 +1183,8 @@ async fn main() -> anyhow::Result<()> {
         .route("/telemetry/rejection",            post(track_rejection_handler))
         .route("/telemetry/agent-heartbeat",      post(agent_heartbeat_handler))
         .route("/api/v1/tasks",                    post(enqueue_task_handler))
+        .route("/api/v1/tasks/summary",            get(task_summary_handler))
+        .route("/api/v1/registry/agents",          get(registry_agents_handler))
         .route("/api/v1/tasks/:id",                 get(get_task_handler))
         .with_state(state)
         .layer(cors);

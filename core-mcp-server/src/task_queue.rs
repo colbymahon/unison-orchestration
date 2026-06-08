@@ -234,6 +234,59 @@ impl TaskQueueStore {
         drop(conn);
         self.get_task(task_id)
     }
+
+    pub fn status_summary(&self) -> Result<TaskQueueSummary, TaskQueueError> {
+        let conn = self.conn.lock().map_err(|_| TaskQueueError::Poisoned)?;
+        let mut stmt = conn.prepare(
+            "SELECT status, COUNT(*) AS cnt FROM task_queue GROUP BY status",
+        )?;
+        let rows = stmt.query_map([], |row| {
+            Ok((row.get::<_, String>(0)?, row.get::<_, i64>(1)?))
+        })?;
+
+        let mut summary = TaskQueueSummary::default();
+        for row in rows {
+            let (status, count) = row?;
+            summary.total += count;
+            match status.as_str() {
+                "pending" => summary.pending = count,
+                "running" => summary.running = count,
+                "completed" => summary.completed = count,
+                "failed" => summary.failed = count,
+                "cancelled" => summary.cancelled = count,
+                _ => {}
+            }
+        }
+        Ok(summary)
+    }
+
+    pub fn list_recent_tasks(&self, limit: usize) -> Result<Vec<TaskRecord>, TaskQueueError> {
+        let cap = limit.clamp(1, 100) as i64;
+        let conn = self.conn.lock().map_err(|_| TaskQueueError::Poisoned)?;
+        let mut stmt = conn.prepare(
+            "SELECT task_id, agent_id, session_id, collection, query, status,
+                    created_at, completed_at, result_digest
+             FROM task_queue
+             ORDER BY created_at DESC
+             LIMIT ?1",
+        )?;
+        let rows = stmt.query_map(params![cap], row_to_task)?;
+        let mut out = Vec::new();
+        for row in rows {
+            out.push(row?);
+        }
+        Ok(out)
+    }
+}
+
+#[derive(Debug, Clone, Default, serde::Serialize)]
+pub struct TaskQueueSummary {
+    pub pending: i64,
+    pub running: i64,
+    pub completed: i64,
+    pub failed: i64,
+    pub cancelled: i64,
+    pub total: i64,
 }
 
 fn row_to_task(row: &rusqlite::Row<'_>) -> rusqlite::Result<TaskRecord> {

@@ -22,6 +22,7 @@ import { MarketplacePrimitives } from "./dashboard/MarketplacePrimitives";
 import { InfraTelemetry } from "./dashboard/InfraTelemetry";
 import { AgenticDiscovery } from "./dashboard/AgenticDiscovery";
 import { LiveTerminal } from "./dashboard/LiveTerminal";
+import { AgentRegistryView } from "./dashboard/AgentRegistryView";
 import type { HistoryPoint } from "./dashboard/types";
 
 interface MoatCollectionRow {
@@ -73,15 +74,23 @@ const SYSTEM_CONFIG = {
   premiumCollections: 7,
 };
 
-type TabId = "overview" | "ledger" | "ops" | "growth" | "moat" | "terminal";
+type TabId =
+  | "overview"
+  | "ledger"
+  | "registry"
+  | "ops"
+  | "growth"
+  | "moat"
+  | "terminal";
 
 const TABS: Array<{ id: TabId; label: string }> = [
-  { id: "overview", label: "Overview"  },
-  { id: "ledger",   label: "Ledger"    },
-  { id: "ops",      label: "Ops"       },
-  { id: "growth",   label: "Growth"    },
-  { id: "moat",     label: "Data Moat" },
-  { id: "terminal", label: "Terminal"  },
+  { id: "overview", label: "Overview"       },
+  { id: "ledger",   label: "Ledger"         },
+  { id: "registry", label: "Agent Registry" },
+  { id: "ops",      label: "Ops"            },
+  { id: "growth",   label: "Growth"         },
+  { id: "moat",     label: "Data Moat"      },
+  { id: "terminal", label: "Terminal"       },
 ];
 
 // ── Root Component ────────────────────────────────────────────────────────────
@@ -358,7 +367,12 @@ export default function Dashboard() {
           />
         )}
 
-        {/* ── TAB 3: OPS ──────────────────────────────────────────────── */}
+        {/* ── TAB 3: AGENT REGISTRY ───────────────────────────────────── */}
+        {activeTab === "registry" && (
+          <AgentRegistryView loading={ledgerBootstrapping} />
+        )}
+
+        {/* ── TAB 4: OPS ──────────────────────────────────────────────── */}
         {activeTab === "ops" && (
           <div className="space-y-6">
             <OpsPanel
@@ -409,7 +423,7 @@ export default function Dashboard() {
           </div>
         )}
 
-        {/* ── TAB 4: GROWTH (Agentic SEO) ─────────────────────────────── */}
+        {/* ── TAB 5: GROWTH (Agentic SEO) ─────────────────────────────── */}
         {activeTab === "growth" && (
           <div className="space-y-6">
             <AgenticDiscovery
@@ -499,10 +513,10 @@ export default function Dashboard() {
           </div>
         )}
 
-        {/* ── TAB 5: DATA MOAT ────────────────────────────────────────── */}
+        {/* ── TAB 6: DATA MOAT ────────────────────────────────────────── */}
         {activeTab === "moat" && <DataMoatPanel />}
 
-        {/* ── TAB 6: TERMINAL ─────────────────────────────────────────── */}
+        {/* ── TAB 7: TERMINAL ─────────────────────────────────────────── */}
         {activeTab === "terminal" && <LiveTerminal />}
       </main>
 
