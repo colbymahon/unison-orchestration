@@ -63,6 +63,24 @@ class AgentRegistryStore:
                 ON agent_sessions (agent_id, last_activity_at DESC)
                 """
             )
+            conn.execute(
+                """
+                CREATE TABLE IF NOT EXISTS creator_registry (
+                    slug TEXT PRIMARY KEY,
+                    creator_wallet TEXT NOT NULL,
+                    domain TEXT NOT NULL,
+                    trust_score REAL NOT NULL DEFAULT 1.0,
+                    upload_status TEXT NOT NULL DEFAULT 'pending',
+                    created_at REAL NOT NULL
+                )
+                """
+            )
+            conn.execute(
+                """
+                CREATE INDEX IF NOT EXISTS idx_creator_registry_status
+                ON creator_registry (upload_status, created_at DESC)
+                """
+            )
             conn.commit()
 
     def upsert_agent_state(

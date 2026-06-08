@@ -7,10 +7,18 @@ Stateful session tracking via local SQLite (institutional short-term recall).
 from __future__ import annotations
 
 import json
+import re
 import sqlite3
+import threading
 import time
 from pathlib import Path
 from typing import Any
+
+_BASE_WALLET_RE = re.compile(r"^0x[a-fA-F0-9]{40}$")
+_SLUG_RE = re.compile(r"^[a-z0-9][a-z0-9_-]{2,63}$")
+_VALID_UPLOAD_STATUSES = frozenset(
+    {"pending", "processing", "completed", "failed"}
+)
 
 _DEFAULT_DB = (
     Path(__file__).resolve().parents[1] / ".agent_state" / "agent_memory.db"
@@ -178,3 +186,160 @@ def recall_agent_context(
     return AgentMemoryManager(db_path).recall_agent_context(
         agent_id, session_id, short_term_history_window
     )
+
+
+class CreatorRegistryStore:
+    """Track 2 Phase 2a — third-party corpus creators and payout routing targets."""
+
+    def __init__(self, db_path: str | Path | None = None) -> None:
+        self.db_path = Path(db_path or _DEFAULT_DB)
+        self.db_path.parent.mkdir(parents=True, exist_ok=True)
+        self._lock = threading.Lock()
+        self._init_schema()
+
+    def _connect(self) -> sqlite3.Connection:
+        conn = sqlite3.connect(self.db_path, timeout=5.0)
+        conn.row_factory = sqlite3.Row
+        conn.execute("PRAGMA busy_timeout = 5000")
+        conn.execute("PRAGMA journal_mode = WAL")
+        return conn
+
+    def _init_schema(self) -> None:
+        with self._lock:
+            with self._connect() as conn:
+                conn.execute(
+                    """
+                    CREATE TABLE IF NOT EXISTS creator_registry (
+                        slug TEXT PRIMARY KEY,
+                        creator_wallet TEXT NOT NULL,
+                        domain TEXT NOT NULL,
+                        trust_score REAL NOT NULL DEFAULT 1.0,
+                        upload_status TEXT NOT NULL DEFAULT 'pending',
+                        created_at REAL NOT NULL
+                    )
+                    """
+                )
+                conn.execute(
+                    """
+                    CREATE INDEX IF NOT EXISTS idx_creator_registry_status
+                    ON creator_registry (upload_status, created_at DESC)
+                    """
+                )
+                conn.commit()
+
+    def register_creator_source(
+        self,
+        slug: str,
+        creator_wallet: str,
+        domain: str,
+    ) -> bool:
+        s = slug.strip().lower()
+        wallet = creator_wallet.strip()
+        dom = domain.strip()
+
+        if not s or not _SLUG_RE.match(s):
+            return False
+        if not _BASE_WALLET_RE.match(wallet):
+            return False
+        if not dom:
+            return False
+
+        now = time.time()
+        with self._lock:
+            try:
+                with self._connect() as conn:
+                    conn.execute(
+                        """
+                        INSERT INTO creator_registry
+                        (slug, creator_wallet, domain, trust_score, upload_status, created_at)
+                        VALUES (?, ?, ?, 1.0, 'pending', ?)
+                        """,
+                        (s, wallet, dom, now),
+                    )
+                    conn.commit()
+                return True
+            except sqlite3.IntegrityError:
+                return False
+
+    def fetch_creator_by_slug(self, slug: str) -> dict[str, Any] | None:
+        s = slug.strip().lower()
+        if not s:
+            return None
+        with self._connect() as conn:
+            row = conn.execute(
+                """
+                SELECT slug, creator_wallet, domain, trust_score,
+                       upload_status, created_at
+                FROM creator_registry
+                WHERE slug = ?
+                """,
+                (s,),
+            ).fetchone()
+        return dict(row) if row is not None else None
+
+    def update_upload_status(self, slug: str, status: str) -> bool:
+        s = slug.strip().lower()
+        st = status.strip().lower()
+        if not s or st not in _VALID_UPLOAD_STATUSES:
+            return False
+
+        with self._lock:
+            with self._connect() as conn:
+                cur = conn.execute(
+                    """
+                    UPDATE creator_registry
+                    SET upload_status = ?
+                    WHERE slug = ?
+                    """,
+                    (st, s),
+                )
+                conn.commit()
+                return cur.rowcount > 0
+
+    def get_active_registry_manifest(self) -> list[dict[str, Any]]:
+        with self._connect() as conn:
+            rows = conn.execute(
+                """
+                SELECT slug, creator_wallet, domain, trust_score,
+                       upload_status, created_at
+                FROM creator_registry
+                ORDER BY created_at DESC
+                """
+            ).fetchall()
+        return [dict(row) for row in rows]
+
+
+def register_creator_source(
+    slug: str,
+    creator_wallet: str,
+    domain: str,
+    *,
+    db_path: str | Path | None = None,
+) -> bool:
+    return CreatorRegistryStore(db_path).register_creator_source(
+        slug, creator_wallet, domain
+    )
+
+
+def fetch_creator_by_slug(
+    slug: str,
+    *,
+    db_path: str | Path | None = None,
+) -> dict[str, Any] | None:
+    return CreatorRegistryStore(db_path).fetch_creator_by_slug(slug)
+
+
+def update_upload_status(
+    slug: str,
+    status: str,
+    *,
+    db_path: str | Path | None = None,
+) -> bool:
+    return CreatorRegistryStore(db_path).update_upload_status(slug, status)
+
+
+def get_active_registry_manifest(
+    *,
+    db_path: str | Path | None = None,
+) -> list[dict[str, Any]]:
+    return CreatorRegistryStore(db_path).get_active_registry_manifest()
