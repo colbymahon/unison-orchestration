@@ -12,12 +12,13 @@ export const metadata: Metadata = {
 
 export default function LegalPage() {
   return (
-    <article className="max-w-3xl mx-auto px-6 py-24 text-white/80">
+    <article className="public-page public-section py-24">
+      <div className="public-page-shell public-prose">
       <h1 className="font-brand text-3xl font-bold text-white mb-6">Legal &amp; Usage</h1>
       <p className="font-data text-sm text-slate-400 mb-8">
         V18 Group · Unison Orchestration · {PRODUCTION_SITE_URL}
       </p>
-      <section className="space-y-6 font-[var(--font-inter)] text-sm leading-relaxed">
+      <section className="space-y-6 font-[var(--font-inter)] text-sm leading-relaxed text-center">
         <p>
           Unison Orchestration provides structured TSV vector retrieval for autonomous agents and
           developers. Queries through the edge gateway may require x402 USDC settlement on Base L2
@@ -38,6 +39,7 @@ export default function LegalPage() {
       <Link href="/" className="inline-block mt-10 text-cyan-400 text-sm font-data hover:underline">
         ← Storefront
       </Link>
+      </div>
     </article>
   );
 }

@@ -185,11 +185,13 @@ export default async function CollectionCorpusPage({ params }: PageProps) {
           });
 
   return (
-    <article className="pt-32 pb-24 px-6 max-w-4xl mx-auto">
+    <article className="public-page public-section pt-32 pb-24">
       <script
         type="application/ld+json"
         dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
       />
+      <div className="public-page-shell max-w-4xl">
+      <div className="public-copy-stack items-start sm:items-center text-left sm:text-center mb-10">
       <nav className="font-[var(--font-mono)] text-xs text-white/40 mb-8">
         <Link href="/corpora" className="hover:text-cyan-400">
           Data Vault
@@ -204,9 +206,10 @@ export default async function CollectionCorpusPage({ params }: PageProps) {
       <h1 className="font-[var(--font-grotesk)] text-4xl sm:text-5xl font-bold text-white mb-4">
         {collection.label}
       </h1>
-      <p className="text-white/60 mb-6 leading-relaxed">{collection.description}</p>
+      <p className="public-lead text-white/60 mb-0">{collection.description}</p>
+      </div>
 
-      <dl className="grid grid-cols-2 sm:grid-cols-3 gap-4 mb-10 font-[var(--font-mono)] text-sm">
+      <dl className="grid grid-cols-2 sm:grid-cols-3 gap-4 mb-10 font-[var(--font-mono)] text-sm text-center">
         <div className="rounded-xl border border-white/10 bg-white/5 p-4">
           <dt className="text-white/40 text-xs uppercase mb-1">Collection vectors</dt>
           <dd className="text-cyan-400 text-xl">{vectors.toLocaleString()}</dd>
@@ -271,6 +274,7 @@ export default async function CollectionCorpusPage({ params }: PageProps) {
           ))}
         </div>
       </section>
+      </div>
     </article>
   );
 }

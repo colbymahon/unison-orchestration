@@ -4,6 +4,15 @@
 
 import { fetchMoatMetrics } from "@/lib/qdrant-server";
 
+/** Priority vaults surfaced on public corpora registry and ops dashboards. */
+export const TRACKED_CORPORA_SLUGS = [
+  "unison_medical_core",
+  "unison_engineering_core",
+  "unison_legal_core",
+  "unison_financial_core",
+  "unison_cyber_core",
+] as const;
+
 export interface CorporaCollectionSync {
   slug: string;
   vector_count: number;
@@ -17,6 +26,7 @@ export interface CorporaSyncResponse {
   collection_count: number;
   synced_at: string;
   qdrant_region: string;
+  source: "qdrant";
 }
 
 export function collectionSlugToDomain(slug: string): string {
@@ -52,14 +62,25 @@ export async function fetchCorporaSync(options?: {
 
   const { collections, total_vectors, collection_count, fetched_at } = result.data;
 
+  const bySlug = new Map(
+    collections.map((c) => [c.name, toSyncEntry(c.name, c.count, fetched_at)])
+  );
+
+  for (const slug of TRACKED_CORPORA_SLUGS) {
+    if (!bySlug.has(slug)) {
+      bySlug.set(slug, toSyncEntry(slug, 0, fetched_at));
+    }
+  }
+
   const data: CorporaSyncResponse = {
-    collections: collections.map((c) =>
-      toSyncEntry(c.name, c.count, fetched_at)
+    collections: Array.from(bySlug.values()).sort(
+      (a, b) => b.vector_count - a.vector_count
     ),
     total_vectors,
     collection_count,
     synced_at: fetched_at,
     qdrant_region: "us-east4-0.gcp",
+    source: "qdrant",
   };
 
   return { ok: true, data };

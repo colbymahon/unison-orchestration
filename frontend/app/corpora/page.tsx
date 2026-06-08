@@ -11,17 +11,22 @@ export const metadata: Metadata = {
     "Browse Unison Orchestration's live vector collections spanning medicine, engineering, law, astrophysics, chemistry, manufacturing, and more. Click any corpus to inspect raw TSV ground-truth data.",
 };
 
+const EMPTY_SYNC = {
+  collections: [],
+  total_vectors: 0,
+  collection_count: 0,
+  synced_at: new Date().toISOString(),
+  qdrant_region: "us-east4-0.gcp",
+  source: "qdrant" as const,
+};
+
 export default async function CorporaPage() {
   const result = await fetchCorporaSync({ bypassCache: true });
-  const sync = result.ok
-    ? result.data
-    : {
-        collections: [],
-        total_vectors: 0,
-        collection_count: 0,
-        synced_at: new Date().toISOString(),
-        qdrant_region: "us-east4-0.gcp",
-      };
 
-  return <CorporaClient initialSync={sync} syncError={result.ok ? null : result.error} />;
+  return (
+    <CorporaClient
+      initialSync={result.ok ? result.data : EMPTY_SYNC}
+      syncError={result.ok ? null : result.error}
+    />
+  );
 }
