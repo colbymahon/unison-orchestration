@@ -389,24 +389,45 @@ def run_settlement_cycle(
     return state
 
 
+def _required_runtime_config() -> tuple[str, str, str, CloudflareKvClient]:
+    rpc_url = os.getenv("BASE_RPC_URL", "").strip()
+    account_id = os.getenv("CLOUDFLARE_ACCOUNT_ID", "").strip()
+    api_token = os.getenv("CLOUDFLARE_API_TOKEN", "").strip()
+    namespace_id = os.getenv("CF_FREE_TIER_NAMESPACE_ID", FREE_TIER_NS_DEFAULT)
+
+    missing = [
+        name
+        for name, val in (
+            ("BASE_RPC_URL", rpc_url),
+            ("CLOUDFLARE_ACCOUNT_ID", account_id),
+            ("CLOUDFLARE_API_TOKEN", api_token),
+        )
+        if not val
+    ]
+    if missing:
+        raise EnvironmentError(
+            "Missing required settlement env: " + ", ".join(missing)
+        )
+
+    kv = CloudflareKvClient(account_id, api_token, namespace_id)
+    return rpc_url, account_id, api_token, kv
+
+
 def run_forever() -> None:
-    rpc_url = _env("BASE_RPC_URL")
     usdc = os.getenv("USDC_CONTRACT_ADDRESS", USDC_DEFAULT)
     payment_dest = os.getenv("PAYMENT_DEST", PAYMENT_DEST_DEFAULT)
-    account_id = _env("CLOUDFLARE_ACCOUNT_ID")
-    api_token = _env("CLOUDFLARE_API_TOKEN")
-    namespace_id = os.getenv("CF_FREE_TIER_NAMESPACE_ID", FREE_TIER_NS_DEFAULT)
     poll_seconds = float(os.getenv("SETTLEMENT_POLL_SECONDS", "12"))
     min_payment = float(os.getenv("SETTLEMENT_MIN_PAYMENT_USDC", "0.005"))
     query_price = float(os.getenv("SETTLEMENT_QUERY_PRICE_USDC", "0.005"))
     credit_mode = os.getenv("SETTLEMENT_CREDIT_MODE", "decrement").strip().lower()
 
-    kv = CloudflareKvClient(account_id, api_token, namespace_id)
     state = _load_state()
     backoff = poll_seconds
+    kv: CloudflareKvClient | None = None
+    rpc_url = ""
 
     logger.info(
-        "Unison 402 settlement daemon online — builder=%s dest=%s mode=%s",
+        "Unison 402 settlement daemon booting — builder=%s dest=%s mode=%s",
         BASE_BUILDER_CODE,
         payment_dest,
         credit_mode,
@@ -414,6 +435,11 @@ def run_forever() -> None:
 
     while True:
         try:
+            if kv is None:
+                rpc_url, _, _, kv = _required_runtime_config()
+                logger.info(
+                    "Settlement credentials loaded — polling Base L2 + FREE_TIER KV"
+                )
             w3 = _connect_web3(rpc_url)
             state = run_settlement_cycle(
                 w3,
@@ -426,6 +452,16 @@ def run_forever() -> None:
                 credit_mode=credit_mode,
             )
             backoff = poll_seconds
+        except EnvironmentError as exc:
+            logger.warning(
+                "%s — export CLOUDFLARE_API_TOKEN and BASE_RPC_URL; retry in %.0fs",
+                exc,
+                backoff,
+            )
+            kv = None
+            time.sleep(backoff)
+            backoff = min(backoff * 1.5, 120.0)
+            continue
         except Exception as exc:
             logger.warning("Settlement cycle degraded: %s — reconnect in %.0fs", exc, backoff)
             time.sleep(backoff)

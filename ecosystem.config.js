@@ -21,6 +21,14 @@ const PYTHON_BIN =
   process.env.PYTHON_BIN ||
   "/Library/Frameworks/Python.framework/Versions/3.13/bin/python3";
 
+const CLIENT_AGENT_PYTHON = path.join(
+  REPO_ROOT,
+  "client-agent/venv/bin/python3"
+);
+const SETTLEMENT_PYTHON = fs.existsSync(CLIENT_AGENT_PYTHON)
+  ? CLIENT_AGENT_PYTHON
+  : PYTHON_BIN;
+
 module.exports = {
   apps: [
     {
@@ -102,7 +110,7 @@ module.exports = {
     },
     {
       name: "unison-402-daemon",
-      script: PYTHON_BIN,
+      script: SETTLEMENT_PYTHON,
       args: [
         path.join(
           REPO_ROOT,
