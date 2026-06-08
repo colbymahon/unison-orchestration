@@ -23,10 +23,7 @@
 use std::{
     collections::{HashMap, HashSet},
     env,
-    sync::{
-        atomic::{AtomicU64, Ordering},
-        Arc, Mutex,
-    },
+    sync::{Arc, Mutex},
     time::{Instant, SystemTime, UNIX_EPOCH},
 };
 
@@ -42,8 +39,14 @@ use thiserror::Error;
 use tower_http::cors::{AllowHeaders, AllowMethods, AllowOrigin, CorsLayer, ExposeHeaders};
 use tracing::{info, instrument};
 
+mod persistence;
 mod retrieval;
 
+use persistence::{
+    increment_persistent_counter, read_persistent_counter, TelemetryStore, KEY_LATENCY_SAMPLES,
+    KEY_LATENCY_TOTAL_MS, KEY_MANIFEST_CRAWLS, KEY_TOTAL_402, KEY_TOTAL_QUERIES,
+    KEY_ZERO_RESULTS,
+};
 use retrieval::{EmbedService, QdrantPool};
 use retrieval::qdrant::QdrantScoredPoint;
 
@@ -76,27 +79,9 @@ struct AppState {
     embed: EmbedService,
     qdrant: Arc<QdrantPool>,
     start_time: Instant,
-
-    // ── Core counters (zero-allocation AtomicU64) ──────────────────────────
-    /// Total search queries dispatched through routing selectors since start.
-    total_queries: AtomicU64,
-    /// HTTP 402 rejections forwarded from the Cloudflare edge layer.
-    total_402_rejections: AtomicU64,
-    /// Hits to /.well-known/mcp-configuration (registry crawlers, agents).
-    manifest_crawl_hits: AtomicU64,
-    /// Searches that returned zero Qdrant results (SEO gap signals).
-    zero_result_queries: AtomicU64,
-    /// Sum of search latencies in milliseconds (embed + Qdrant).
-    latency_total_ms: AtomicU64,
-    /// Number of latency samples recorded.
-    latency_sample_count: AtomicU64,
-
-    // ── Per-entity maps (Mutex — briefly held, never across awaits) ────────
-    /// Query count keyed by Qdrant collection name.
-    collection_queries: Mutex<HashMap<String, u64>>,
-    /// Query count keyed by X-Agent-ID header value (bounded to MAX_TRACKED_AGENTS).
-    agent_queries: Mutex<HashMap<String, u64>>,
-    /// Phase 2 Pillar 1 — edge-synced agent registry (in-memory coordinator view).
+    /// Durable counters — `/data/telemetry_registry.db` on Fly NVMe volumes.
+    telemetry: Arc<TelemetryStore>,
+    /// Phase 2 Pillar 1 — edge-synced agent registry (session metadata, disk-backed counts).
     agent_registry: Mutex<HashMap<String, AgentRegistryRecord>>,
     /// Distinct session IDs observed per agent_id.
     agent_session_ids: Mutex<HashMap<String, HashSet<String>>>,
@@ -608,24 +593,23 @@ async fn search_handler(
         .filter(|s| !s.is_empty())
         .unwrap_or(COLLECTION);
 
-    // Increment total queries before upstream calls
-    let dispatched = state.total_queries.fetch_add(1, Ordering::Relaxed) + 1;
+    let dispatched =
+        increment_persistent_counter(&state.telemetry, KEY_TOTAL_QUERIES, 1) as u64;
     info!("Query #{dispatched} → collection '{collection}'");
 
-    // Track per-collection query count
-    if let Ok(mut cq) = state.collection_queries.lock() {
-        *cq.entry(collection.to_owned()).or_insert(0) += 1;
+    if let Err(err) = state.telemetry.bump_collection(collection) {
+        tracing::warn!("collection counter persist degraded: {err}");
     }
 
-    // Track per-agent query count (bounded to MAX_TRACKED_AGENTS)
     let agent_id = headers
         .get(AGENT_ID_HEADER)
         .and_then(|v| v.to_str().ok())
         .unwrap_or("anonymous")
         .to_owned();
-    if let Ok(mut aq) = state.agent_queries.lock() {
-        if aq.len() < MAX_TRACKED_AGENTS || aq.contains_key(&agent_id) {
-            *aq.entry(agent_id).or_insert(0) += 1;
+    let agent_totals = state.telemetry.agent_totals();
+    if agent_totals.len() < MAX_TRACKED_AGENTS || agent_totals.contains_key(&agent_id) {
+        if let Err(err) = state.telemetry.bump_agent(&agent_id) {
+            tracing::warn!("agent counter persist degraded: {err}");
         }
     }
 
@@ -648,14 +632,13 @@ async fn search_handler(
 
     // Track zero-result queries as agentic SEO gap signals
     if hits.is_empty() {
-        state.zero_result_queries.fetch_add(1, Ordering::Relaxed);
+        increment_persistent_counter(&state.telemetry, KEY_ZERO_RESULTS, 1);
         info!("Zero-result query detected: '{q}' → '{collection}'");
     }
 
-    // Record latency sample
     let latency_ms = t0.elapsed().as_millis() as u64;
-    state.latency_total_ms.fetch_add(latency_ms, Ordering::Relaxed);
-    state.latency_sample_count.fetch_add(1, Ordering::Relaxed);
+    increment_persistent_counter(&state.telemetry, KEY_LATENCY_TOTAL_MS, latency_ms as i64);
+    increment_persistent_counter(&state.telemetry, KEY_LATENCY_SAMPLES, 1);
 
     let tsv = format_tsv(&hits);
     let mut response = tsv.into_response();
@@ -710,7 +693,8 @@ async fn search_handler(
 /// Counts every hit so the dashboard can track registry crawler activity
 /// (PulseMCP, Smithery, enterprise orchestrators).
 async fn mcp_configuration_handler(State(state): State<Arc<AppState>>) -> impl IntoResponse {
-    let hits = state.manifest_crawl_hits.fetch_add(1, Ordering::Relaxed) + 1;
+    let hits =
+        increment_persistent_counter(&state.telemetry, KEY_MANIFEST_CRAWLS, 1) as u64;
     info!("Manifest crawl hit #{hits}");
     Json(&MANIFEST)
 }
@@ -728,12 +712,12 @@ async fn health() -> &'static str {
 // ---------------------------------------------------------------------------
 
 async fn telemetry_handler(State(state): State<Arc<AppState>>) -> impl IntoResponse {
-    let total_q    = state.total_queries.load(Ordering::Relaxed);
-    let total_402  = state.total_402_rejections.load(Ordering::Relaxed);
-    let crawl_hits = state.manifest_crawl_hits.load(Ordering::Relaxed);
-    let zero_q     = state.zero_result_queries.load(Ordering::Relaxed);
-    let lat_count  = state.latency_sample_count.load(Ordering::Relaxed);
-    let lat_total  = state.latency_total_ms.load(Ordering::Relaxed);
+    let total_q = read_persistent_counter(&state.telemetry, KEY_TOTAL_QUERIES) as u64;
+    let total_402 = read_persistent_counter(&state.telemetry, KEY_TOTAL_402) as u64;
+    let crawl_hits = read_persistent_counter(&state.telemetry, KEY_MANIFEST_CRAWLS) as u64;
+    let zero_q = read_persistent_counter(&state.telemetry, KEY_ZERO_RESULTS) as u64;
+    let lat_count = read_persistent_counter(&state.telemetry, KEY_LATENCY_SAMPLES) as u64;
+    let lat_total = read_persistent_counter(&state.telemetry, KEY_LATENCY_TOTAL_MS) as u64;
 
     let mean_latency_ms = if lat_count > 0 {
         lat_total as f64 / lat_count as f64
@@ -741,25 +725,18 @@ async fn telemetry_handler(State(state): State<Arc<AppState>>) -> impl IntoRespo
         0.0
     };
 
-    let collection_queries = state
-        .collection_queries
-        .lock()
-        .map(|g| g.clone())
-        .unwrap_or_default();
+    let collection_queries = state.telemetry.collection_totals();
 
     let mut top_agents: Vec<AgentStat> = state
-        .agent_queries
-        .lock()
-        .map(|g| {
-            g.iter()
-                .map(|(id, &count)| AgentStat {
-                    agent_id: id.clone(),
-                    query_count: count,
-                    estimated_spend_usd: count as f64 * 0.005,
-                })
-                .collect()
+        .telemetry
+        .agent_totals()
+        .into_iter()
+        .map(|(id, count)| AgentStat {
+            agent_id: id,
+            query_count: count,
+            estimated_spend_usd: count as f64 * 0.005,
         })
-        .unwrap_or_default();
+        .collect();
     top_agents.sort_by(|a, b| b.query_count.cmp(&a.query_count));
     top_agents.truncate(20);
 
@@ -783,7 +760,7 @@ async fn telemetry_handler(State(state): State<Arc<AppState>>) -> impl IntoRespo
 // ---------------------------------------------------------------------------
 
 async fn track_rejection_handler(State(state): State<Arc<AppState>>) -> impl IntoResponse {
-    let total = state.total_402_rejections.fetch_add(1, Ordering::Relaxed) + 1;
+    let total = increment_persistent_counter(&state.telemetry, KEY_TOTAL_402, 1);
     info!("402 rejection forwarded from edge — total: {total}");
     StatusCode::NO_CONTENT
 }
@@ -854,6 +831,8 @@ async fn agent_heartbeat_handler(
     entry.last_seen_at = now;
     entry.query_count = entry.query_count.saturating_add(1);
     entry.status = "active".to_string();
+    let heartbeat_key = format!("registry_heartbeat:{agent_id}");
+    increment_persistent_counter(&state.telemetry, &heartbeat_key, 1);
     if let Some(hash) = payload.attestation_hash.as_deref().map(str::trim).filter(|s| !s.is_empty()) {
         entry.attestation_hash = Some(hash.to_string());
     }
@@ -943,20 +922,19 @@ async fn main() -> anyhow::Result<()> {
         qdrant.search_url(COLLECTION)
     );
 
+    let telemetry = Arc::new(TelemetryStore::open_with_fallback());
+    info!(
+        "Telemetry vault bound: {}",
+        telemetry.db_path().display()
+    );
+
     let state = Arc::new(AppState {
         embed,
         qdrant,
         start_time: Instant::now(),
-        total_queries:        AtomicU64::new(0),
-        total_402_rejections: AtomicU64::new(0),
-        manifest_crawl_hits:  AtomicU64::new(0),
-        zero_result_queries:  AtomicU64::new(0),
-        latency_total_ms:     AtomicU64::new(0),
-        latency_sample_count: AtomicU64::new(0),
-        collection_queries: Mutex::new(HashMap::new()),
-        agent_queries:      Mutex::new(HashMap::new()),
-        agent_registry:     Mutex::new(HashMap::new()),
-        agent_session_ids:  Mutex::new(HashMap::new()),
+        telemetry,
+        agent_registry: Mutex::new(HashMap::new()),
+        agent_session_ids: Mutex::new(HashMap::new()),
     });
 
     let cors = CorsLayer::new()

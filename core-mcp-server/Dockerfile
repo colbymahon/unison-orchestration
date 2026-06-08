@@ -34,8 +34,10 @@ RUN apt-get update && apt-get install -y \
     && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app
+RUN mkdir -p /data
 COPY --from=builder /usr/src/unison-mcp/target/release/core-mcp-server /app/unison-mcp-engine
 
+VOLUME ["/data"]
 EXPOSE 3000
 ENV RUST_LOG=info
 ENV PORT=3000
