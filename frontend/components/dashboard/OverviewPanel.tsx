@@ -3,9 +3,7 @@
 import { useMemo } from "react";
 import type { LedgerTelemetryPayload } from "./types";
 import { OverviewTelemetryGrid } from "./OverviewTelemetryGrid";
-import { useLiveFetch } from "@/hooks/useLiveFetch";
-import { AFFILIATE_POLL_MS, DASHBOARD_FETCH_BASE } from "@/lib/dashboard-fetch";
-import type { AffiliateLedgerTelemetry } from "./types";
+import { normalizeAffiliateLedgerPayload } from "@/lib/dashboard-edge";
 import {
   calculateGuardedPercentage,
   formatGuardedPercentage,
@@ -25,10 +23,14 @@ interface Props {
 }
 
 export function OverviewPanel(props: Props) {
-  const { data: affiliate } = useLiveFetch<AffiliateLedgerTelemetry>(
-    "/api/admin/affiliate-ledger",
-    { ...DASHBOARD_FETCH_BASE, pollIntervalMs: AFFILIATE_POLL_MS }
-  );
+  const affiliate = useMemo(() => {
+    const edge = props.ledger?.affiliate_ledger;
+    if (!edge) return null;
+    return normalizeAffiliateLedgerPayload(edge) as {
+      aggregate_referral_usdc: number;
+      total_routing_events: number;
+    };
+  }, [props.ledger?.affiliate_ledger]);
 
   const { churnRateDisplay, systemRetriesCount } = useMemo(() => {
     const { cleanConsumerRows, systemRetriesCount } = isolateCrawlerRetries(

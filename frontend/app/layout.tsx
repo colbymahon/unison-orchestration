@@ -12,6 +12,8 @@ import { GLOBAL_METRICS, METRIC_DISPLAY } from "@/lib/config/metrics";
 import { buildFullJsonLdGraph } from "@/lib/llmseo-catalog";
 import { fetchLiveMoatSnapshot } from "@/lib/moat-catalog-sync";
 import { fetchReviewsDirectory } from "@/lib/reviews-jsonld-sync";
+import { BASE_APP_PROFILE, buildFcFrameMetadata } from "@/lib/base-app-profile";
+import { BASE_BUILDER_CODE } from "@/lib/base-builder";
 import { PRODUCTION_SITE_URL } from "@/lib/site-url";
 
 const SITE_URL = PRODUCTION_SITE_URL;
@@ -100,7 +102,14 @@ export const metadata: Metadata = {
     title: "Unison Orchestration | The Amazon for AI Data",
     description:
       "High-frequency, token-optimized data vectors for autonomous reasoning engines. Live Qdrant verticals, x402 micropayments, zero hallucination.",
-    images: [{ url: "/og-image.png", width: 1200, height: 630 }],
+    images: [
+      {
+        url: BASE_APP_PROFILE.assets.hero_1200x630,
+        width: 1200,
+        height: 630,
+        alt: "Unison Orchestration — zero-hallucination agent data on Base L2",
+      },
+    ],
   },
   twitter: {
     card: "summary_large_image",
@@ -108,7 +117,14 @@ export const metadata: Metadata = {
     description:
       "Scientific verticals with live vector counts from Qdrant Cloud. x402 autonomous micropayments. Zero hallucination.",
     creator: "@v18group",
-    images: ["/og-image.png"],
+    images: [BASE_APP_PROFILE.assets.hero_1200x630],
+  },
+  icons: {
+    icon: [
+      { url: "/primary_symbol.svg", type: "image/svg+xml" },
+      { url: "/icon-1024.png", sizes: "1024x1024", type: "image/png" },
+    ],
+    apple: [{ url: "/icon-1024.png", sizes: "1024x1024" }],
   },
   alternates: {
     canonical: SITE_URL,
@@ -235,6 +251,12 @@ export default async function RootLayout({
           name="x402-settlement"
           content="network=base; token=USDC; price=0.005; recipient=autonomous; compatible=coinbase-cdp"
         />
+        <meta name="base:builder_code" content={BASE_BUILDER_CODE} />
+        <meta
+          name="fc:frame"
+          content={JSON.stringify(buildFcFrameMetadata())}
+        />
+        <link rel="apple-touch-icon" href="/icon-1024.png" sizes="1024x1024" />
         <meta
           name="ai-data-classification"
           content={`ground-truth=true; format=TSV; hallucination=zero; dimensions=${GLOBAL_METRICS.dimensions}; vectors=live-qdrant-sync`}

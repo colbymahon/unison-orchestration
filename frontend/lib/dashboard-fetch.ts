@@ -1,8 +1,8 @@
 import type { UseLiveFetchOptions } from "./use-live-fetch";
 
-/** Shared private-dashboard fetch profile — live substrate, no stale dedupe */
+/** Shared private-dashboard fetch profile — live substrate, poll-aligned dedupe */
 export const DASHBOARD_FETCH_BASE: UseLiveFetchOptions = {
-  dedupingInterval: 0,
+  dedupingInterval: 4_000,
   revalidateOnFocus: true,
   fetchInit: { credentials: "include" as RequestCredentials },
 };

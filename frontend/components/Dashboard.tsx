@@ -168,6 +168,15 @@ export default function Dashboard() {
   // ── Derived values ─────────────────────────────────────────────────────────
   const totalQueries    = ledger?.total_handled_requests ?? 0;
   const total402        = ledger?.blocked_402_rejections ?? 0;
+  const clearedQueries  = useMemo(
+    () => computeClearedQueryCount(totalQueries, total402),
+    [totalQueries, total402]
+  );
+  const liveRevenueUsd  = useMemo(
+    () => ledger?.settled_usdc_payments ?? computeLiveRevenueUsd(clearedQueries),
+    [ledger?.settled_usdc_payments, clearedQueries]
+  );
+  void liveRevenueUsd;
   const crawlHits       = ledger?.manifest_crawl_hits ?? 0;
   const zeroResultCount = ledger?.trapped_gap_count ?? 0;
   const computeSaved    = telemetry?.estimated_compute_saved_usd ?? total402 * SYSTEM_CONFIG.computeCostSaved;

@@ -1,3 +1,6 @@
+export const dynamic = "force-dynamic";
+export const revalidate = 0;
+
 import Link from "next/link";
 import { RevenueGapsQueue } from "@/components/dashboard/RevenueGapsQueue";
 
@@ -8,8 +11,8 @@ export const metadata = {
 
 export default function RevenueGapsPage() {
   return (
-    <div className="min-h-screen bg-[#03050A] text-gray-200">
-      <header className="border-b border-gray-900 bg-[#050914]/90 backdrop-blur-xl px-6 py-4 flex items-center justify-between">
+    <div className="text-gray-200">
+      <header className="border-b border-gray-900 bg-[#050914]/90 px-6 py-4 flex items-center justify-between">
         <div>
           <div
             className="text-sm font-bold text-white uppercase tracking-widest"
@@ -23,6 +26,7 @@ export default function RevenueGapsPage() {
         </div>
         <Link
           href="/dashboard"
+          prefetch
           className="font-mono text-xs text-cyan-400 hover:text-cyan-300 border border-cyan-900/40 px-3 py-1.5 rounded-lg"
         >
           ← Main dashboard

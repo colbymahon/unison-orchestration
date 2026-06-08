@@ -1,6 +1,7 @@
 /**
- * Direct Anycast edge routing for hot dashboard admin telemetry.
- * Bypasses Vercel serverless /api/admin/* proxies (~500ms+ cold tax).
+ * Dashboard admin API routing.
+ * Browser reads use same-origin /api/admin/* (Vercel + session cookie).
+ * Direct worker admin-telemetry is disabled client-side to prevent OPS_SESSION_SECRET drift flicker.
  */
 
 import type { AffiliateLedgerTelemetry, AffiliateReferralRow } from "@/components/dashboard/types";
@@ -9,12 +10,23 @@ export const EDGE_GATEWAY =
   process.env.NEXT_PUBLIC_UNISON_EDGE_GATEWAY_URL?.replace(/\/$/, "") ??
   "https://unison-edge-gateway.unisonorchestration.workers.dev";
 
-const DIRECT_EDGE_ENDPOINTS = new Set([
+const ADMIN_PROXY_ENDPOINTS = new Set([
   "affiliate-ledger",
   "trapped-gaps",
   "churn-logs",
   "advocacy-logs",
 ]);
+
+/** @deprecated Direct edge admin reads disabled in browser. */
+export function isEdgeAdminProxyPreferred(): boolean {
+  return true;
+}
+
+/** @deprecated */
+export function markEdgeAdminProxyPreferred(): void {}
+
+/** @deprecated */
+export function clearEdgeAdminProxyPreferred(): void {}
 
 export function resolveDashboardApiUrl(path: string): {
   url: string;
@@ -22,14 +34,10 @@ export function resolveDashboardApiUrl(path: string): {
 } {
   const match = path.match(/^\/api\/admin\/([^/?]+)/);
   if (!match) return { url: path, directEdge: false };
-  const endpoint = match[1]!;
-  if (!DIRECT_EDGE_ENDPOINTS.has(endpoint)) {
+  if (!ADMIN_PROXY_ENDPOINTS.has(match[1]!)) {
     return { url: path, directEdge: false };
   }
-  return {
-    url: `${EDGE_GATEWAY}/admin-telemetry/${endpoint}`,
-    directEdge: true,
-  };
+  return { url: path, directEdge: false };
 }
 
 interface EdgeAffiliateRow {
@@ -78,52 +86,29 @@ export function normalizeAffiliateLedgerPayload(body: unknown): unknown {
   return mapped;
 }
 
-let edgeBearerPromise: Promise<string | null> | null = null;
-
-async function fetchEdgeBearerFromOrigin(): Promise<string | null> {
-  try {
-    const res = await fetch("/api/auth/edge-bearer", {
-      credentials: "include",
-      cache: "no-store",
-    });
-    if (!res.ok) {
-      return null;
-    }
-    const body = (await res.json()) as { token?: string };
-    const token = body.token?.trim() ?? "";
-    return token.length > 0 ? token : null;
-  } catch {
-    return null;
-  }
+/** @deprecated Browser no longer calls worker admin-telemetry directly. */
+export async function getEdgeSessionBearer(_forceRefresh = false): Promise<string | null> {
+  return null;
 }
 
-/** Ops transport JWT via same-origin edge-bearer (never ADMIN_API_SECRET). */
-export async function getEdgeSessionBearer(forceRefresh = false): Promise<string | null> {
-  if (forceRefresh) {
-    edgeBearerPromise = null;
-  }
-  if (!edgeBearerPromise) {
-    edgeBearerPromise = fetchEdgeBearerFromOrigin().then((token) => {
-      if (!token) edgeBearerPromise = null;
-      return token;
-    });
-  }
-  return edgeBearerPromise;
-}
+/** @deprecated */
+export function clearEdgeSessionBearerCache(): void {}
 
-export function clearEdgeSessionBearerCache(): void {
-  edgeBearerPromise = null;
-}
-
-export function isDirectEdgeAdminPath(path: string | null): boolean {
+export function isAdminTelemetryEndpoint(path: string | null): boolean {
   if (!path) return false;
-  return resolveDashboardApiUrl(path).directEdge;
+  const match = path.match(/^\/api\/admin\/([^/?]+)/);
+  if (!match) return false;
+  return ADMIN_PROXY_ENDPOINTS.has(match[1]!);
 }
 
-/** Map worker admin-telemetry URL back to same-origin Vercel admin proxy. */
-export function adminPathFromEdgeTelemetryUrl(url: string): string | null {
-  const m = url.match(/\/admin-telemetry\/([a-z0-9-]+)/);
-  return m ? `/api/admin/${m[1]}` : null;
+/** @deprecated */
+export function isDirectEdgeAdminPath(path: string | null): boolean {
+  return false;
+}
+
+/** @deprecated */
+export function adminPathFromEdgeTelemetryUrl(_url: string): string | null {
+  return null;
 }
 
 export function isSecurityEnclaveErrorBody(body: unknown): boolean {

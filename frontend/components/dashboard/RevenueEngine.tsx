@@ -6,12 +6,21 @@ import {
   XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid,
 } from "recharts";
 import { Coins, TrendingUp, ShieldX, Wallet, ArrowUpRight } from "lucide-react";
+import {
+  computeClearedQueryCount,
+  computeLiveRevenueUsd,
+  formatLiveRevenueUsd,
+  QUERY_PRICE_USDC,
+} from "@/lib/config/metrics";
 import type { TelemetryData, HistoryPoint } from "./types";
 
 interface Props {
   telemetry: TelemetryData | null;
   revenueHistory: HistoryPoint[];
   rejectionHistory: HistoryPoint[];
+  totalHandledRequests?: number;
+  blocked402Rejections?: number;
+  settledUsdcPayments?: number;
 }
 
 const PURPLE = "#B300FF";
@@ -58,20 +67,45 @@ const CustomTooltip = ({
   );
 };
 
-export function RevenueEngine({ telemetry, revenueHistory, rejectionHistory }: Props) {
+export function RevenueEngine({
+  telemetry,
+  revenueHistory,
+  rejectionHistory,
+  totalHandledRequests = 0,
+  blocked402Rejections = 0,
+  settledUsdcPayments,
+}: Props) {
   const t = telemetry;
 
+  const clearedQueryCount = useMemo(
+    () =>
+      computeClearedQueryCount(
+        totalHandledRequests || (t?.total_queries ?? 0),
+        blocked402Rejections || (t?.total_402_rejections ?? 0)
+      ),
+    [totalHandledRequests, blocked402Rejections, t]
+  );
+
+  const liveRevenueUsd = useMemo(
+    () =>
+      settledUsdcPayments ?? computeLiveRevenueUsd(clearedQueryCount),
+    [settledUsdcPayments, clearedQueryCount]
+  );
+
+  const liveRevenueDisplay = formatLiveRevenueUsd(liveRevenueUsd);
+
   const clearanceRate = useMemo(() => {
-    if (!t || t.total_queries === 0) return 100;
-    const cleared = t.total_queries - t.total_402_rejections;
-    return Math.round((cleared / t.total_queries) * 100);
-  }, [t]);
+    const total = totalHandledRequests || (t?.total_queries ?? 0);
+    if (total === 0) return 100;
+    return Math.round((clearedQueryCount / total) * 100);
+  }, [totalHandledRequests, t, clearedQueryCount]);
 
   const projectedMonthly = useMemo(() => {
-    if (!t || t.uptime_seconds < 60) return 0;
-    const perSecond = t.estimated_revenue_usd / Math.max(t.uptime_seconds, 1);
+    const uptime = t?.uptime_seconds ?? 0;
+    if (uptime < 60 || liveRevenueUsd <= 0) return 0;
+    const perSecond = liveRevenueUsd / Math.max(uptime, 1);
     return perSecond * 86_400 * 30;
-  }, [t]);
+  }, [t, liveRevenueUsd]);
 
   const topAgentData = useMemo(() => {
     if (!t?.top_agents?.length) return [];
@@ -88,8 +122,8 @@ export function RevenueEngine({ telemetry, revenueHistory, rejectionHistory }: P
       <div className="grid grid-cols-2 xl:grid-cols-4 gap-4">
         <StatBox
           label="Total USDC Revenue"
-          value={t ? fmtUsd(t.estimated_revenue_usd) : "$0.0000"}
-          sub={`${t?.total_queries ?? 0} cleared queries × $0.005`}
+          value={liveRevenueDisplay}
+          sub={`${clearedQueryCount} cleared queries × $${QUERY_PRICE_USDC}`}
           accent={PURPLE}
           icon={Coins}
         />

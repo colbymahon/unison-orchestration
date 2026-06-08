@@ -63,6 +63,9 @@ export async function GET(): Promise<NextResponse> {
       token: "USDC",
       manifest: `${EDGE_GATEWAY_URL}/.well-known/mcp-configuration`,
       ai_plugin: `${PRODUCTION_SITE_URL}/.well-known/ai-plugin.json`,
+      base_builder_code: "bc_j56e3k4r",
+      base_builder_data_suffix:
+        "0x62635f6a353665336b34720b0080218021802180218021802180218021",
     },
   };
 

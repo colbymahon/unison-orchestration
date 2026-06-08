@@ -5,6 +5,12 @@ import type { LedgerTelemetryPayload } from "./types";
 import { TelemetryCard, TelemetryValue } from "./TelemetryCard";
 import { RevenueVelocityMeter } from "./RevenueVelocityMeter";
 import {
+  computeClearedQueryCount,
+  computeLiveRevenueUsd,
+  formatLiveRevenueUsd,
+  QUERY_PRICE_USDC,
+} from "@/lib/config/metrics";
+import {
   computeRevenueVelocityFromGaps,
   formatUsdcPerHour,
   formatUsdcTotal,
@@ -44,6 +50,16 @@ export function OverviewTelemetryGrid({
     [trappedGaps]
   );
 
+  const liveRevenueDisplay = useMemo(() => {
+    const handled = computeClearedQueryCount(
+      ledger?.total_handled_requests ?? 0,
+      ledger?.blocked_402_rejections ?? 0
+    );
+    const liveRevenue =
+      ledger?.settled_usdc_payments ?? computeLiveRevenueUsd(handled);
+    return formatLiveRevenueUsd(liveRevenue);
+  }, [ledger]);
+
   const nodesOnline = useMemo(() => {
     const probes = Object.values(endpointStatuses);
     const up = probes.filter((p) => p.status === "OPERATIONAL").length;
@@ -82,12 +98,16 @@ export function OverviewTelemetryGrid({
         accent="purple"
         footer={
           <p className="font-data text-[10px] text-slate-500">
-            Fly settled · KV leakage tracked
+            {computeClearedQueryCount(
+              ledger?.total_handled_requests ?? 0,
+              ledger?.blocked_402_rejections ?? 0
+            )}{" "}
+            cleared × ${QUERY_PRICE_USDC} USDC
           </p>
         }
       >
         <TelemetryValue className="text-[#B300FF]">
-          ${(ledger?.settled_usdc_payments ?? 0).toFixed(4)}
+          {liveRevenueDisplay}
         </TelemetryValue>
         <p className="font-data text-[10px] text-rose-400/90 mt-2">
           Leakage {formatUsdcTotal(ledger?.estimated_leakage_usd ?? velocity.totalAccumulatedLeakage)}
