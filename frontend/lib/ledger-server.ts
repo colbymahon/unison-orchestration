@@ -204,14 +204,14 @@ export async function fetchLedgerTelemetry(): Promise<LedgerTelemetryResponse> {
     reviewsKvOk = false;
   }
 
+  const flyQueries = fly?.total_queries ?? 0;
+  const fly402 = fly?.total_402_rejections ?? 0;
+  const kvQueries = global_metrics?.total_queries;
+  const kv402 = global_metrics?.total_402_blocks;
+  // KV is authoritative once seeded; Math.max bridges post-deploy bootstrap vs regional Fly.
   const globalQueriesCount =
-    global_metrics?.total_queries ??
-    fly?.total_queries ??
-    0;
-  const global402Count =
-    global_metrics?.total_402_blocks ??
-    fly?.total_402_rejections ??
-    0;
+    kvQueries !== undefined ? Math.max(kvQueries, flyQueries) : flyQueries;
+  const global402Count = kv402 !== undefined ? Math.max(kv402, fly402) : fly402;
   const total_handled_requests = globalQueriesCount;
   const blocked_402_rejections = global402Count;
   const consistentRevenue =
