@@ -236,7 +236,12 @@ body {
   color: #ffffff;
   margin-bottom: 1.5rem;
   line-height: 1.1;
+  text-align: center;
   text-wrap: balance;
+}
+
+.public-metrics-grid > * {
+  width: 100%;
 }
 
 .public-lead {

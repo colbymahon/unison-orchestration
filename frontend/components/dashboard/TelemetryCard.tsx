@@ -7,6 +7,8 @@ interface Props {
   children: ReactNode;
   footer?: ReactNode;
   accent?: "cyan" | "purple" | "emerald" | "amber" | "none";
+  /** Center label, value, and footer (public storefront metrics) */
+  centered?: boolean;
 }
 
 const accentGradients: Record<NonNullable<Props["accent"]>, string> = {
@@ -18,7 +20,14 @@ const accentGradients: Record<NonNullable<Props["accent"]>, string> = {
 };
 
 /** Uniform Cyber-Premium telemetry panel — locked vertical bounds */
-export function TelemetryCard({ label, children, footer, accent = "none" }: Props) {
+export function TelemetryCard({
+  label,
+  children,
+  footer,
+  accent = "none",
+  centered = false,
+}: Props) {
+  const align = centered ? "text-center items-center" : "";
   return (
     <div className="flex flex-col h-full">
       <div className="h-full min-h-[220px] bg-[#0A0F1C] border border-white/10 p-6 rounded-xl flex flex-col justify-between relative overflow-hidden">
@@ -28,14 +37,20 @@ export function TelemetryCard({ label, children, footer, accent = "none" }: Prop
             aria-hidden
           />
         )}
-        <div className="relative flex flex-col flex-1 justify-between min-h-0">
-          <div>
-            <span className="font-brand text-xs tracking-widest text-slate-400 uppercase block">
+        <div className={`relative flex flex-col flex-1 justify-between min-h-0 ${align}`}>
+          <div className={centered ? "flex flex-col items-center w-full" : ""}>
+            <span
+              className={`font-brand text-xs tracking-widest text-slate-400 uppercase block ${align}`}
+            >
               {label}
             </span>
-            <div className="mt-3">{children}</div>
+            <div className={`mt-3 ${align}`}>{children}</div>
           </div>
-          {footer ? <div className="mt-4 shrink-0">{footer}</div> : <div className="mt-4" />}
+          {footer ? (
+            <div className={`mt-4 shrink-0 w-full ${align}`}>{footer}</div>
+          ) : (
+            <div className="mt-4" />
+          )}
         </div>
       </div>
     </div>

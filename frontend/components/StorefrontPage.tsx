@@ -202,14 +202,16 @@ function AgentInstallConsole() {
           )}
         </button>
       </div>
-      <div className="px-5 py-6">
-        <p className="font-[var(--font-mono)] text-[10px] text-white/30 mb-3 tracking-wider">
+      <div className="px-5 py-6 text-center">
+        <p className="font-data text-[10px] text-white/30 mb-3 tracking-wider">
           # Quick install — route your swarm through the MCP hub
         </p>
-        <p className="font-[var(--font-mono)] text-sm sm:text-base text-cyan-300/90 break-all leading-relaxed">
-          <span className="text-cyan-400/50 mr-2">$</span>
-          {SMITHERY_INSTALL}
-        </p>
+        <div className="public-code-enclave">
+          <p className="font-data text-sm sm:text-base text-cyan-300/90 break-all leading-relaxed">
+            <span className="text-cyan-400/50 mr-2">$</span>
+            {SMITHERY_INSTALL}
+          </p>
+        </div>
       </div>
     </div>
   );
@@ -439,13 +441,12 @@ export default function StorefrontPage() {
 
         <motion.div
           style={{ opacity: heroOpacity, y: heroY }}
-          className="relative z-10 public-page-shell max-w-5xl py-16"
+          className="relative z-10 public-page-shell public-copy-stack max-w-5xl py-16"
         >
           <motion.div
             initial={{ opacity: 0, y: 16 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.55, delay: 0.1 }}
-            className="public-copy-stack mb-8"
           >
             <span
               className="inline-flex items-center gap-2.5 px-4 py-2 rounded-full border border-cyan-400/20 text-[11px] font-data tracking-[0.2em] text-cyan-400 uppercase"
@@ -461,7 +462,7 @@ export default function StorefrontPage() {
             initial={{ opacity: 0, y: 24 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.65, delay: 0.2 }}
-            className="public-headline text-[clamp(1.75rem,5vw,3.25rem)] mb-10"
+            className="public-headline text-[clamp(1.75rem,5vw,3.25rem)] mb-10 w-full"
           >
             UNISON DATA MOAT:{" "}
             <span className="gradient-text block sm:inline mt-2 sm:mt-0">
@@ -473,6 +474,7 @@ export default function StorefrontPage() {
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.6, delay: 0.35 }}
+            className="w-full flex flex-col items-center"
           >
             <AgentInstallConsole />
             <X402PricingLedger />
@@ -482,7 +484,7 @@ export default function StorefrontPage() {
             initial={{ opacity: 0, y: 16 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.55, delay: 0.5 }}
-            className="flex flex-col sm:flex-row items-center justify-center gap-4 mt-10"
+            className="flex flex-col sm:flex-row items-center justify-center gap-4 mt-10 w-full"
           >
             <Link
               href="/docs"
@@ -570,10 +572,13 @@ export default function StorefrontPage() {
           STATS BANNER
       ═══════════════════════════════════════════════════════════════════ */}
       <section className="public-section py-20" aria-label="Platform statistics">
-        <div className="public-page-shell">
+        <div className="public-page-shell public-copy-stack">
           <div className="public-section-header">
             <p className="public-eyebrow">Live Telemetry</p>
-            <h2 className="public-headline text-3xl sm:text-4xl mb-0">Platform Metrics</h2>
+            <h2 className="public-headline text-3xl sm:text-4xl mb-4">Platform Metrics</h2>
+            <p className="public-lead mb-0">
+              Real-time Qdrant vault counts and protocol constants — synced from production.
+            </p>
           </div>
           <LivePlatformMetrics />
         </div>

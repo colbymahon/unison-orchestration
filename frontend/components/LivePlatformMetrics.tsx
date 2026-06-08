@@ -74,19 +74,22 @@ export function LivePlatformMetrics() {
   ];
 
   return (
-    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 w-full max-w-5xl mx-auto items-stretch">
+    <div className="public-metrics-grid grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 w-full max-w-5xl mx-auto items-stretch justify-items-center">
       {items.map(({ stat, suffix, label, live, accent }) => (
         <TelemetryCard
           key={label}
           label={label}
           accent={accent}
+          centered
           footer={
             live ? (
-              <span className="font-data text-[10px] text-emerald-400/80">● Qdrant live</span>
+              <span className="font-data text-[10px] text-emerald-400/80 block text-center">
+                ● Qdrant live
+              </span>
             ) : undefined
           }
         >
-          <TelemetryValue>
+          <TelemetryValue className="text-center w-full">
             {stat === null ? (
               <span className="font-data text-slate-500">—</span>
             ) : (
