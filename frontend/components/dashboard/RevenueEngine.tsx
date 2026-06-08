@@ -7,8 +7,8 @@ import {
 } from "recharts";
 import { Coins, TrendingUp, ShieldX, Wallet, ArrowUpRight } from "lucide-react";
 import {
-  computeClearedQueryCount,
   computeLiveRevenueUsd,
+  computeSettledQueryCount,
   formatLiveRevenueUsd,
   QUERY_PRICE_USDC,
 } from "@/lib/config/metrics";
@@ -78,12 +78,8 @@ export function RevenueEngine({
   const t = telemetry;
 
   const clearedQueryCount = useMemo(
-    () =>
-      computeClearedQueryCount(
-        totalHandledRequests || (t?.total_queries ?? 0),
-        blocked402Rejections || (t?.total_402_rejections ?? 0)
-      ),
-    [totalHandledRequests, blocked402Rejections, t]
+    () => computeSettledQueryCount(totalHandledRequests || (t?.total_queries ?? 0)),
+    [totalHandledRequests, t]
   );
 
   const liveRevenueUsd = useMemo(

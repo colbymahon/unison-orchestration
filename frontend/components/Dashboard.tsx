@@ -6,6 +6,7 @@ import {
   ServerCrash, SearchX, Globe, RefreshCw,
 } from "lucide-react";
 import type { LedgerTelemetryPayload } from "./dashboard/types";
+import { useStickyLedger } from "@/hooks/useStickyLedger";
 import { useLiveFetch } from "@/lib/use-live-fetch";
 import {
   DASHBOARD_FETCH_BASE,
@@ -111,16 +112,21 @@ export default function Dashboard() {
     pollIntervalMs: INFRA_POLL_MS,
   });
 
+  const { snapshot: ledgerSnapshot, bootstrapping: stickyBootstrapping } =
+    useStickyLedger(ledger, ledgerLoading);
+  const activeLedger = ledgerSnapshot ?? ledger;
+
   const pollError = !!ledgerError;
   const ledgerEverLoaded = useRef(false);
-  if (ledger) ledgerEverLoaded.current = true;
-  const ledgerBootstrapping = ledgerLoading && !ledgerEverLoaded.current;
+  if (activeLedger) ledgerEverLoaded.current = true;
+  const ledgerBootstrapping =
+    (ledgerLoading && !ledgerEverLoaded.current) || stickyBootstrapping;
 
   const [latencyHistory,   setLatencyHistory]   = useState<HistoryPoint[]>([]);
   const [revenueHistory,   setRevenueHistory]   = useState<HistoryPoint[]>([]);
   const [rejectionHistory, setRejectionHistory] = useState<HistoryPoint[]>([]);
 
-  const telemetry = ledger?.fly_telemetry ?? null;
+  const telemetry = activeLedger?.fly_telemetry ?? null;
 
   const endpointStatuses = useMemo(() => {
     const map: Record<string, { status: string; latency: number | null }> = {
@@ -135,22 +141,22 @@ export default function Dashboard() {
   }, [infraHealth]);
 
   useEffect(() => {
-    if (!ledger) return;
+    if (!activeLedger) return;
     setLastPoll(new Date().toISOString().replace("T", " ").slice(0, 19) + " UTC");
     const tick = Date.now();
     setLatencyHistory((h) => [
       ...h.slice(-23),
-      { t: tick, v: ledger.mean_latency_ms ?? 0 },
+      { t: tick, v: activeLedger.mean_latency_ms ?? 0 },
     ]);
     setRevenueHistory((h) => [
       ...h.slice(-23),
-      { t: tick, v: ledger.settled_usdc_payments },
+      { t: tick, v: activeLedger.settled_usdc_payments },
     ]);
     setRejectionHistory((h) => [
       ...h.slice(-23),
-      { t: tick, v: ledger.blocked_402_rejections },
+      { t: tick, v: activeLedger.blocked_402_rejections },
     ]);
-  }, [ledger]);
+  }, [activeLedger]);
 
   const moatTotalVectors = moat?.total_vectors ?? 0;
   const moatCollectionCount = moat?.collection_count ?? 0;
@@ -166,25 +172,16 @@ export default function Dashboard() {
   }, [moat, moatTotalVectors, moatCollectionCount]);
 
   // ── Derived values ─────────────────────────────────────────────────────────
-  const totalQueries    = ledger?.total_handled_requests ?? 0;
-  const total402        = ledger?.blocked_402_rejections ?? 0;
-  const clearedQueries  = useMemo(
-    () => computeClearedQueryCount(totalQueries, total402),
-    [totalQueries, total402]
-  );
-  const liveRevenueUsd  = useMemo(
-    () => ledger?.settled_usdc_payments ?? computeLiveRevenueUsd(clearedQueries),
-    [ledger?.settled_usdc_payments, clearedQueries]
-  );
-  void liveRevenueUsd;
-  const crawlHits       = ledger?.manifest_crawl_hits ?? 0;
-  const zeroResultCount = ledger?.trapped_gap_count ?? 0;
+  const totalQueries    = activeLedger?.total_handled_requests ?? 0;
+  const total402        = activeLedger?.blocked_402_rejections ?? 0;
+  const crawlHits       = activeLedger?.manifest_crawl_hits ?? 0;
+  const zeroResultCount = activeLedger?.trapped_gap_count ?? 0;
   const computeSaved    = telemetry?.estimated_compute_saved_usd ?? total402 * SYSTEM_CONFIG.computeCostSaved;
-  const meanLatency = ledger?.mean_latency_ms ?? 0;
-  const uptime = ledger?.uptime_seconds ?? 0;
+  const meanLatency = activeLedger?.mean_latency_ms ?? 0;
+  const uptime = activeLedger?.uptime_seconds ?? 0;
   const moatVectors = moatTotalVectors;
   const liveCollections = moatCollectionCount;
-  const trappedGaps = ledger?.trapped_gaps ?? [];
+  const trappedGaps = activeLedger?.trapped_gaps ?? [];
   const edgeLatencyMs =
     infraHealth?.edge_latency_ms ?? endpointStatuses.EDGE_GATEWAY?.latency ?? null;
 
@@ -276,7 +273,7 @@ export default function Dashboard() {
               moatVectors={moatVectors}
               liveCollections={liveCollections}
               moatLive={moatCollectionCount > 0}
-              ledger={ledger}
+              ledger={activeLedger}
               ledgerLoading={ledgerLoading}
               trappedGaps={trappedGaps}
               edgeLatencyMs={edgeLatencyMs}
@@ -354,7 +351,7 @@ export default function Dashboard() {
         {/* ── TAB 2: LEDGER ───────────────────────────────────────────── */}
         {activeTab === "ledger" && (
           <LedgerPanel
-            ledger={ledger}
+            ledger={activeLedger}
             revenueHistory={revenueHistory}
             rejectionHistory={rejectionHistory}
             loading={ledgerBootstrapping}
@@ -450,7 +447,7 @@ export default function Dashboard() {
                   Unfulfilled Demand — KV Trapped Gaps (Live)
                 </h3>
                 <span className="text-[10px] text-gray-600 font-mono">
-                  {ledger?.sources.edge_kv ? "edge KV synced" : "KV offline"}
+                  {activeLedger?.sources.edge_kv ? "edge KV synced" : "KV offline"}
                 </span>
               </div>
 
@@ -493,7 +490,7 @@ export default function Dashboard() {
               </div>
               <div className="mt-2 text-[10px] font-mono text-gray-700">
                 {zeroResultCount} trapped gap(s) · leakage $
-                {(ledger?.estimated_leakage_usd ?? 0).toFixed(3)} ·{" "}
+                {(activeLedger?.estimated_leakage_usd ?? 0).toFixed(3)} ·{" "}
                 <a href="/dashboard/revenue-gaps" className="text-cyan-600 hover:text-cyan-400">
                   full command surface →
                 </a>

@@ -29,17 +29,25 @@ export const GLOBAL_METRICS = {
   protocol: "x402" as const,
 } as const;
 
-/** Cleared queries that passed x402 / free-tier gates (excludes 402 blocks). */
-export function computeClearedQueryCount(
-  totalHandled: number,
-  blocked402: number
-): number {
-  return Math.max(0, totalHandled - blocked402);
+/**
+ * Fly `total_queries` — searches that reached the Rust backend (already cleared
+ * the edge gate). Do NOT subtract edge 402 rejections; those never hit Fly.
+ */
+export function computeSettledQueryCount(flyHandledRequests: number): number {
+  return Math.max(0, flyHandledRequests);
 }
 
-/** Single source of truth: handled cleared queries × protocol price. */
+/** @deprecated Edge 402 and Fly queries are disjoint counters — use computeSettledQueryCount. */
+export function computeClearedQueryCount(
+  totalHandled: number,
+  _blocked402: number
+): number {
+  return computeSettledQueryCount(totalHandled);
+}
+
+/** Single source of truth: Fly handled queries × protocol price. */
 export function computeLiveRevenueUsd(handledQueriesCount: number): number {
-  return computeClearedQueryCount(handledQueriesCount, 0) * QUERY_PRICE_USDC;
+  return computeSettledQueryCount(handledQueriesCount) * QUERY_PRICE_USDC;
 }
 
 export function formatLiveRevenueUsd(amount: number): string {

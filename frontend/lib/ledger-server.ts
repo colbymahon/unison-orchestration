@@ -73,7 +73,7 @@ const EDGE_BASE =
   process.env.UNISON_EDGE_GATEWAY_URL?.replace(/\/$/, "") ??
   "https://unison-edge-gateway.unisonorchestration.workers.dev";
 
-import { QUERY_PRICE_USDC, computeClearedQueryCount } from "@/lib/config/metrics";
+import { QUERY_PRICE_USDC, computeSettledQueryCount } from "@/lib/config/metrics";
 
 export async function fetchLedgerTelemetry(): Promise<LedgerTelemetryResponse> {
   const fetched_at = new Date().toISOString();
@@ -174,11 +174,9 @@ export async function fetchLedgerTelemetry(): Promise<LedgerTelemetryResponse> {
 
   const total_handled_requests = fly?.total_queries ?? 0;
   const blocked_402_rejections = fly?.total_402_rejections ?? 0;
-  const cleared = computeClearedQueryCount(
-    total_handled_requests,
-    blocked_402_rejections
-  );
-  const settled_usdc_payments = cleared * QUERY_PRICE_USDC;
+  // Fly queries and edge 402 blocks are disjoint — never subtract 402 from Fly totals.
+  const settled_usdc_payments =
+    computeSettledQueryCount(total_handled_requests) * QUERY_PRICE_USDC;
 
   const estimated_leakage_usd = trapped_gaps.reduce(
     (s, g) => s + (g.accumulated_lost_revenue ?? 0),

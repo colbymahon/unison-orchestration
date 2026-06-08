@@ -5,8 +5,8 @@ import type { LedgerTelemetryPayload } from "./types";
 import { TelemetryCard, TelemetryValue } from "./TelemetryCard";
 import { RevenueVelocityMeter } from "./RevenueVelocityMeter";
 import {
-  computeClearedQueryCount,
   computeLiveRevenueUsd,
+  computeSettledQueryCount,
   formatLiveRevenueUsd,
   QUERY_PRICE_USDC,
 } from "@/lib/config/metrics";
@@ -51,10 +51,7 @@ export function OverviewTelemetryGrid({
   );
 
   const liveRevenueDisplay = useMemo(() => {
-    const handled = computeClearedQueryCount(
-      ledger?.total_handled_requests ?? 0,
-      ledger?.blocked_402_rejections ?? 0
-    );
+    const handled = computeSettledQueryCount(ledger?.total_handled_requests ?? 0);
     const liveRevenue =
       ledger?.settled_usdc_payments ?? computeLiveRevenueUsd(handled);
     return formatLiveRevenueUsd(liveRevenue);
@@ -98,11 +95,8 @@ export function OverviewTelemetryGrid({
         accent="purple"
         footer={
           <p className="font-data text-[10px] text-slate-500">
-            {computeClearedQueryCount(
-              ledger?.total_handled_requests ?? 0,
-              ledger?.blocked_402_rejections ?? 0
-            )}{" "}
-            cleared × ${QUERY_PRICE_USDC} USDC
+            {computeSettledQueryCount(ledger?.total_handled_requests ?? 0)}{" "}
+            handled × ${QUERY_PRICE_USDC} USDC
           </p>
         }
       >
