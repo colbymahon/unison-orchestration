@@ -11,7 +11,7 @@ Environment:
   USDC_CONTRACT_ADDRESS         — default Base USDC 0x833589...
   PAYMENT_DEST                  — treasury wallet (matches edge PAYMENT_DEST)
   CLOUDFLARE_ACCOUNT_ID         — Cloudflare account id
-  CLOUDFLARE_API_TOKEN          — token with Account.Workers KV Storage edit
+  CLOUDFLARE_API_TOKEN          — optional; falls back to wrangler OAuth KV CLI
   CF_FREE_TIER_NAMESPACE_ID     — default 91fdd2e791234210906e25b8dd90ba96
   SETTLEMENT_POLL_SECONDS       — block poll interval (default 12)
   SETTLEMENT_MIN_PAYMENT_USDC   — minimum credit per tx (default 0.005)
@@ -23,13 +23,14 @@ from __future__ import annotations
 import json
 import logging
 import os
+import subprocess
 import sys
 import time
 import urllib.error
 import urllib.parse
 import urllib.request
 from pathlib import Path
-from typing import Any
+from typing import Any, Protocol
 
 from dotenv import load_dotenv
 from web3 import Web3
@@ -157,6 +158,13 @@ def _client_kv_key(agent_label: str) -> str:
     return f"agent:{agent_label}"
 
 
+class KvClient(Protocol):
+    def get_usage(self, client_key: str) -> int: ...
+    def set_usage(self, client_key: str, value: int, ttl_seconds: int = 7_776_000) -> bool: ...
+    def clear_usage(self, client_key: str) -> bool: ...
+    def verify_connection(self, namespace_id: str) -> bool: ...
+
+
 class CloudflareKvClient:
     def __init__(self, account_id: str, api_token: str, namespace_id: str) -> None:
         self.base = (
@@ -217,9 +225,111 @@ class CloudflareKvClient:
         logger.warning("KV DELETE failed for %s: HTTP %s %s", client_key, status, body[:200])
         return False
 
+    def verify_connection(self, namespace_id: str) -> bool:
+        probe = "__settlement_daemon_probe__"
+        _ = self.get_usage(probe)
+        logger.info(
+            "Cloudflare API connection verified. Namespace FREE_TIER (%s) accessed successfully.",
+            namespace_id,
+        )
+        return True
+
+
+class WranglerKvClient:
+    """KV access via `npx wrangler kv` using local OAuth session (no API token)."""
+
+    def __init__(self, namespace_id: str, wrangler_cwd: Path) -> None:
+        self.namespace_id = namespace_id
+        self.wrangler_cwd = wrangler_cwd
+
+    def _run(self, args: list[str], *, input_text: str | None = None) -> subprocess.CompletedProcess[str]:
+        cmd = [
+            "npx",
+            "wrangler",
+            "kv",
+            *args,
+            "--namespace-id",
+            self.namespace_id,
+        ]
+        return subprocess.run(
+            cmd,
+            cwd=self.wrangler_cwd,
+            capture_output=True,
+            text=True,
+            input=input_text,
+            timeout=45,
+            check=False,
+        )
+
+    def get_usage(self, client_key: str) -> int:
+        proc = self._run(["key", "get", client_key])
+        if proc.returncode != 0:
+            return 0
+        try:
+            return max(0, int((proc.stdout or "").strip()))
+        except ValueError:
+            return 0
+
+    def set_usage(self, client_key: str, value: int, ttl_seconds: int = 7_776_000) -> bool:
+        proc = self._run(
+            [
+                "key",
+                "put",
+                client_key,
+                str(max(0, value)),
+                f"--expiration-ttl={ttl_seconds}",
+            ]
+        )
+        if proc.returncode != 0:
+            logger.warning(
+                "Wrangler KV PUT failed for %s: %s",
+                client_key,
+                (proc.stderr or proc.stdout or "")[:200],
+            )
+        return proc.returncode == 0
+
+    def clear_usage(self, client_key: str) -> bool:
+        proc = self._run(["key", "delete", client_key])
+        return proc.returncode == 0
+
+    def verify_connection(self, namespace_id: str) -> bool:
+        proc = self._run(["key", "get", "__settlement_daemon_probe__"])
+        if proc.returncode not in (0, 1):
+            err = (proc.stderr or proc.stdout or "").strip()
+            raise ConnectionError(f"Wrangler KV probe failed: {err[:300]}")
+        logger.info(
+            "Cloudflare API connection verified. Namespace FREE_TIER (%s) accessed successfully.",
+            namespace_id,
+        )
+        return True
+
+
+def create_kv_client(
+    *,
+    account_id: str,
+    api_token: str,
+    namespace_id: str,
+) -> KvClient:
+    if api_token:
+        return CloudflareKvClient(account_id, api_token, namespace_id)
+    wrangler_cwd = _REPO_ROOT / "edge-routing"
+    if not wrangler_cwd.exists():
+        raise EnvironmentError("edge-routing directory missing for wrangler KV fallback")
+    logger.info("CLOUDFLARE_API_TOKEN unset — using wrangler OAuth KV CLI fallback")
+    return WranglerKvClient(namespace_id, wrangler_cwd)
+
+
+def _verify_runtime_handshake(kv: KvClient, w3: Web3, namespace_id: str) -> None:
+    kv.verify_connection(namespace_id)
+    block = w3.eth.block_number
+    logger.info(
+        "Base L2 RPC stream established at block %d. Scanning transfer logs…",
+        block,
+    )
+
 
 def _apply_payment_credits(
-    kv: CloudflareKvClient,
+    kv: KvClient,
     client_key: str,
     credits: int,
     *,
@@ -323,7 +433,7 @@ def run_settlement_cycle(
     *,
     usdc_address: str,
     payment_dest: str,
-    kv: CloudflareKvClient,
+    kv: KvClient,
     state: dict[str, Any],
     min_payment_usdc: float,
     query_price_usdc: float,
@@ -389,28 +499,23 @@ def run_settlement_cycle(
     return state
 
 
-def _required_runtime_config() -> tuple[str, str, str, CloudflareKvClient]:
+def _required_runtime_config() -> tuple[str, KvClient, str]:
     rpc_url = os.getenv("BASE_RPC_URL", "").strip()
-    account_id = os.getenv("CLOUDFLARE_ACCOUNT_ID", "").strip()
+    account_id = os.getenv(
+        "CLOUDFLARE_ACCOUNT_ID", "6e6ecd3c3c886db2cedc24e5e4be6a1e"
+    ).strip()
     api_token = os.getenv("CLOUDFLARE_API_TOKEN", "").strip()
     namespace_id = os.getenv("CF_FREE_TIER_NAMESPACE_ID", FREE_TIER_NS_DEFAULT)
 
-    missing = [
-        name
-        for name, val in (
-            ("BASE_RPC_URL", rpc_url),
-            ("CLOUDFLARE_ACCOUNT_ID", account_id),
-            ("CLOUDFLARE_API_TOKEN", api_token),
-        )
-        if not val
-    ]
-    if missing:
-        raise EnvironmentError(
-            "Missing required settlement env: " + ", ".join(missing)
-        )
+    if not rpc_url:
+        raise EnvironmentError("Missing required settlement env: BASE_RPC_URL")
 
-    kv = CloudflareKvClient(account_id, api_token, namespace_id)
-    return rpc_url, account_id, api_token, kv
+    kv = create_kv_client(
+        account_id=account_id,
+        api_token=api_token,
+        namespace_id=namespace_id,
+    )
+    return rpc_url, kv, namespace_id
 
 
 def run_forever() -> None:
@@ -423,8 +528,10 @@ def run_forever() -> None:
 
     state = _load_state()
     backoff = poll_seconds
-    kv: CloudflareKvClient | None = None
+    kv: KvClient | None = None
     rpc_url = ""
+    namespace_id = os.getenv("CF_FREE_TIER_NAMESPACE_ID", FREE_TIER_NS_DEFAULT)
+    handshake_done = False
 
     logger.info(
         "Unison 402 settlement daemon booting — builder=%s dest=%s mode=%s",
@@ -436,11 +543,11 @@ def run_forever() -> None:
     while True:
         try:
             if kv is None:
-                rpc_url, _, _, kv = _required_runtime_config()
-                logger.info(
-                    "Settlement credentials loaded — polling Base L2 + FREE_TIER KV"
-                )
+                rpc_url, kv, namespace_id = _required_runtime_config()
             w3 = _connect_web3(rpc_url)
+            if not handshake_done:
+                _verify_runtime_handshake(kv, w3, namespace_id)
+                handshake_done = True
             state = run_settlement_cycle(
                 w3,
                 usdc_address=usdc,
@@ -453,17 +560,15 @@ def run_forever() -> None:
             )
             backoff = poll_seconds
         except EnvironmentError as exc:
-            logger.warning(
-                "%s — export CLOUDFLARE_API_TOKEN and BASE_RPC_URL; retry in %.0fs",
-                exc,
-                backoff,
-            )
+            logger.warning("%s — retry in %.0fs", exc, backoff)
             kv = None
+            handshake_done = False
             time.sleep(backoff)
             backoff = min(backoff * 1.5, 120.0)
             continue
         except Exception as exc:
             logger.warning("Settlement cycle degraded: %s — reconnect in %.0fs", exc, backoff)
+            handshake_done = False
             time.sleep(backoff)
             backoff = min(backoff * 1.5, 120.0)
             continue
