@@ -6,7 +6,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { SESSION_COOKIE } from "@/lib/webauthn-config";
 import { verifyOpsSessionToken } from "@/lib/webauthn-session";
 import {
-  loadMasterTreasuryConfig,
+  loadMasterTreasuryConfigForApi,
   saveMasterTreasuryConfig,
 } from "@/lib/treasury-master-server";
 
@@ -29,12 +29,17 @@ function unauthorized(): NextResponse {
   );
 }
 
+async function sessionTokenFromRequest(): Promise<string | undefined> {
+  const cookieStore = await cookies();
+  return cookieStore.get(SESSION_COOKIE)?.value;
+}
+
 export async function GET(req: NextRequest): Promise<NextResponse> {
   if (!(await authorizeRequest(req))) {
     return unauthorized();
   }
 
-  const data = loadMasterTreasuryConfig();
+  const data = await loadMasterTreasuryConfigForApi(await sessionTokenFromRequest());
   return NextResponse.json(data, {
     headers: { "Cache-Control": "no-store, max-age=0" },
   });
@@ -56,7 +61,7 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
     return NextResponse.json({ error: "Invalid JSON body" }, { status: 400 });
   }
 
-  const result = await saveMasterTreasuryConfig(body);
+  const result = await saveMasterTreasuryConfig(body, await sessionTokenFromRequest());
   if (!result.ok) {
     return NextResponse.json({ error: result.error }, { status: 400 });
   }

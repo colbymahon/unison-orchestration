@@ -1,10 +1,20 @@
 /**
- * Master wallet routing config — `.agent_state/treasury_config.json`
+ * Master wallet routing config — local file, Fly MCP ops store, Edge KV fallback.
  */
 
 import fs from "node:fs";
 import path from "node:path";
 import { isHexWallet, normalizeWallet } from "@/lib/treasury-config";
+import {
+  isFlyTreasuryStoreAvailable,
+  loadTreasuryConfigFromFly,
+  saveTreasuryConfigToFly,
+} from "@/lib/treasury-fly-store";
+import {
+  isEdgeTreasuryKvAvailable,
+  loadTreasuryConfigFromEdge,
+  saveTreasuryConfigToEdge,
+} from "@/lib/treasury-kv-edge";
 import type {
   MasterTreasuryConfig,
   MasterTreasuryConfigResponse,
@@ -46,6 +56,33 @@ export function resolveTreasuryConfigPath(): string | null {
   return treasuryConfigFileCandidates()[0] ?? null;
 }
 
+function isFilesystemWritable(): boolean {
+  const configPath = resolveTreasuryConfigPath();
+  if (!configPath) return false;
+  try {
+    fs.mkdirSync(path.dirname(configPath), { recursive: true });
+    fs.accessSync(path.dirname(configPath), fs.constants.W_OK);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+export function isTreasuryConfigWritable(): boolean {
+  return (
+    isFilesystemWritable() ||
+    isFlyTreasuryStoreAvailable() ||
+    isEdgeTreasuryKvAvailable()
+  );
+}
+
+export function resolveTreasuryPersistTarget(): MasterTreasuryConfigResponse["config_persist_target"] {
+  if (isFilesystemWritable()) return "file";
+  if (isFlyTreasuryStoreAvailable()) return "fly";
+  if (isEdgeTreasuryKvAvailable()) return "kv";
+  return "none";
+}
+
 export function loadMasterTreasuryConfig(): MasterTreasuryConfigResponse {
   const envJson = process.env.TREASURY_CONFIG_JSON?.trim();
   if (envJson) {
@@ -74,7 +111,29 @@ export function loadMasterTreasuryConfig(): MasterTreasuryConfigResponse {
     updated_at: new Date().toISOString(),
     config_writable: isTreasuryConfigWritable(),
     config_source: "defaults",
+    config_persist_target: resolveTreasuryPersistTarget(),
   };
+}
+
+async function loadMasterTreasuryConfigAsync(
+  sessionToken?: string
+): Promise<MasterTreasuryConfigResponse> {
+  const sync = loadMasterTreasuryConfig();
+  if (sync.config_source !== "defaults") {
+    return sync;
+  }
+
+  const flyConfig = await loadTreasuryConfigFromFly();
+  if (flyConfig) {
+    return normalizeMasterConfig(flyConfig, "fly");
+  }
+
+  const kvConfig = await loadTreasuryConfigFromEdge(sessionToken);
+  if (kvConfig) {
+    return normalizeMasterConfig(kvConfig, "kv");
+  }
+
+  return sync;
 }
 
 function normalizeMasterConfig(
@@ -95,27 +154,17 @@ function normalizeMasterConfig(
     updated_at: raw.updated_at ?? new Date().toISOString(),
     config_writable: isTreasuryConfigWritable(),
     config_source: source,
+    config_persist_target: resolveTreasuryPersistTarget(),
   };
 }
 
-export function isTreasuryConfigWritable(): boolean {
-  const configPath = resolveTreasuryConfigPath();
-  if (!configPath) return false;
-  try {
-    fs.mkdirSync(path.dirname(configPath), { recursive: true });
-    fs.accessSync(path.dirname(configPath), fs.constants.W_OK);
-    return true;
-  } catch {
-    return false;
-  }
-}
-
 export async function saveMasterTreasuryConfig(
-  input: Partial<MasterTreasuryConfig>
+  input: Partial<MasterTreasuryConfig>,
+  sessionToken?: string
 ): Promise<
   { ok: true; data: MasterTreasuryConfigResponse } | { ok: false; error: string }
 > {
-  const current = loadMasterTreasuryConfig();
+  const current = await loadMasterTreasuryConfigAsync(sessionToken);
   const master = (input.master_wallet_address ?? current.master_wallet_address).trim();
 
   if (master && !isHexWallet(master)) {
@@ -141,24 +190,71 @@ export async function saveMasterTreasuryConfig(
     };
   }
 
-  const configPath = resolveTreasuryConfigPath();
-  if (!configPath) {
-    return { ok: false, error: "Treasury config path not configured on this host." };
+  if (isFilesystemWritable()) {
+    const configPath = resolveTreasuryConfigPath();
+    if (!configPath) {
+      return { ok: false, error: "Treasury config path not configured on this host." };
+    }
+
+    try {
+      fs.mkdirSync(path.dirname(configPath), { recursive: true });
+      fs.writeFileSync(configPath, `${JSON.stringify(next, null, 2)}\n`, "utf-8");
+      return {
+        ok: true,
+        data: {
+          ...next,
+          config_writable: true,
+          config_source: "file",
+          config_persist_target: "file",
+        },
+      };
+    } catch (e) {
+      const message = e instanceof Error ? e.message : String(e);
+      return { ok: false, error: `Cannot write treasury config: ${message}` };
+    }
   }
 
-  try {
-    fs.mkdirSync(path.dirname(configPath), { recursive: true });
-    fs.writeFileSync(configPath, `${JSON.stringify(next, null, 2)}\n`, "utf-8");
+  if (isFlyTreasuryStoreAvailable()) {
+    const flyResult = await saveTreasuryConfigToFly(next);
+    if (!flyResult.ok) {
+      return flyResult;
+    }
     return {
       ok: true,
       data: {
         ...next,
         config_writable: true,
-        config_source: "file",
+        config_source: "fly",
+        config_persist_target: "fly",
       },
     };
-  } catch (e) {
-    const message = e instanceof Error ? e.message : String(e);
-    return { ok: false, error: `Cannot write treasury config: ${message}` };
   }
+
+  if (isEdgeTreasuryKvAvailable()) {
+    const edgeResult = await saveTreasuryConfigToEdge(next, sessionToken);
+    if (!edgeResult.ok) {
+      return edgeResult;
+    }
+    return {
+      ok: true,
+      data: {
+        ...next,
+        config_writable: true,
+        config_source: "kv",
+        config_persist_target: "kv",
+      },
+    };
+  }
+
+  return {
+    ok: false,
+    error: "Treasury config store unavailable. Retry shortly or save via local dashboard.",
+  };
+}
+
+/** Loader for GET route — includes remote store fallbacks when local file absent. */
+export async function loadMasterTreasuryConfigForApi(
+  sessionToken?: string
+): Promise<MasterTreasuryConfigResponse> {
+  return loadMasterTreasuryConfigAsync(sessionToken);
 }

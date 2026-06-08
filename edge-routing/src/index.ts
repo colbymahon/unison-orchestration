@@ -83,6 +83,7 @@ import {
   scheduleGlobalQuerySuccess,
 } from "./global_metrics";
 import { mergeZkpHeaders, verifyAndAttachZkp } from "./zkp";
+import { loadTreasuryConfig, saveTreasuryConfig } from "./treasury_config";
 
 // ---------------------------------------------------------------------------
 // Environment bindings
@@ -1050,6 +1051,81 @@ export default {
         }),
         request
       );
+    }
+
+    if (adminPath === "/api/admin/treasury-config") {
+      const authBlock = await requireAdminAccess(request, adminAuthEnv, pathname);
+      if (authBlock) return authBlock;
+
+      if (method === "GET") {
+        const config = await loadTreasuryConfig(env.FREE_TIER);
+        return withCors(
+          new Response(
+            JSON.stringify(
+              config ?? {
+                master_wallet_address: "",
+                override_platform_treasury: false,
+                override_creator_allocations: false,
+                updated_at: new Date().toISOString(),
+              }
+            ),
+            {
+              status: 200,
+              headers: {
+                "Content-Type": "application/json",
+                "Cache-Control": "no-store",
+              },
+            }
+          ),
+          request
+        );
+      }
+
+      if (method === "POST") {
+        let body: {
+          master_wallet_address?: string;
+          override_platform_treasury?: boolean;
+          override_creator_allocations?: boolean;
+        };
+        try {
+          body = (await request.json()) as typeof body;
+        } catch {
+          return errorResponse(400, "Invalid JSON body.");
+        }
+        let result: Awaited<ReturnType<typeof saveTreasuryConfig>>;
+        try {
+          result = await saveTreasuryConfig(env.FREE_TIER, body);
+        } catch (err) {
+          console.error("treasury-config save fault:", err);
+          return errorResponse(
+            503,
+            "Treasury config KV degraded. Use Fly MCP ops store from dashboard.",
+            request
+          );
+        }
+        if (!result.ok) {
+          const status = result.error.includes("quota") ? 503 : 400;
+          return withCors(
+            new Response(JSON.stringify({ error: result.error }), {
+              status,
+              headers: { "Content-Type": "application/json" },
+            }),
+            request
+          );
+        }
+        return withCors(
+          new Response(JSON.stringify({ ok: true, ...result.data }), {
+            status: 200,
+            headers: {
+              "Content-Type": "application/json",
+              "Cache-Control": "no-store",
+            },
+          }),
+          request
+        );
+      }
+
+      return errorResponse(405, "Method Not Allowed. Use GET or POST.", request);
     }
 
     if (adminPath === "/api/admin/mark-pipeline-queued") {

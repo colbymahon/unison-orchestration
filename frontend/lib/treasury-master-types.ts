@@ -7,5 +7,6 @@ export interface MasterTreasuryConfig {
 
 export interface MasterTreasuryConfigResponse extends MasterTreasuryConfig {
   config_writable: boolean;
-  config_source: "defaults" | "file" | "env";
+  config_source: "defaults" | "file" | "env" | "kv" | "fly";
+  config_persist_target?: "file" | "kv" | "fly" | "none";
 }

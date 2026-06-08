@@ -71,6 +71,8 @@ STATE_FILE = _GTM_STATE / "settlement_daemon_state.json"
 WALLET_MAP_FILE = _GTM_STATE / "wallet_agent_map.json"
 CREATOR_MAP_FILE = _GTM_STATE / "collection_creator_map.json"
 TREASURY_CONFIG_FILE = _GTM_STATE / "treasury_config.json"
+TREASURY_CONFIG_KV_KEY = "unison:treasury_config"
+TREASURY_FLY_WORKFLOW_ID = "_ops_treasury_master"
 
 CREATOR_SHARE_BPS = 7000
 PLATFORM_SHARE_BPS = 3000
@@ -149,8 +151,26 @@ def _resolve_collection_creator(collection_id: str, platform_address: str) -> st
     return Web3.to_checksum_address(platform_address)
 
 
-def _load_treasury_config() -> dict[str, Any]:
-    """Master wallet override substrate — treasury_config.json."""
+def _load_treasury_config_from_fly() -> dict[str, Any] | None:
+    """Fly MCP workflow ops store — avoids FREE_TIER KV write quota pressure."""
+    fly_base = os.getenv("UNISON_MCP_URL", "https://unison-mcp.fly.dev").strip().rstrip("/")
+    url = f"{fly_base}/api/v1/workflows/{TREASURY_FLY_WORKFLOW_ID}"
+    try:
+        req = urllib.request.Request(url, method="GET")
+        with urllib.request.urlopen(req, timeout=12) as resp:
+            body = json.loads(resp.read().decode("utf-8"))
+        dsl = body.get("dsl_json") if isinstance(body, dict) else None
+        if isinstance(dsl, str) and dsl.strip():
+            raw = json.loads(dsl)
+            if isinstance(raw, dict):
+                return raw
+    except (urllib.error.URLError, TimeoutError, json.JSONDecodeError, OSError, ValueError):
+        pass
+    return None
+
+
+def _load_treasury_config(kv: KvClient | None = None) -> dict[str, Any]:
+    """Master wallet override substrate — file, Fly ops store, Edge KV fallback."""
     defaults: dict[str, Any] = {
         "master_wallet_address": "",
         "override_platform_treasury": False,
@@ -165,16 +185,34 @@ def _load_treasury_config() -> dict[str, Any]:
         except json.JSONDecodeError:
             pass
 
-    if not TREASURY_CONFIG_FILE.exists():
-        return defaults
-    try:
-        raw = json.loads(TREASURY_CONFIG_FILE.read_text(encoding="utf-8"))
-        if isinstance(raw, dict):
-            merged = dict(defaults)
-            merged.update(raw)
-            return merged
-    except (json.JSONDecodeError, OSError):
-        pass
+    if TREASURY_CONFIG_FILE.exists():
+        try:
+            raw = json.loads(TREASURY_CONFIG_FILE.read_text(encoding="utf-8"))
+            if isinstance(raw, dict):
+                merged = dict(defaults)
+                merged.update(raw)
+                return merged
+        except (json.JSONDecodeError, OSError):
+            pass
+
+    fly_raw = _load_treasury_config_from_fly()
+    if fly_raw:
+        merged = dict(defaults)
+        merged.update(fly_raw)
+        return merged
+
+    if kv is not None:
+        try:
+            payload = kv.get_value(TREASURY_CONFIG_KV_KEY)
+            if payload:
+                raw = json.loads(payload)
+                if isinstance(raw, dict):
+                    merged = dict(defaults)
+                    merged.update(raw)
+                    return merged
+        except (json.JSONDecodeError, TypeError, ValueError):
+            pass
+
     return defaults
 
 
@@ -304,6 +342,7 @@ class KvClient(Protocol):
     def get_usage(self, client_key: str) -> int: ...
     def set_usage(self, client_key: str, value: int, ttl_seconds: int = 7_776_000) -> bool: ...
     def clear_usage(self, client_key: str) -> bool: ...
+    def get_value(self, key: str) -> str | None: ...
     def verify_connection(self, namespace_id: str) -> bool: ...
 
 
@@ -366,6 +405,16 @@ class CloudflareKvClient:
             return True
         logger.warning("KV DELETE failed for %s: HTTP %s %s", client_key, status, body[:200])
         return False
+
+    def get_value(self, key: str) -> str | None:
+        encoded = urllib.parse.quote(key, safe="")
+        status, body = self._request("GET", f"/values/{encoded}")
+        if status == 404:
+            return None
+        if status != 200:
+            logger.warning("KV GET failed for %s: HTTP %s %s", key, status, body[:200])
+            return None
+        return body
 
     def verify_connection(self, namespace_id: str) -> bool:
         probe = "__settlement_daemon_probe__"
@@ -433,6 +482,13 @@ class WranglerKvClient:
     def clear_usage(self, client_key: str) -> bool:
         proc = self._run(["key", "delete", client_key])
         return proc.returncode == 0
+
+    def get_value(self, key: str) -> str | None:
+        proc = self._run(["key", "get", key])
+        if proc.returncode != 0:
+            return None
+        value = (proc.stdout or "").strip()
+        return value or None
 
     def verify_connection(self, namespace_id: str) -> bool:
         proc = self._run(["key", "get", "__settlement_daemon_probe__"])
@@ -547,7 +603,7 @@ def _process_transfer_log(
     collection_id = _extract_collection_from_calldata(calldata)
     platform_address = Web3.to_checksum_address(payment_dest)
     creator_address = _resolve_collection_creator(collection_id, platform_address)
-    treasury_config = _load_treasury_config()
+    treasury_config = _load_treasury_config(kv)
     platform_address, creator_address, master_override = _apply_master_wallet_overrides(
         platform_address,
         creator_address,

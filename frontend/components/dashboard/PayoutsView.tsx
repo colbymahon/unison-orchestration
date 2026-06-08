@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import {
   ExternalLink,
   RefreshCw,
@@ -14,7 +14,7 @@ import { useLiveFetch } from "@/lib/use-live-fetch";
 import { DASHBOARD_FETCH_BASE } from "@/lib/dashboard-fetch";
 import type { TreasuryPayload } from "@/lib/treasury-types";
 import type { MasterTreasuryConfigResponse } from "@/lib/treasury-master-types";
-import { basescanAddressUrl } from "@/lib/treasury-config";
+import { basescanAddressUrl, isHexWallet } from "@/lib/treasury-config";
 import { TelemetryCard, TelemetryValue } from "./TelemetryCard";
 
 const TREASURY_POLL_MS = 30_000;
@@ -138,6 +138,28 @@ export function PayoutsView({ loading: externalLoading }: Props) {
     }
   }, [editSlug, editWallet, refreshTreasury]);
 
+  const masterSaveBlockedReason = useMemo(() => {
+    if (masterLoading || savingMaster) return null;
+    if (masterConfig?.config_writable === false) {
+      return "Config store unavailable — refresh the page or re-authenticate with WebAuthn.";
+    }
+    const wallet = masterWallet.trim();
+    if ((overridePlatform || overrideCreator) && !wallet) {
+      return "Enter your master wallet address before enabling overrides.";
+    }
+    if (wallet && !isHexWallet(wallet)) {
+      return "Wallet must be a valid Base address (0x + 40 hex characters).";
+    }
+    return null;
+  }, [
+    masterLoading,
+    savingMaster,
+    masterConfig?.config_writable,
+    masterWallet,
+    overridePlatform,
+    overrideCreator,
+  ]);
+
   return (
     <div className="space-y-8">
       <div className="text-center max-w-3xl mx-auto">
@@ -185,9 +207,15 @@ export function PayoutsView({ loading: externalLoading }: Props) {
         <p className="font-data text-[10px] text-white/35 mb-5">
           High-priority override tier — redirects platform and/or creator allocation targets to your
           personal Base wallet. Persists to{" "}
-          <code className="text-purple-300/80">.agent_state/treasury_config.json</code>
-          {masterConfig?.config_writable === false ? (
-            <span className="text-amber-400/80"> · use TREASURY_CONFIG_JSON on serverless hosts</span>
+          {masterConfig?.config_persist_target === "fly" ? (
+            <code className="text-purple-300/80">Fly MCP ops store</code>
+          ) : masterConfig?.config_persist_target === "kv" ? (
+            <code className="text-purple-300/80">Cloudflare Edge KV</code>
+          ) : (
+            <code className="text-purple-300/80">.agent_state/treasury_config.json</code>
+          )}
+          {masterConfig?.config_source && masterConfig.config_source !== "defaults" ? (
+            <span className="text-white/25"> · loaded from {masterConfig.config_source}</span>
           ) : null}
         </p>
 
@@ -239,17 +267,17 @@ export function PayoutsView({ loading: externalLoading }: Props) {
         <button
           type="button"
           onClick={() => void handleSaveMaster()}
-          disabled={
-            savingMaster ||
-            masterLoading ||
-            masterConfig?.config_writable === false ||
-            ((overridePlatform || overrideCreator) && !masterWallet)
-          }
-          className="inline-flex items-center justify-center gap-2 px-5 py-2.5 rounded-lg text-xs font-data font-semibold text-[#050914] bg-purple-400 hover:bg-purple-300 disabled:opacity-40 transition-colors"
+          disabled={Boolean(masterSaveBlockedReason) || savingMaster || masterLoading}
+          className="inline-flex items-center justify-center gap-2 px-5 py-2.5 rounded-lg text-xs font-data font-semibold text-[#050914] bg-purple-400 hover:bg-purple-300 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
         >
           <Save className="w-3.5 h-3.5" aria-hidden="true" />
           {savingMaster ? "persisting…" : "save master routing"}
         </button>
+        {masterSaveBlockedReason ? (
+          <p className="mt-3 font-data text-[10px] text-amber-400/80" role="status">
+            {masterSaveBlockedReason}
+          </p>
+        ) : null}
         {masterSaveMessage ? (
           <p className="mt-3 font-data text-[10px] text-white/45" role="status">
             {masterSaveMessage}
