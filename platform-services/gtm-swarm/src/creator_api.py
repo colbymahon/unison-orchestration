@@ -7,6 +7,7 @@ CreatorRegistryStore SQLite enclave.
 
 Routes:
   POST /api/v1/creator/register  — sanitize + insert creator row
+  POST /api/v1/creator/ingest     — chunk, embed, upsert creator payload
   GET  /api/v1/creator/manifest  — cluster-auth gated registry read
 
 Environment:
@@ -17,6 +18,7 @@ Environment:
 
 from __future__ import annotations
 
+import asyncio
 import json
 import logging
 import os
@@ -27,6 +29,7 @@ from typing import Any
 from aiohttp import web
 from dotenv import load_dotenv
 
+from ingestion_pipeline import ingest_creator_payload
 from memory_manager import CreatorRegistryStore
 
 logger = logging.getLogger("UnisonCreatorAPI")
@@ -110,6 +113,85 @@ async def handle_creator_register(request: web.Request) -> web.Response:
     return _json_response({"status": "registered", "slug": slug}, 201)
 
 
+async def handle_creator_ingest(request: web.Request) -> web.Response:
+    if not authorize_cluster_request(request):
+        return _json_response(
+            {
+                "error": "unauthorized",
+                "message": "Valid cluster authorization required (Bearer ADMIN_API_SECRET).",
+            },
+            401,
+        )
+
+    try:
+        body = await request.json()
+    except json.JSONDecodeError:
+        return _json_response({"error": "invalid_json", "message": "Request body must be JSON"}, 400)
+
+    if not isinstance(body, dict):
+        return _json_response({"error": "invalid_json", "message": "JSON object required"}, 400)
+
+    slug = str(body.get("slug", "")).strip().lower()
+    raw_data = str(body.get("raw_data", ""))
+    format_type = str(body.get("format_type", "auto")).strip().lower() or "auto"
+
+    if not slug or not _SLUG_RE.match(slug):
+        return _json_response(
+            {"error": "invalid_slug", "message": "slug must be 3-64 chars: lowercase alphanumeric, underscore, hyphen"},
+            400,
+        )
+    if not raw_data.strip():
+        return _json_response(
+            {"error": "invalid_payload", "message": "raw_data must be a non-empty string"},
+            400,
+        )
+
+    store: CreatorRegistryStore = request.app["creator_store"]
+    creator_row = store.fetch_creator_by_slug(slug)
+    if creator_row is None:
+        return _json_response(
+            {"error": "slug_not_registered", "message": f"slug not found in creator_registry: {slug}"},
+            404,
+        )
+
+    if not store.update_upload_status(slug, "processing"):
+        return _json_response(
+            {"error": "status_update_failed", "message": "failed to mark slug as processing"},
+            500,
+        )
+
+    try:
+        ok = await asyncio.to_thread(ingest_creator_payload, slug, raw_data, format_type)
+    except Exception as exc:
+        logger.exception("ingest worker exception slug=%s", slug)
+        store.update_upload_status(slug, "failed")
+        return _json_response(
+            {"error": "ingest_worker_error", "message": str(exc)},
+            500,
+        )
+
+    if ok:
+        store.update_upload_status(slug, "completed")
+        return _json_response(
+            {
+                "status": "ingested",
+                "slug": slug,
+                "upload_status": "completed",
+            },
+            201,
+        )
+
+    store.update_upload_status(slug, "failed")
+    return _json_response(
+        {
+            "error": "ingest_failed",
+            "message": "embedding pipeline rejected or failed payload processing",
+            "upload_status": "failed",
+        },
+        500,
+    )
+
+
 async def handle_creator_manifest(request: web.Request) -> web.Response:
     if not authorize_cluster_request(request):
         return _json_response(
@@ -136,6 +218,7 @@ def create_app(db_path: str | Path | None = None) -> web.Application:
     app = web.Application()
     app["creator_store"] = CreatorRegistryStore(db_path)
     app.router.add_post("/api/v1/creator/register", handle_creator_register)
+    app.router.add_post("/api/v1/creator/ingest", handle_creator_ingest)
     app.router.add_get("/api/v1/creator/manifest", handle_creator_manifest)
     return app
 
