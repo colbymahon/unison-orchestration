@@ -1,0 +1,55 @@
+{
+  "name": "unison-orchestration",
+  "version": "0.1.0",
+  "description": "TypeScript SDK for Unison Orchestration — TSV MCP client with x402 settlement on Base L2",
+  "license": "MIT",
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    }
+  },
+  "files": [
+    "dist",
+    "README.md"
+  ],
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "typecheck": "tsc --noEmit -p tsconfig.json",
+    "prepublishOnly": "npm run build"
+  },
+  "keywords": [
+    "unison",
+    "mcp",
+    "x402",
+    "langchain",
+    "tsv",
+    "base",
+    "usdc",
+    "agent"
+  ],
+  "peerDependencies": {
+    "@langchain/core": ">=0.2.0",
+    "viem": ">=2.0.0"
+  },
+  "peerDependenciesMeta": {
+    "@langchain/core": {
+      "optional": true
+    },
+    "viem": {
+      "optional": true
+    }
+  },
+  "devDependencies": {
+    "@langchain/core": "^0.3.69",
+    "@types/node": "^22.15.0",
+    "typescript": "^5.8.3",
+    "viem": "^2.31.0"
+  },
+  "engines": {
+    "node": ">=18"
+  }
+}

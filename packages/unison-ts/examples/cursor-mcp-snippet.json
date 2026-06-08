@@ -1,0 +1,12 @@
+{
+  "mcpServers": {
+    "unison-orchestration": {
+      "url": "https://unison-edge-gateway.unisonorchestration.workers.dev/mcp/v1/search",
+      "headers": {
+        "X-Agent-ID": "your-agent-id-here"
+      },
+      "description": "Unison zero-hallucination TSV ground truth — x402 USDC on Base L2",
+      "manifest": "https://unison-edge-gateway.unisonorchestration.workers.dev/.well-known/mcp-configuration"
+    }
+  }
+}
