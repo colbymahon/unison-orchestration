@@ -7,6 +7,8 @@
 //!   GET  /telemetry                                     Full runtime aggregation metrics (JSON)
 //!   POST /telemetry/rejection                           Edge-forwarded 402 rejection counter
 //!   POST /telemetry/agent-heartbeat                     Edge-forwarded agent registry upsert
+//!   POST /api/v1/tasks                                  Enqueue async background task
+//!   GET  /api/v1/tasks/:id                              Poll task status + result digest
 //!
 //! Telemetry now tracks:
 //!   - Total queries dispatched + per-collection breakdown
@@ -28,7 +30,7 @@ use std::{
 };
 
 use axum::{
-    extract::{Query, State},
+    extract::{Path, Query, State},
     http::{HeaderMap, HeaderName, HeaderValue, Method, StatusCode},
     response::{IntoResponse, Response},
     routing::{get, post},
@@ -41,6 +43,7 @@ use tracing::{info, instrument};
 
 mod persistence;
 mod retrieval;
+mod task_queue;
 
 use persistence::{
     increment_persistent_counter, read_persistent_counter, TelemetryStore, KEY_LATENCY_SAMPLES,
@@ -49,6 +52,7 @@ use persistence::{
 };
 use retrieval::{EmbedService, QdrantPool};
 use retrieval::qdrant::QdrantScoredPoint;
+use task_queue::{TaskQueueStore, TaskRecord};
 
 // ---------------------------------------------------------------------------
 // Constants
@@ -85,6 +89,8 @@ struct AppState {
     agent_registry: Mutex<HashMap<String, AgentRegistryRecord>>,
     /// Distinct session IDs observed per agent_id.
     agent_session_ids: Mutex<HashMap<String, HashSet<String>>>,
+    /// Phase 2 Commit 2 — async background task queue (NVMe-backed SQLite).
+    task_queue: Arc<TaskQueueStore>,
 }
 
 // ---------------------------------------------------------------------------
@@ -854,6 +860,109 @@ async fn agent_heartbeat_handler(
 }
 
 // ---------------------------------------------------------------------------
+// Routes: POST /api/v1/tasks, GET /api/v1/tasks/:id
+// ---------------------------------------------------------------------------
+
+#[derive(Debug, Deserialize)]
+struct EnqueueTaskPayload {
+    agent_id: String,
+    session_id: String,
+    collection: String,
+    query: String,
+}
+
+#[derive(Debug, Serialize)]
+struct EnqueueTaskResponse {
+    task_id: String,
+    status: String,
+}
+
+#[derive(Debug, Serialize)]
+struct TaskStatusResponse {
+    task_id: String,
+    agent_id: String,
+    session_id: String,
+    collection: String,
+    query: String,
+    status: String,
+    created_at: f64,
+    completed_at: Option<f64>,
+    result_digest: Option<String>,
+}
+
+impl From<TaskRecord> for TaskStatusResponse {
+    fn from(record: TaskRecord) -> Self {
+        Self {
+            task_id: record.task_id,
+            agent_id: record.agent_id,
+            session_id: record.session_id,
+            collection: record.collection,
+            query: record.query,
+            status: record.status,
+            created_at: record.created_at,
+            completed_at: record.completed_at,
+            result_digest: record.result_digest,
+        }
+    }
+}
+
+async fn enqueue_task_handler(
+    State(state): State<Arc<AppState>>,
+    Json(payload): Json<EnqueueTaskPayload>,
+) -> Response {
+    match state.task_queue.enqueue_task(
+        &payload.agent_id,
+        &payload.session_id,
+        &payload.collection,
+        &payload.query,
+    ) {
+        Ok(record) => (
+            StatusCode::CREATED,
+            Json(EnqueueTaskResponse {
+                task_id: record.task_id,
+                status: record.status,
+            }),
+        )
+            .into_response(),
+        Err(task_queue::TaskQueueError::InvalidInput(msg)) => (
+            StatusCode::BAD_REQUEST,
+            Json(serde_json::json!({"error": msg})),
+        )
+            .into_response(),
+        Err(err) => {
+            tracing::error!("enqueue_task failed: {err}");
+            (
+                StatusCode::INTERNAL_SERVER_ERROR,
+                Json(serde_json::json!({"error": "task enqueue degraded"})),
+            )
+                .into_response()
+        }
+    }
+}
+
+async fn get_task_handler(
+    State(state): State<Arc<AppState>>,
+    Path(task_id): Path<String>,
+) -> Response {
+    match state.task_queue.get_task(&task_id) {
+        Ok(Some(record)) => (StatusCode::OK, Json(TaskStatusResponse::from(record))).into_response(),
+        Ok(None) => (
+            StatusCode::NOT_FOUND,
+            Json(serde_json::json!({"error": "task not found"})),
+        )
+            .into_response(),
+        Err(err) => {
+            tracing::error!("get_task({task_id}) failed: {err}");
+            (
+                StatusCode::INTERNAL_SERVER_ERROR,
+                Json(serde_json::json!({"error": "task read degraded"})),
+            )
+                .into_response()
+        }
+    }
+}
+
+// ---------------------------------------------------------------------------
 // Main
 // ---------------------------------------------------------------------------
 
@@ -928,6 +1037,12 @@ async fn main() -> anyhow::Result<()> {
         telemetry.db_path().display()
     );
 
+    let task_queue = Arc::new(TaskQueueStore::open_with_fallback());
+    info!(
+        "Task queue vault bound: {}",
+        task_queue.db_path().display()
+    );
+
     let state = Arc::new(AppState {
         embed,
         qdrant,
@@ -935,6 +1050,7 @@ async fn main() -> anyhow::Result<()> {
         telemetry,
         agent_registry: Mutex::new(HashMap::new()),
         agent_session_ids: Mutex::new(HashMap::new()),
+        task_queue,
     });
 
     let cors = CorsLayer::new()
@@ -960,6 +1076,8 @@ async fn main() -> anyhow::Result<()> {
         .route("/telemetry",                      get(telemetry_handler))
         .route("/telemetry/rejection",            post(track_rejection_handler))
         .route("/telemetry/agent-heartbeat",      post(agent_heartbeat_handler))
+        .route("/api/v1/tasks",                    post(enqueue_task_handler))
+        .route("/api/v1/tasks/:id",                 get(get_task_handler))
         .with_state(state)
         .layer(cors);
 

@@ -945,6 +945,34 @@ async def deploy_swarm(
     log.info("Total  ok=%d  err=%d", ok_total, err_total)
 
 
+def _load_task_coordinator_tick():
+    """Import Commit 2 coordinator from gtm-swarm (optional — degrades gracefully)."""
+    import importlib.util
+
+    mod_path = os.path.join(
+        os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
+        "platform-services",
+        "gtm-swarm",
+        "src",
+        "swarm_commander.py",
+    )
+    if not os.path.isfile(mod_path):
+        log.warning("Task coordinator module missing at %s", mod_path)
+        return None
+    try:
+        spec = importlib.util.spec_from_file_location(
+            "unison_gtm_task_coordinator", mod_path
+        )
+        if spec is None or spec.loader is None:
+            raise ImportError(f"Could not load spec for {mod_path}")
+        mod = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(mod)
+        return mod.run_coordinator_tick
+    except Exception as exc:
+        log.warning("Task coordinator unavailable (non-fatal): %s", exc)
+        return None
+
+
 async def run_continuous_swarm(
     agents: list[AgentConfig],
     wallet_pool: dict[int, AgentWallet],
@@ -952,27 +980,43 @@ async def run_continuous_swarm(
     dry_run: bool = False,
     simulate: bool = False,
     interval_seconds: int = 1800,
+    task_tick_seconds: int = 30,
 ) -> None:
-    """PM2-supervised loop — fires deploy_swarm on a fixed interval."""
+    """PM2-supervised loop — task queue ticks every 30s + swarm cycles on interval."""
+    coordinator_tick = _load_task_coordinator_tick()
     cycle = 0
+    ticks_since_swarm = 0
+    ticks_per_swarm = max(1, interval_seconds // task_tick_seconds)
+
     while True:
         cycle += 1
-        log.info("=== Continuous swarm cycle %d START ===", cycle)
-        try:
-            await deploy_swarm(
-                agents,
-                wallet_pool,
-                dry_run=dry_run,
-                simulate=simulate,
-            )
-        except Exception as exc:
-            log.exception("Swarm cycle %d failed (non-fatal): %s", cycle, exc)
-        log.info(
-            "=== Continuous swarm cycle %d COMPLETE — sleep %ds ===",
-            cycle,
-            interval_seconds,
-        )
-        await asyncio.sleep(interval_seconds)
+        ticks_since_swarm += 1
+
+        if coordinator_tick is not None:
+            log.info("=== Task coordinator tick %d START ===", cycle)
+            try:
+                await coordinator_tick()
+            except Exception as exc:
+                log.exception(
+                    "Task coordinator tick %d failed (non-fatal): %s", cycle, exc
+                )
+
+        if ticks_since_swarm >= ticks_per_swarm:
+            ticks_since_swarm = 0
+            log.info("=== Continuous swarm cycle %d START ===", cycle)
+            try:
+                await deploy_swarm(
+                    agents,
+                    wallet_pool,
+                    dry_run=dry_run,
+                    simulate=simulate,
+                )
+            except Exception as exc:
+                log.exception("Swarm cycle %d failed (non-fatal): %s", cycle, exc)
+            log.info("=== Continuous swarm cycle %d COMPLETE ===", cycle)
+
+        log.info("Sleeping %ds until next coordinator tick", task_tick_seconds)
+        await asyncio.sleep(task_tick_seconds)
 
 
 # ─── Entry Point ──────────────────────────────────────────────────────────────
@@ -1061,6 +1105,13 @@ def main() -> None:
         default=1800,
         dest="interval_seconds",
         help="Seconds between continuous swarm cycles (default: 1800 = 30 min).",
+    )
+    parser.add_argument(
+        "--task-tick-seconds",
+        type=int,
+        default=30,
+        dest="task_tick_seconds",
+        help="Seconds between task queue coordinator ticks (default: 30).",
     )
     args = parser.parse_args()
 
@@ -1184,6 +1235,7 @@ def main() -> None:
                 dry_run=args.dry_run,
                 simulate=args.simulate,
                 interval_seconds=args.interval_seconds,
+                task_tick_seconds=args.task_tick_seconds,
             )
         )
     else:
