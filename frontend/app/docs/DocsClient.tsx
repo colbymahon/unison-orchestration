@@ -3,12 +3,13 @@
 import { useState, type ReactNode } from "react";
 import { motion } from "framer-motion";
 import {
-  BookOpen, Zap, Route, Activity,
+  BookOpen, Zap, Route, Activity, Plug,
   ChevronRight, Copy, Check, ExternalLink,
 } from "lucide-react";
 
 const sections = [
   { id: "manifest",      label: "The Manifest",    icon: BookOpen  },
+  { id: "integrate",     label: "SDK & MCP",       icon: Plug      },
   { id: "handshake",     label: "x402 Handshake",  icon: Zap       },
   { id: "routing",       label: "Dynamic Routing",  icon: Route     },
   { id: "observability", label: "Observability",    icon: Activity  },
@@ -109,6 +110,52 @@ curl -H "X-Payment: {SIGNED_TX}" \\
 # Discover all collections (no payment required)
 curl "https://unison-edge-gateway.unisonorchestration.workers.dev/.well-known/mcp-configuration"`,
 
+  npmInstall: `npm install unison-orchestration @langchain/core viem`,
+
+  langchainSdk: `import { UnisonCorporaTool } from "unison-orchestration";
+
+const tool = await UnisonCorporaTool.create({
+  domain: "medical",
+  apiKey: process.env.UNISON_AGENT_ID ?? "langchain-enterprise-agent",
+});
+
+// Drop into any LangChain agent tool array
+const agent = initializeAgent({
+  tools: [tool],
+});
+
+const tsv = await tool.invoke("morphine adult dosage protocol");`,
+
+  claudeDesktopMcp: `{
+  "mcpServers": {
+    "unison-orchestration-hub": {
+      "command": "npx",
+      "args": ["-y", "unison-orchestration", "start"],
+      "env": {
+        "UNISON_AGENT_ID": "claude-desktop-agent",
+        "UNISON_BASE_RPC_URL": "https://mainnet.base.org",
+        "UNISON_AGENT_PRIVATE_KEY": "0xYOUR_PRIVATE_KEY"
+      }
+    }
+  }
+}`,
+
+  cursorMcp: `{
+  "mcpServers": {
+    "unison-orchestration-hub": {
+      "command": "npx",
+      "args": ["-y", "unison-orchestration", "start"],
+      "env": {
+        "UNISON_AGENT_ID": "cursor-agent",
+        "UNISON_BASE_RPC_URL": "https://mainnet.base.org",
+        "UNISON_AGENT_PRIVATE_KEY": "0xYOUR_PRIVATE_KEY"
+      }
+    }
+  }
+}`,
+
+  smitheryInstall: `npx @smithery/cli run crmendeavors/unison-orchestration-hub`,
+
   otelExample: `import { NodeSDK } from "@opentelemetry/sdk-node";
 import { OTLPTraceExporter } from "@opentelemetry/exporter-trace-otlp-http";
 
@@ -199,6 +246,7 @@ function SectionIntro({
 export function DocsClient() {
   const [active,  setActive]  = useState("manifest");
   const [langTab, setLangTab] = useState<"python" | "typescript">("python");
+  const [sdkTab, setSdkTab] = useState<"langchain" | "claude" | "cursor">("langchain");
 
   return (
     <div className="public-page pt-32 pb-24 min-h-screen">
@@ -303,6 +351,94 @@ export function DocsClient() {
                 registration, AutoGen, CrewAI, and any MCP-spec framework. The manifest
                 is auto-indexed by Smithery and PulseMCP for third-party agent discovery.
               </p>
+            </div>
+          </motion.section>
+        )}
+
+        {active === "integrate" && (
+          <motion.section
+            key="integrate"
+            initial={{ opacity: 0, y: 12 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.3 }}
+            aria-labelledby="integrate-h"
+          >
+            <SectionIntro
+              step="Wire in 3 Steps"
+              stepColor="text-cyan-400"
+              icon={Plug}
+              title="SDK & MCP Ingress"
+            >
+              <p id="integrate-h">
+                Install the{" "}
+                <code className="font-data text-cyan-400 text-sm">unison-orchestration</code>{" "}
+                npm package, drop a LangChain tool into your agent loop, or register the stdio MCP
+                server in Claude Desktop and Cursor. x402 settlement paths are unchanged — free tier
+                first, then autonomous USDC on Base.
+              </p>
+            </SectionIntro>
+
+            <h2 className="font-grotesk text-lg font-bold text-white mb-3 text-center">
+              Install
+            </h2>
+            <div className="public-code-enclave mb-8">
+              <CodeBlock code={snippets.npmInstall} lang="bash" />
+            </div>
+
+            <div
+              className="flex flex-wrap items-center justify-center gap-2 mb-4"
+              role="tablist"
+              aria-label="SDK integration method"
+            >
+              {(
+                [
+                  { id: "langchain" as const, label: "LangChain / TS" },
+                  { id: "claude" as const, label: "Claude Desktop" },
+                  { id: "cursor" as const, label: "Cursor MCP" },
+                ] as const
+              ).map((tab) => (
+                <button
+                  key={tab.id}
+                  type="button"
+                  role="tab"
+                  aria-selected={sdkTab === tab.id}
+                  onClick={() => setSdkTab(tab.id)}
+                  className={`px-4 py-2 rounded-lg text-xs font-[var(--font-mono)] font-medium transition-all border ${
+                    sdkTab === tab.id
+                      ? "bg-cyan-400/[0.09] border-cyan-400/25 text-cyan-400"
+                      : "border-white/[0.08] text-white/30 hover:text-white/55"
+                  }`}
+                  style={sdkTab !== tab.id ? { background: "rgba(255,255,255,0.02)" } : {}}
+                >
+                  {tab.label}
+                </button>
+              ))}
+            </div>
+
+            <div className="public-code-enclave mb-8">
+              {sdkTab === "langchain" ? (
+                <CodeBlock code={snippets.langchainSdk} lang="typescript" />
+              ) : sdkTab === "claude" ? (
+                <CodeBlock code={snippets.claudeDesktopMcp} lang="json" />
+              ) : (
+                <CodeBlock code={snippets.cursorMcp} lang="json" />
+              )}
+            </div>
+
+            <div
+              className="rounded-xl p-5 border border-cyan-400/[0.12] text-center"
+              style={{ background: "rgba(0,229,255,0.03)" }}
+            >
+              <h3 className="font-grotesk font-semibold text-white mb-2 flex items-center justify-center gap-2">
+                <ChevronRight className="w-4 h-4 text-cyan-400" aria-hidden="true" />
+                Smithery Registry
+              </h3>
+              <p className="font-[var(--font-inter)] text-sm text-white/45 leading-relaxed mb-4">
+                One-line install for MCP-native agent frameworks and hosted runners.
+              </p>
+              <div className="public-code-enclave max-w-xl mx-auto">
+                <CodeBlock code={snippets.smitheryInstall} lang="bash" />
+              </div>
             </div>
           </motion.section>
         )}

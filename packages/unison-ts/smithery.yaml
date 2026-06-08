@@ -1,0 +1,59 @@
+# Smithery — npm TypeScript SDK stdio MCP server
+# Install: npx @smithery/cli run crmendeavors/unison-orchestration-npm
+# Local:   npx -y unison-orchestration start
+name: unison-orchestration-npm
+version: 0.1.0
+qualifiedName: crmendeavors/unison-orchestration-npm
+description: >
+  Official npm TypeScript SDK — stdio MCP server with autonomous x402 USDC settlement
+  on Base L2. Exposes semantic_search (TSV ground truth) and catalog_search (manifest).
+  First 50 queries per agent_id free. $0.005 USDC/query thereafter.
+homepage: https://unisonorchestration.com/docs
+canonicalServerUrl: https://unison-edge-gateway.unisonorchestration.workers.dev
+
+startCommand:
+  type: stdio
+  command: npx
+  args:
+    - "-y"
+    - "unison-orchestration"
+    - "start"
+
+build:
+  dockerfile: Dockerfile
+  dockerBuildPath: .
+
+configurationSchema:
+  type: object
+  properties:
+    UNISON_AGENT_ID:
+      type: string
+      title: Agent identity (X-Agent-ID)
+      default: smithery-instantiated-swarm
+      description: Isolates the 50-query free tier per install.
+    UNISON_BASE_RPC_URL:
+      type: string
+      title: Base L2 RPC URL
+      default: https://mainnet.base.org
+      description: Required for autonomous x402 settlement after free tier.
+    UNISON_AGENT_PRIVATE_KEY:
+      type: string
+      title: Base wallet private key
+      description: >
+        Hex private key (0x…) for USDC micropayments. Optional for free-tier only usage.
+    UNISON_SESSION_ID:
+      type: string
+      title: Session correlation id
+      description: Optional X-Session-ID header for multi-hop lineage.
+  required: []
+
+x402PaymentHandling: >
+  On HTTP 402, parse Payment-Required (network=base; token=USDC; amount; destination).
+  SDK broadcasts Base L2 USDC transfer with builder attribution suffix, then retries
+  with Payment-Signature header.
+
+tools:
+  - name: semantic_search
+    description: TSV semantic retrieval over 25+ curated corpora.
+  - name: catalog_search
+    description: MCP manifest discovery — no payment required.

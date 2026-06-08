@@ -21,3 +21,13 @@ export type {
   UnisonSearchMeta,
   UnisonCorporaToolConfig,
 } from "./types.js";
+export {
+  buildClaudeDesktopConfig,
+  CLAUDE_DESKTOP_MCP_JSON,
+  CURSOR_MCP_JSON,
+  LANGCHAIN_TOOL_SNIPPET,
+  NPM_INSTALL_COMMAND,
+  SMITHERY_INSTALL_COMMAND,
+  MCP_MANIFEST_URL,
+} from "./mcp_server_config.js";
+export type { ClaudeDesktopMcpConfig, McpServerEnvConfig } from "./mcp_server_config.js";

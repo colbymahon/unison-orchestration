@@ -1,25 +1,40 @@
 {
   "name": "unison-orchestration",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "TypeScript SDK for Unison Orchestration — TSV MCP client with x402 settlement on Base L2",
   "license": "MIT",
   "type": "module",
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",
+  "bin": {
+    "unison-orchestration": "./dist/start.js"
+  },
   "exports": {
     ".": {
       "types": "./dist/index.d.ts",
       "import": "./dist/index.js"
+    },
+    "./mcp": {
+      "types": "./dist/mcp_server_config.d.ts",
+      "import": "./dist/mcp_server_config.js"
     }
   },
   "files": [
     "dist",
-    "README.md"
+    "README.md",
+    "smithery.yaml",
+    "Dockerfile"
   ],
   "scripts": {
-    "build": "tsc -p tsconfig.json",
+    "build": "tsc -p tsconfig.json && node -e \"const fs=require('fs');const p='dist/start.js';let s=fs.readFileSync(p,'utf8');if(!s.startsWith('#!'))fs.writeFileSync(p,'#!/usr/bin/env node\\n'+s);fs.chmodSync(p,0o755);\"",
+    "start": "node dist/start.js",
     "typecheck": "tsc --noEmit -p tsconfig.json",
     "prepublishOnly": "npm run build"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.12.1",
+    "viem": "^2.31.0",
+    "zod": "^3.25.67"
   },
   "keywords": [
     "unison",
