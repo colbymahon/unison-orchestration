@@ -65,6 +65,20 @@ async function flushEntryToKv(
 }
 
 /**
+ * Peek historical usage without incrementing (Sybil gate: first-seen detection).
+ */
+export async function peekFreeTierUsage(
+  clientId: string,
+  kv: KVNamespace
+): Promise<number> {
+  const entry = localFreeTierCache[clientId];
+  if (entry) {
+    return entry.base + entry.pending;
+  }
+  return loadBaseFromKv(clientId, kv);
+}
+
+/**
  * Evaluate free tier with in-memory increments; KV.put only every N hits.
  */
 export async function evaluateFreeTierBatched(

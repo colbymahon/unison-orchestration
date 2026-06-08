@@ -6,11 +6,12 @@
  *
  * Request flow for /mcp/v1/search:
  *   1. Identify client by IP (CF-Connecting-IP) or X-Agent-ID header
- *   2. Look up usage count in FREE_TIER KV namespace
- *   3. Resolve dynamic tier limit via PROMOTION_REGISTRY (200×50 → 20 baseline)
- *   4. If count < tier limit → proxy for free, increment counter,
+ *   2. Phase 2 Sybil gate — first-seen identities require X-Agent-Attestation
+ *   3. Look up usage count in FREE_TIER KV namespace
+ *   4. Resolve dynamic tier limit via PROMOTION_REGISTRY (200×50 → 20 baseline)
+ *   5. If count < tier limit → proxy for free, increment counter,
  *      return X-Remaining-Free-Tier + X-Promotion-Slot headers
- *   5. If count >= tier limit → enforce x402, forward rejection to Fly telemetry
+ *   6. If count >= tier limit → enforce x402, forward rejection to Fly telemetry
  *      a. No PAYMENT-SIGNATURE → 402 with payment terms
  *      b. Signature present → verify with CDP Facilitator → proxy or 402
  */
@@ -61,7 +62,8 @@ import {
   buildSingleNodeAffiliateBatch,
   parseAffiliateWallet,
 } from "./affiliate";
-import { evaluateFreeTierBatched } from "./free_tier_batch";
+import { evaluateFreeTierBatched, peekFreeTierUsage } from "./free_tier_batch";
+import { verifyAgentAttestation } from "./sybil_gate";
 import {
   formatPromotionSlot,
   getPromotionCampaignStats,
@@ -125,7 +127,7 @@ const CORS_HEADERS: Record<string, string> = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
   "Access-Control-Allow-Headers":
-    "Content-Type, Payment-Signature, Authorization, X-Agent-ID, X-Unison-Lineage, X-Unison-Lineage-Version, X-Unison-Priority-Premium, X-Unison-Affiliate-ID, X-Unison-Callback-URL, X-Agent-Callback, X-Agent-Webhook, X-Admin-Api-Secret",
+    "Content-Type, Payment-Signature, Authorization, X-Agent-ID, X-Agent-Attestation, X-Unison-Lineage, X-Unison-Lineage-Version, X-Unison-Priority-Premium, X-Unison-Affiliate-ID, X-Unison-Callback-URL, X-Agent-Callback, X-Agent-Webhook, X-Admin-Api-Secret",
   "Access-Control-Expose-Headers":
     "X-Unison-Satiation, X-Unison-Auction-Status, X-Unison-Premium-Settled, X-Unison-Min-Premium-Bid, X-Unison-Lineage, X-Unison-Lineage-Step, X-Unison-Lineage-Episode, X-Unison-Router-Composition, X-Unison-Settlement-Split, X-Unison-Revenue-Split, X-Unison-Affiliate-Settled, X-Unison-ZKP-Verification-Digest, X-Unison-ZKP-Chunk-Count, X-Unison-ZKP-Verified-Count, X-Unison-Source-Digest, X-Remaining-Free-Tier, X-Free-Tier-Limit, X-Promotion-Slot, X-Unison-Embed-Ms, X-Unison-Qdrant-Ms, X-Unison-Embed-Cache-Hit, X-Unison-Fly-Region, X-Unison-Delivery",
   "Access-Control-Max-Age": "86400",
@@ -285,6 +287,23 @@ function scheduleRejectionTelemetry(
         })
       );
     })
+  );
+}
+
+function sybilForbiddenResponse(request?: Request): Response {
+  return withCors(
+    new Response(
+      JSON.stringify({
+        error: "403_FORBIDDEN",
+        message:
+          "Cryptographic Manifest Handshake Required. Register agent key parameters via the Unison Orchestration Hub.",
+      }),
+      {
+        status: 403,
+        headers: { "Content-Type": "application/json" },
+      }
+    ),
+    request
   );
 }
 
@@ -1030,8 +1049,6 @@ export default {
 
       try {
       const clientId = resolveClientId(request);
-      const promotionTier = await resolveTierLimit(clientId, env);
-      const freeTierLimit = promotionTier.limit;
 
       // Paid + affiliate settlement must run even when free-tier quota remains.
       const signature = getPaymentSignature(request);
@@ -1051,14 +1068,14 @@ export default {
           scheduleRejectionTelemetry(
             ctx,
             clientId,
-            freeTierLimit,
+            50,
             "INVALID_PAYMENT_SIGNATURE"
           );
           return paymentRequiredResponse(
             env,
             "Invalid or expired payment signature.",
             request,
-            promotionTier
+            { limit: 50, slot: 0 }
           );
         }
         console.log(`Paid request verified (signature): client=${clientId}`);
@@ -1073,6 +1090,33 @@ export default {
           return errorResponse(502, "Edge search handler error.");
         }
       }
+
+      const priorUsage = await peekFreeTierUsage(clientId, env.FREE_TIER);
+      const isNewIdentity = priorUsage === 0;
+      const attestationToken = request.headers.get("x-agent-attestation");
+
+      if (isNewIdentity) {
+        const attested = await verifyAgentAttestation(
+          clientId,
+          attestationToken,
+          env,
+          request.headers.get("x-agent-id")
+        );
+        if (!attested) {
+          console.warn(
+            JSON.stringify({
+              event: "SYBIL_GATE_REJECTED",
+              client_id: clientId,
+              agent_header: request.headers.get("x-agent-id"),
+              has_attestation: Boolean(attestationToken),
+            })
+          );
+          return sybilForbiddenResponse(request);
+        }
+      }
+
+      const promotionTier = await resolveTierLimit(clientId, env);
+      const freeTierLimit = promotionTier.limit;
 
       const freeTier = await evaluateFreeTierBatched(
         clientId,
