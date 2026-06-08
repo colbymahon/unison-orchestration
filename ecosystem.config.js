@@ -145,5 +145,32 @@ module.exports = {
       merge_logs: true,
       time: true,
     },
+    {
+      name: "unison-creator-api",
+      script: PYTHON_BIN,
+      args: [
+        path.join(
+          REPO_ROOT,
+          "platform-services/gtm-swarm/src/creator_api.py"
+        ),
+      ],
+      cwd: path.join(REPO_ROOT, "platform-services/gtm-swarm/src"),
+      autorestart: true,
+      max_restarts: 50,
+      min_uptime: "10s",
+      max_memory_restart: "300M",
+      env: {
+        PYTHONUNBUFFERED: "1",
+        CREATOR_API_HOST: "127.0.0.1",
+        CREATOR_API_PORT: "8742",
+        CF_FREE_TIER_NAMESPACE_ID: "91fdd2e791234210906e25b8dd90ba96",
+        CLOUDFLARE_ACCOUNT_ID: process.env.CLOUDFLARE_ACCOUNT_ID || "",
+        CLOUDFLARE_API_TOKEN: process.env.CLOUDFLARE_API_TOKEN || "",
+      },
+      error_file: path.join(REPO_ROOT, "logs/pm2-creator-api-error.log"),
+      out_file: path.join(REPO_ROOT, "logs/pm2-creator-api-out.log"),
+      merge_logs: true,
+      time: true,
+    },
   ],
 };
