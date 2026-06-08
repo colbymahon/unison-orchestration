@@ -68,6 +68,7 @@ import {
   isInternalInfrastructureSwarm,
   verifyAgentAttestation,
 } from "./sybil_gate";
+import { scheduleAgentRegistrySync } from "./registry_sync";
 import { buildRevenueSplitHeaders } from "./revenue_split";
 import { buildTrustAuditHeaders } from "./trust_headers";
 import {
@@ -1106,6 +1107,13 @@ export default {
 
       try {
       const clientId = resolveClientId(request);
+      scheduleAgentRegistrySync(
+        ctx,
+        clientId,
+        request.headers.get("x-session-id"),
+        request.headers.get("x-agent-attestation"),
+        env
+      );
 
       // Paid + affiliate settlement must run even when free-tier quota remains.
       const signature = getPaymentSignature(request);

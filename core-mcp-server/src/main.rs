@@ -6,6 +6,7 @@
 //!   GET  /health                                        Liveness probe
 //!   GET  /telemetry                                     Full runtime aggregation metrics (JSON)
 //!   POST /telemetry/rejection                           Edge-forwarded 402 rejection counter
+//!   POST /telemetry/agent-heartbeat                     Edge-forwarded agent registry upsert
 //!
 //! Telemetry now tracks:
 //!   - Total queries dispatched + per-collection breakdown
@@ -20,13 +21,13 @@
 //!   OPENAI_API_KEY, QDRANT_URL, QDRANT_API_KEY
 
 use std::{
-    collections::HashMap,
+    collections::{HashMap, HashSet},
     env,
     sync::{
         atomic::{AtomicU64, Ordering},
         Arc, Mutex,
     },
-    time::Instant,
+    time::{Instant, SystemTime, UNIX_EPOCH},
 };
 
 use axum::{
@@ -95,6 +96,10 @@ struct AppState {
     collection_queries: Mutex<HashMap<String, u64>>,
     /// Query count keyed by X-Agent-ID header value (bounded to MAX_TRACKED_AGENTS).
     agent_queries: Mutex<HashMap<String, u64>>,
+    /// Phase 2 Pillar 1 — edge-synced agent registry (in-memory coordinator view).
+    agent_registry: Mutex<HashMap<String, AgentRegistryRecord>>,
+    /// Distinct session IDs observed per agent_id.
+    agent_session_ids: Mutex<HashMap<String, HashSet<String>>>,
 }
 
 // ---------------------------------------------------------------------------
@@ -784,6 +789,92 @@ async fn track_rejection_handler(State(state): State<Arc<AppState>>) -> impl Int
 }
 
 // ---------------------------------------------------------------------------
+// Route: POST /telemetry/agent-heartbeat
+// ---------------------------------------------------------------------------
+
+#[derive(Debug, Deserialize)]
+struct AgentHeartbeatPayload {
+    client_id: String,
+    agent_id: String,
+    session_id: Option<String>,
+    attestation_hash: Option<String>,
+    timestamp: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize)]
+struct AgentRegistryRecord {
+    agent_id: String,
+    attestation_hash: Option<String>,
+    first_seen_at: f64,
+    last_seen_at: f64,
+    session_count: u64,
+    query_count: u64,
+    status: String,
+}
+
+fn unix_now_secs() -> f64 {
+    SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .map(|d| d.as_secs_f64())
+        .unwrap_or(0.0)
+}
+
+async fn agent_heartbeat_handler(
+    State(state): State<Arc<AppState>>,
+    Json(payload): Json<AgentHeartbeatPayload>,
+) -> Response {
+    let agent_id = payload.agent_id.trim();
+    if agent_id.is_empty() {
+        return (
+            StatusCode::BAD_REQUEST,
+            Json(serde_json::json!({"error": "agent_id required"})),
+        )
+            .into_response();
+    }
+
+    let now = unix_now_secs();
+    let session_id = payload
+        .session_id
+        .as_deref()
+        .map(str::trim)
+        .filter(|s| !s.is_empty())
+        .map(str::to_owned);
+
+    let mut registry = state.agent_registry.lock().unwrap_or_else(|e| e.into_inner());
+    let entry = registry.entry(agent_id.to_string()).or_insert_with(|| AgentRegistryRecord {
+        agent_id: agent_id.to_string(),
+        attestation_hash: None,
+        first_seen_at: now,
+        last_seen_at: now,
+        session_count: 0,
+        query_count: 0,
+        status: "active".to_string(),
+    });
+
+    entry.last_seen_at = now;
+    entry.query_count = entry.query_count.saturating_add(1);
+    entry.status = "active".to_string();
+    if let Some(hash) = payload.attestation_hash.as_deref().map(str::trim).filter(|s| !s.is_empty()) {
+        entry.attestation_hash = Some(hash.to_string());
+    }
+
+    if let Some(sid) = session_id {
+        let mut sessions = state.agent_session_ids.lock().unwrap_or_else(|e| e.into_inner());
+        let set = sessions.entry(agent_id.to_string()).or_default();
+        if set.insert(sid) {
+            entry.session_count = set.len() as u64;
+        }
+    }
+
+    info!(
+        "Agent registry heartbeat: agent={} queries={} sessions={}",
+        agent_id, entry.query_count, entry.session_count
+    );
+
+    StatusCode::NO_CONTENT.into_response()
+}
+
+// ---------------------------------------------------------------------------
 // Main
 // ---------------------------------------------------------------------------
 
@@ -864,6 +955,8 @@ async fn main() -> anyhow::Result<()> {
         latency_sample_count: AtomicU64::new(0),
         collection_queries: Mutex::new(HashMap::new()),
         agent_queries:      Mutex::new(HashMap::new()),
+        agent_registry:     Mutex::new(HashMap::new()),
+        agent_session_ids:  Mutex::new(HashMap::new()),
     });
 
     let cors = CorsLayer::new()
@@ -888,6 +981,7 @@ async fn main() -> anyhow::Result<()> {
         .route("/health",                         get(health))
         .route("/telemetry",                      get(telemetry_handler))
         .route("/telemetry/rejection",            post(track_rejection_handler))
+        .route("/telemetry/agent-heartbeat",      post(agent_heartbeat_handler))
         .with_state(state)
         .layer(cors);
 
