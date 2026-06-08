@@ -1,11 +1,15 @@
 "use client";
 
-import { useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { motion, AnimatePresence } from "framer-motion";
-import { X, Terminal, Database, ChevronRight, Search } from "lucide-react";
+import { X, Terminal, Database, ChevronRight, Search, RefreshCw } from "lucide-react";
 import { COLLECTIONS, type Collection } from "@/lib/collections";
 import { GLOBAL_METRICS } from "@/lib/config/metrics";
+import {
+  liveVectorCountForSlug,
+  type CorporaSyncResponse,
+} from "@/lib/corpora-sync";
 
 const categoryColors: Record<string, string> = {
   "Life Sciences":         "text-emerald-400 bg-emerald-400/10 border-emerald-400/20",
@@ -41,17 +45,55 @@ const accentText: Record<Collection["color"], string> = {
 
 const categories = ["All", ...Array.from(new Set(COLLECTIONS.map((c) => c.category))).sort()];
 
-const CORPUS_CATALOG_STATS = {
-  verticals: COLLECTIONS.length,
-  vectors: COLLECTIONS.reduce((sum, c) => sum + c.vectors, 0),
-};
+type HydratedCollection = Collection & { liveVectors: number };
 
-export function CorporaClient() {
-  const [selected, setSelected] = useState<Collection | null>(null);
+interface CorporaClientProps {
+  initialSync: CorporaSyncResponse;
+  syncError: string | null;
+}
+
+function hydrateCatalog(sync: CorporaSyncResponse): HydratedCollection[] {
+  return COLLECTIONS.map((col) => ({
+    ...col,
+    liveVectors: liveVectorCountForSlug(sync, col.id),
+  }));
+}
+
+export function CorporaClient({ initialSync, syncError }: CorporaClientProps) {
+  const [sync, setSync] = useState(initialSync);
+  const [error, setError] = useState(syncError);
+  const [refreshing, setRefreshing] = useState(false);
+  const [selected, setSelected] = useState<HydratedCollection | null>(null);
   const [filter,   setFilter]   = useState("All");
   const [query,    setQuery]    = useState("");
 
-  const visible = COLLECTIONS.filter((c) => {
+  const catalog = useMemo(() => hydrateCatalog(sync), [sync]);
+
+  const refreshSync = useCallback(async () => {
+    setRefreshing(true);
+    try {
+      const res = await fetch("/api/v1/corpora-sync?fresh=1", { cache: "no-store" });
+      if (!res.ok) {
+        const body = (await res.json().catch(() => ({}))) as { error?: string };
+        setError(body.error ?? `Sync HTTP ${res.status}`);
+        return;
+      }
+      const data = (await res.json()) as CorporaSyncResponse;
+      setSync(data);
+      setError(null);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "corpora-sync unreachable");
+    } finally {
+      setRefreshing(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    const id = window.setInterval(refreshSync, 30_000);
+    return () => window.clearInterval(id);
+  }, [refreshSync]);
+
+  const visible = catalog.filter((c) => {
     const matchCat  = filter === "All" || c.category === filter;
     const matchText = !query ||
       c.label.toLowerCase().includes(query.toLowerCase()) ||
@@ -89,12 +131,31 @@ export function CorporaClient() {
                 Vault
               </span>
             </h1>
-            <p className="font-[var(--font-inter)] text-white/45 text-lg max-w-2xl mx-auto mb-8">
-              {CORPUS_CATALOG_STATS.verticals} catalogued collections ·{" "}
-              {CORPUS_CATALOG_STATS.vectors.toLocaleString()} vectors (catalog) ·{" "}
-              {GLOBAL_METRICS.dimensions} dimensions · Live counts sync via{" "}
-              <span className="text-cyan-400/80">/api/v1/data-moat-metrics</span>.
+            <p className="font-[var(--font-inter)] text-white/45 text-lg max-w-2xl mx-auto mb-4">
+              {sync.collection_count || catalog.length} live collections ·{" "}
+              {sync.total_vectors.toLocaleString()} vectors ·{" "}
+              {GLOBAL_METRICS.dimensions} dimensions · Qdrant{" "}
+              <span className="text-cyan-400/80">{sync.qdrant_region}</span>
             </p>
+            <div className="flex flex-wrap items-center justify-center gap-3 mb-8 font-[var(--font-mono)] text-[10px] text-white/30">
+              <span>
+                synced {new Date(sync.synced_at).toLocaleString("en-US", { hour12: false })}
+              </span>
+              <button
+                type="button"
+                onClick={() => void refreshSync()}
+                disabled={refreshing}
+                className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg border border-white/10 text-white/45 hover:text-cyan-400 hover:border-cyan-400/25 transition-colors disabled:opacity-40"
+              >
+                <RefreshCw className={`w-3 h-3 ${refreshing ? "animate-spin" : ""}`} aria-hidden="true" />
+                {refreshing ? "syncing…" : "refresh vault"}
+              </button>
+              {error && (
+                <span className="text-amber-400/80" role="status">
+                  {error}
+                </span>
+              )}
+            </div>
 
             {/* Search */}
             <div className="relative max-w-md mx-auto mb-6">
@@ -164,7 +225,7 @@ export function CorporaClient() {
                 role="button"
                 tabIndex={0}
                 onKeyDown={(e) => e.key === "Enter" && setSelected(col)}
-                aria-label={`Open ${col.label} — ${col.vectors.toLocaleString()} vectors`}
+                aria-label={`Open ${col.label} — ${col.liveVectors.toLocaleString()} vectors`}
               >
                 {/* Header row */}
                 <div className="flex items-start justify-between gap-3 mb-4">
@@ -182,7 +243,7 @@ export function CorporaClient() {
                   </div>
                   <div className="text-right shrink-0">
                     <div className={`text-xl font-extrabold font-[var(--font-mono)] ${accentText[col.color]}`}>
-                      {col.vectors.toLocaleString()}
+                      {col.liveVectors.toLocaleString()}
                     </div>
                     <div className="text-[10px] text-white/25 font-[var(--font-mono)]">vectors</div>
                   </div>
@@ -282,7 +343,7 @@ export function CorporaClient() {
                   <div className="flex items-center gap-2">
                     <Database className="w-3.5 h-3.5 text-cyan-400/60" aria-hidden="true" />
                     <span className="text-[11px] font-[var(--font-mono)] text-white/40">
-                      {selected.id} · {selected.vectors.toLocaleString()} vectors
+                      {selected.id} · {selected.liveVectors.toLocaleString()} vectors
                     </span>
                   </div>
                 </div>
@@ -309,7 +370,7 @@ export function CorporaClient() {
                   HTTP/1.1 200 OK<br />
                   Content-Type: text/tab-separated-values; charset=utf-8<br />
                   X-Collection: {selected.id}<br />
-                  X-Vectors-Searched: {selected.vectors.toLocaleString()}<br />
+                  X-Vectors-Searched: {selected.liveVectors.toLocaleString()}<br />
                   Traceparent: 00-4bf92f3577b34da6a3ce929d0e0e4736-00f067aa0ba902b7-01
                 </div>
 

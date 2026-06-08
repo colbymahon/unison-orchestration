@@ -22,6 +22,7 @@ const PUBLIC_EXACT = new Set([
   "/sitemap.xml",
   "/api/openapi.json",
   "/api/v1/data-moat-metrics",
+  "/api/v1/corpora-sync",
 ]);
 
 const PUBLIC_PREFIXES = [
