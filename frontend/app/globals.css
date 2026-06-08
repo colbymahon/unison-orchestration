@@ -342,3 +342,19 @@ body {
   color: #ffffff;
   text-wrap: balance;
 }
+
+/** Developer data previews — code, TSV, terminal output stay left-aligned */
+.public-code-enclave {
+  width: 100%;
+  text-align: left;
+}
+
+.public-section-header {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  width: 100%;
+  margin-bottom: 3.5rem;
+}

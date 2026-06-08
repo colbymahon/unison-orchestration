@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, type ReactNode } from "react";
 import { motion } from "framer-motion";
 import {
   BookOpen, Zap, Route, Activity,
@@ -171,50 +171,72 @@ function CodeBlock({ code, lang = "bash" }: { code: string; lang?: string }) {
   );
 }
 
+function SectionIntro({
+  step,
+  stepColor,
+  icon: Icon,
+  title,
+  children,
+}: {
+  step: string;
+  stepColor: string;
+  icon: typeof BookOpen;
+  title: string;
+  children: ReactNode;
+}) {
+  return (
+    <div className="public-copy-stack mb-8">
+      <div className={`inline-flex items-center gap-2 text-[10px] font-data tracking-[0.2em] uppercase ${stepColor}`}>
+        <Icon className="w-4 h-4" aria-hidden="true" />
+        {step}
+      </div>
+      <h1 className="public-headline text-3xl sm:text-4xl mb-4">{title}</h1>
+      <div className="public-lead">{children}</div>
+    </div>
+  );
+}
+
 export function DocsClient() {
   const [active,  setActive]  = useState("manifest");
   const [langTab, setLangTab] = useState<"python" | "typescript">("python");
 
   return (
-    <div className="pt-16 min-h-screen flex flex-col md:flex-row">
-      {/* ── Sidebar ─────────────────────────────────────────────── */}
-      <nav
-        className="
-          md:w-64 md:sticky md:top-16 md:h-[calc(100vh-4rem)] md:overflow-y-auto
-          pt-10 pb-6 px-5 border-b md:border-b-0 md:border-r border-white/[0.07] shrink-0
-        "
-        aria-label="Documentation navigation"
-      >
-        <p className="text-[10px] font-[var(--font-mono)] text-white/20 tracking-[0.2em] uppercase mb-4 px-2">
-          MCP Gateway
-        </p>
-        <ul role="list" className="flex flex-row md:flex-col gap-1 overflow-x-auto md:overflow-visible pb-2 md:pb-0">
-          {sections.map(({ id, label, icon: Icon }) => (
-            <li key={id}>
+    <div className="public-page pt-32 pb-24 min-h-screen">
+      <section className="public-section pb-10" aria-label="Integration documentation header">
+        <div className="public-page-shell">
+          <div className="public-copy-stack">
+            <p className="public-eyebrow">MCP Gateway</p>
+            <h1 className="public-headline">Integrate</h1>
+            <p className="public-lead">
+              Wire autonomous agents to Unison Orchestration — manifest discovery, x402 settlement,
+              collection routing, and OpenTelemetry observability.
+            </p>
+          </div>
+
+          <nav
+            className="flex flex-wrap items-center justify-center gap-2 mt-8"
+            aria-label="Documentation navigation"
+          >
+            {sections.map(({ id, label, icon: Icon }) => (
               <button
+                key={id}
+                type="button"
                 onClick={() => setActive(id)}
-                className={`
-                  flex items-center gap-2.5 w-full whitespace-nowrap md:whitespace-normal
-                  px-3 py-2.5 rounded-lg text-sm font-medium transition-all
-                  ${active === id
-                    ? "bg-cyan-400/[0.09] text-cyan-400 border border-cyan-400/20"
-                    : "text-white/35 hover:text-white/65 hover:bg-white/[0.03]"}
-                `}
+                className={`inline-flex items-center gap-2 px-3.5 py-2 rounded-lg text-xs font-medium transition-all border ${
+                  active === id
+                    ? "bg-cyan-400/[0.09] border-cyan-400/25 text-cyan-400"
+                    : "border-white/[0.08] text-white/35 hover:text-white/65 hover:border-white/15"
+                }`}
+                style={active !== id ? { background: "rgba(255,255,255,0.02)" } : {}}
                 aria-current={active === id ? "page" : undefined}
               >
-                <Icon className="w-4 h-4 shrink-0" aria-hidden="true" />
+                <Icon className="w-3.5 h-3.5 shrink-0" aria-hidden="true" />
                 {label}
               </button>
-            </li>
-          ))}
-        </ul>
+            ))}
+          </nav>
 
-        {/* Live links */}
-        <div className="hidden md:block mt-8 pt-6 border-t border-white/[0.07]">
-          <p className="text-[10px] font-[var(--font-mono)] text-white/20 tracking-[0.2em] uppercase mb-3 px-2">
-            Live Endpoints
-          </p>
-          <ul className="flex flex-col gap-1 text-xs text-white/30 font-[var(--font-mono)]" role="list">
+          <div className="public-meta-row mt-6">
             {[
               {
                 label: "MCP Manifest",
@@ -225,24 +247,22 @@ export function DocsClient() {
                 href: "https://unison-mcp.fly.dev",
               },
             ].map(({ label, href }) => (
-              <li key={label}>
-                <a
-                  href={href}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="flex items-center gap-1.5 px-3 py-2 rounded-lg hover:bg-white/[0.04] hover:text-cyan-400/80 transition-colors"
-                >
-                  <ExternalLink className="w-3 h-3 shrink-0" aria-hidden="true" />
-                  {label}
-                </a>
-              </li>
+              <a
+                key={label}
+                href={href}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-flex items-center gap-1.5 hover:text-cyan-400 transition-colors"
+              >
+                <ExternalLink className="w-3 h-3 shrink-0" aria-hidden="true" />
+                {label}
+              </a>
             ))}
-          </ul>
+          </div>
         </div>
-      </nav>
+      </section>
 
-      {/* ── Content ─────────────────────────────────────────────── */}
-      <article className="flex-1 px-6 md:px-12 pt-10 pb-24 max-w-3xl">
+      <article className="public-page-shell max-w-3xl pb-24 text-center">
 
         {active === "manifest" && (
           <motion.section
@@ -252,30 +272,29 @@ export function DocsClient() {
             transition={{ duration: 0.3 }}
             aria-labelledby="manifest-h"
           >
-            <div className="flex items-center gap-3 mb-2">
-              <BookOpen className="w-5 h-5 text-cyan-400" aria-hidden="true" />
-              <p className="text-[10px] font-[var(--font-mono)] text-cyan-400 tracking-[0.2em] uppercase">Step 1</p>
+            <SectionIntro step="Step 1" stepColor="text-cyan-400" icon={BookOpen} title="The Manifest">
+              <p id="manifest-h">
+                Autonomous agents discover Unison by crawling{" "}
+                <code className="font-data text-cyan-400 text-sm">
+                  /.well-known/mcp-configuration
+                </code>
+                — the MCP industry-standard discovery URL. The manifest declares all collections,
+                the x402 payment spec, and the search endpoint. No human intervention required.
+              </p>
+            </SectionIntro>
+            <h2 className="font-grotesk text-lg font-bold text-white mb-3">Crawl the Manifest</h2>
+            <div className="public-code-enclave mb-8">
+              <CodeBlock code={snippets.manifestCurl} lang="bash" />
             </div>
-            <h1 id="manifest-h" className="font-[var(--font-grotesk)] text-3xl sm:text-4xl font-bold text-white mb-4">
-              The Manifest
-            </h1>
-            <p className="font-[var(--font-inter)] text-white/50 leading-relaxed mb-8">
-              Autonomous agents discover Unison by crawling{" "}
-              <code className="font-[var(--font-mono)] text-cyan-400 text-sm">
-                /.well-known/mcp-configuration
-              </code>
-              — the MCP industry-standard discovery URL. The manifest declares all 25 collections,
-              the x402 payment spec, and the search endpoint. No human intervention required.
-            </p>
-            <h2 className="font-[var(--font-grotesk)] text-lg font-bold text-white mb-3">Crawl the Manifest</h2>
-            <CodeBlock code={snippets.manifestCurl} lang="bash" />
-            <h2 className="font-[var(--font-grotesk)] text-lg font-bold text-white mt-8 mb-3">Response (truncated)</h2>
-            <CodeBlock code={snippets.manifestResponse} lang="json" />
+            <h2 className="font-grotesk text-lg font-bold text-white mb-3">Response (truncated)</h2>
+            <div className="public-code-enclave mb-8">
+              <CodeBlock code={snippets.manifestResponse} lang="json" />
+            </div>
             <div
-              className="mt-8 rounded-xl p-5 border border-cyan-400/[0.12]"
+              className="mt-8 rounded-xl p-5 border border-cyan-400/[0.12] text-center"
               style={{ background: "rgba(0,229,255,0.03)" }}
             >
-              <h3 className="font-[var(--font-grotesk)] font-semibold text-white mb-2 flex items-center gap-2">
+              <h3 className="font-grotesk font-semibold text-white mb-2 flex items-center justify-center gap-2">
                 <ChevronRight className="w-4 h-4 text-cyan-400" aria-hidden="true" />
                 Agent Framework Compatibility
               </h3>
@@ -296,25 +315,20 @@ export function DocsClient() {
             transition={{ duration: 0.3 }}
             aria-labelledby="handshake-h"
           >
-            <div className="flex items-center gap-3 mb-2">
-              <Zap className="w-5 h-5 text-purple-400" aria-hidden="true" />
-              <p className="text-[10px] font-[var(--font-mono)] text-purple-400 tracking-[0.2em] uppercase">Step 2</p>
-            </div>
-            <h1 id="handshake-h" className="font-[var(--font-grotesk)] text-3xl sm:text-4xl font-bold text-white mb-4">
-              The x402 Handshake
-            </h1>
-            <p className="font-[var(--font-inter)] text-white/50 leading-relaxed mb-6">
-              Every query to{" "}
-              <code className="font-[var(--font-mono)] text-cyan-400 text-sm">/mcp/v1/search</code>{" "}
-              is gated by x402. An unauthenticated request returns{" "}
-              <code className="font-[var(--font-mono)] text-red-400 text-sm">HTTP 402</code> with a
-              payment challenge. The agent signs a{" "}
-              <strong className="text-white/80">$0.005 USDC</strong> transaction on{" "}
-              <strong className="text-white/80">Base L2</strong> using its Coinbase CDP wallet,
-              then retries with the signature. Settlement completes in under one second.
-            </p>
+            <SectionIntro step="Step 2" stepColor="text-purple-400" icon={Zap} title="The x402 Handshake">
+              <p id="handshake-h">
+                Every query to{" "}
+                <code className="font-data text-cyan-400 text-sm">/mcp/v1/search</code>{" "}
+                is gated by x402. An unauthenticated request returns{" "}
+                <code className="font-data text-red-400 text-sm">HTTP 402</code> with a
+                payment challenge. The agent signs a{" "}
+                <strong className="text-white/80">$0.005 USDC</strong> transaction on{" "}
+                <strong className="text-white/80">Base L2</strong> using its Coinbase CDP wallet,
+                then retries with the signature. Settlement completes in under one second.
+              </p>
+            </SectionIntro>
 
-            <div className="grid sm:grid-cols-4 gap-3 mb-8">
+            <div className="grid sm:grid-cols-4 gap-3 mb-8 max-w-2xl mx-auto">
               {[
                 { n: "1", label: "GET /search",  color: "cyan"    },
                 { n: "2", label: "HTTP 402",      color: "red"     },
@@ -339,7 +353,7 @@ export function DocsClient() {
               })}
             </div>
 
-            <div className="flex gap-2 mb-4" role="tablist" aria-label="Language selection">
+            <div className="flex flex-wrap items-center justify-center gap-2 mb-4" role="tablist" aria-label="Language selection">
               {(["python", "typescript"] as const).map((l) => (
                 <button
                   key={l}
@@ -358,16 +372,18 @@ export function DocsClient() {
               ))}
             </div>
 
-            <CodeBlock
-              code={langTab === "python" ? snippets.handshakePython : snippets.handshakeTs}
-              lang={langTab}
-            />
+            <div className="public-code-enclave">
+              <CodeBlock
+                code={langTab === "python" ? snippets.handshakePython : snippets.handshakeTs}
+                lang={langTab}
+              />
+            </div>
 
             <div
-              className="mt-6 rounded-xl p-5 border border-purple-400/[0.12]"
+              className="mt-6 rounded-xl p-5 border border-purple-400/[0.12] text-center"
               style={{ background: "rgba(179,0,255,0.03)" }}
             >
-              <h3 className="font-[var(--font-grotesk)] font-semibold text-white mb-2">No API Keys</h3>
+              <h3 className="font-grotesk font-semibold text-white mb-2">No API Keys</h3>
               <p className="font-[var(--font-inter)] text-sm text-white/45 leading-relaxed">
                 Unison has no API key management, no rate-limit tiers, and no subscription plans.
                 Agents pay per query. The payment IS the authentication.
@@ -384,24 +400,21 @@ export function DocsClient() {
             transition={{ duration: 0.3 }}
             aria-labelledby="routing-h"
           >
-            <div className="flex items-center gap-3 mb-2">
-              <Route className="w-5 h-5 text-cyan-400" aria-hidden="true" />
-              <p className="text-[10px] font-[var(--font-mono)] text-cyan-400 tracking-[0.2em] uppercase">Step 3</p>
+            <SectionIntro step="Step 3" stepColor="text-cyan-400" icon={Route} title="Dynamic Routing">
+              <p id="routing-h">
+                All collections are queryable via the{" "}
+                <code className="font-data text-cyan-400 text-sm">?collection=</code>{" "}
+                parameter. Each is an independent Qdrant namespace with 1536-dimension cosine
+                similarity search. Top-K is tunable via{" "}
+                <code className="font-data text-cyan-400 text-sm">?top_k=</code> (default: 5).
+              </p>
+            </SectionIntro>
+            <h2 className="font-grotesk text-lg font-bold text-white mb-3">Examples</h2>
+            <div className="public-code-enclave mb-8">
+              <CodeBlock code={snippets.routingExample} lang="bash" />
             </div>
-            <h1 id="routing-h" className="font-[var(--font-grotesk)] text-3xl sm:text-4xl font-bold text-white mb-4">
-              Dynamic Routing
-            </h1>
-            <p className="font-[var(--font-inter)] text-white/50 leading-relaxed mb-8">
-              All 25 collections are queryable via the{" "}
-              <code className="font-[var(--font-mono)] text-cyan-400 text-sm">?collection=</code>{" "}
-              parameter. Each is an independent Qdrant namespace with 1536-dimension cosine
-              similarity search. Top-K is tunable via{" "}
-              <code className="font-[var(--font-mono)] text-cyan-400 text-sm">?top_k=</code> (default: 5).
-            </p>
-            <h2 className="font-[var(--font-grotesk)] text-lg font-bold text-white mb-3">Examples</h2>
-            <CodeBlock code={snippets.routingExample} lang="bash" />
-            <h2 className="font-[var(--font-grotesk)] text-lg font-bold text-white mt-8 mb-4">Collection Index</h2>
-            <div className="grid sm:grid-cols-2 gap-2.5">
+            <h2 className="font-grotesk text-lg font-bold text-white mb-4">Collection Index</h2>
+            <div className="grid sm:grid-cols-2 gap-2.5 text-left public-code-enclave">
               {[
                 ["unison_medical_core",       "4,104v"],
                 ["unison_manufacturing_core", "3,374v"],
@@ -450,29 +463,26 @@ export function DocsClient() {
             transition={{ duration: 0.3 }}
             aria-labelledby="obs-h"
           >
-            <div className="flex items-center gap-3 mb-2">
-              <Activity className="w-5 h-5 text-emerald-400" aria-hidden="true" />
-              <p className="text-[10px] font-[var(--font-mono)] text-emerald-400 tracking-[0.2em] uppercase">Step 4</p>
+            <SectionIntro step="Step 4" stepColor="text-emerald-400" icon={Activity} title="Observability">
+              <p id="obs-h">
+                Every Unison response carries{" "}
+                <a
+                  href="https://www.w3.org/TR/trace-context/"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-cyan-400 hover:text-cyan-300 underline underline-offset-2"
+                >
+                  W3C Trace Context headers
+                </a>{" "}
+                (<code className="font-data text-sm text-cyan-400">traceparent</code> +{" "}
+                <code className="font-data text-sm text-cyan-400">tracestate</code>).
+                Wire an OTEL collector and every Unison query appears as a fully attributed span.
+              </p>
+            </SectionIntro>
+            <div className="public-code-enclave mb-8">
+              <CodeBlock code={snippets.otelExample} lang="typescript" />
             </div>
-            <h1 id="obs-h" className="font-[var(--font-grotesk)] text-3xl sm:text-4xl font-bold text-white mb-4">
-              Observability
-            </h1>
-            <p className="font-[var(--font-inter)] text-white/50 leading-relaxed mb-8">
-              Every Unison response carries{" "}
-              <a
-                href="https://www.w3.org/TR/trace-context/"
-                target="_blank"
-                rel="noopener noreferrer"
-                className="text-cyan-400 hover:text-cyan-300 underline underline-offset-2"
-              >
-                W3C Trace Context headers
-              </a>{" "}
-              (<code className="font-[var(--font-mono)] text-sm text-cyan-400">traceparent</code> +{" "}
-              <code className="font-[var(--font-mono)] text-sm text-cyan-400">tracestate</code>).
-              Wire an OTEL collector and every Unison query appears as a fully attributed span.
-            </p>
-            <CodeBlock code={snippets.otelExample} lang="typescript" />
-            <div className="mt-8 grid sm:grid-cols-2 gap-5">
+            <div className="mt-8 grid sm:grid-cols-2 gap-5 text-left">
               {[
                 {
                   title: "Span Attributes",
@@ -502,7 +512,7 @@ export function DocsClient() {
                   className="rounded-xl p-5 border border-white/[0.08]"
                   style={{ background: "rgba(255,255,255,0.02)" }}
                 >
-                  <h3 className="font-[var(--font-grotesk)] font-semibold text-white mb-3 text-sm">
+                  <h3 className="font-grotesk font-semibold text-white mb-3 text-sm text-center">
                     {block.title}
                   </h3>
                   <ul className="flex flex-col gap-1.5" role="list">

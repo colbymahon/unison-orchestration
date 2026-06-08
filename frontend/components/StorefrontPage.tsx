@@ -234,11 +234,11 @@ function X402PricingLedger() {
   ];
 
   return (
-    <div className="grid md:grid-cols-2 gap-4 w-full max-w-4xl mx-auto mt-8">
+    <div className="grid md:grid-cols-2 gap-4 w-full max-w-4xl mx-auto mt-8 text-center">
       {tiers.map((t) => (
         <div
           key={t.tier}
-          className={`rounded-xl border p-5 backdrop-blur-xl ${t.accent}`}
+          className={`rounded-xl border p-5 backdrop-blur-xl text-center ${t.accent}`}
         >
           <p className={`font-[var(--font-mono)] text-[10px] tracking-[0.2em] uppercase mb-2 ${t.label}`}>
             [ COMPUTE TIER: {t.tier} ]
@@ -402,13 +402,13 @@ export default function StorefrontPage() {
   const heroY       = useTransform(scrollY, [0, 400], [0, 60]);
 
   return (
-    <>
+    <div className="public-page">
       {/* ═══════════════════════════════════════════════════════════════════
           HERO SECTION
       ═══════════════════════════════════════════════════════════════════ */}
       <section
         ref={heroRef}
-        className="relative min-h-screen flex flex-col items-center justify-center overflow-hidden pt-16 bg-[#050914]"
+        className="relative min-h-screen flex flex-col items-center justify-center overflow-hidden pt-16 bg-[#050914] public-section"
         aria-labelledby="hero-headline"
       >
         <ParticleMesh />
@@ -439,16 +439,16 @@ export default function StorefrontPage() {
 
         <motion.div
           style={{ opacity: heroOpacity, y: heroY }}
-          className="relative z-10 w-full px-6 max-w-5xl mx-auto py-16"
+          className="relative z-10 public-page-shell max-w-5xl py-16"
         >
           <motion.div
             initial={{ opacity: 0, y: 16 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.55, delay: 0.1 }}
-            className="text-center mb-8"
+            className="public-copy-stack mb-8"
           >
             <span
-              className="inline-flex items-center gap-2.5 px-4 py-2 rounded-full border border-cyan-400/20 text-[11px] font-[var(--font-mono)] tracking-[0.2em] text-cyan-400 uppercase"
+              className="inline-flex items-center gap-2.5 px-4 py-2 rounded-full border border-cyan-400/20 text-[11px] font-data tracking-[0.2em] text-cyan-400 uppercase"
               style={{ background: "rgba(0,229,255,0.05)" }}
             >
               <span className="w-1.5 h-1.5 rounded-full bg-cyan-400 live-dot" aria-hidden="true" />
@@ -461,18 +461,10 @@ export default function StorefrontPage() {
             initial={{ opacity: 0, y: 24 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.65, delay: 0.2 }}
-            className="font-[var(--font-grotesk)] text-center text-[clamp(1.75rem,5vw,3.25rem)] font-bold leading-tight tracking-tight text-white mb-10"
+            className="public-headline text-[clamp(1.75rem,5vw,3.25rem)] mb-10"
           >
             UNISON DATA MOAT:{" "}
-            <span
-              className="block sm:inline mt-2 sm:mt-0"
-              style={{
-                background: "linear-gradient(135deg, #00E5FF 0%, #B300FF 100%)",
-                WebkitBackgroundClip: "text",
-                WebkitTextFillColor: "transparent",
-                backgroundClip: "text",
-              }}
-            >
+            <span className="gradient-text block sm:inline mt-2 sm:mt-0">
               ACHIEVE MACHINE-TO-MACHINE AUTONOMY
             </span>
           </motion.h1>
@@ -577,31 +569,32 @@ export default function StorefrontPage() {
       {/* ═══════════════════════════════════════════════════════════════════
           STATS BANNER
       ═══════════════════════════════════════════════════════════════════ */}
-      <section className="py-20 px-6" aria-label="Platform statistics">
-        <LivePlatformMetrics />
+      <section className="public-section py-20" aria-label="Platform statistics">
+        <div className="public-page-shell">
+          <div className="public-section-header">
+            <p className="public-eyebrow">Live Telemetry</p>
+            <h2 className="public-headline text-3xl sm:text-4xl mb-0">Platform Metrics</h2>
+          </div>
+          <LivePlatformMetrics />
+        </div>
       </section>
 
       {/* ═══════════════════════════════════════════════════════════════════
           DATA MOAT GRID
       ═══════════════════════════════════════════════════════════════════ */}
-      <section className="py-20 px-6" aria-labelledby="moat-heading">
-        <div className="max-w-6xl mx-auto">
+      <section className="public-section py-20" aria-labelledby="moat-heading">
+        <div className="public-grid-shell">
           <motion.div
             initial={{ opacity: 0, y: 24 }}
             whileInView={{ opacity: 1, y: 0 }}
             viewport={{ once: true }}
-            className="mb-14"
+            className="public-section-header"
           >
-            <p className="font-[var(--font-mono)] text-[10px] text-cyan-400 tracking-[0.25em] uppercase mb-4">
-              Data Vault
-            </p>
-            <h2
-              id="moat-heading"
-              className="font-[var(--font-grotesk)] text-4xl sm:text-5xl font-bold text-white mb-5"
-            >
+            <p className="public-eyebrow text-cyan-400">Data Vault</p>
+            <h2 id="moat-heading" className="public-headline text-4xl sm:text-5xl mb-5">
               The Data Moat
             </h2>
-            <p className="font-[var(--font-inter)] text-white/45 text-lg max-w-xl leading-relaxed">
+            <p className="public-lead">
               Institutional-grade vector collections purpose-built for the domains where
               AI hallucination carries the highest cost.
             </p>
@@ -636,7 +629,7 @@ export default function StorefrontPage() {
                   viewport={{ once: true }}
                   transition={{ duration: 0.45, delay: i * 0.08 }}
                   className={`
-                    group relative rounded-2xl p-7 flex flex-col gap-5 cursor-default
+                    group relative rounded-2xl p-7 flex flex-col items-center text-center gap-5 cursor-default
                     border transition-all duration-300 ${hoverGlow}
                     hover:border-[${borderColor}]
                   `}
@@ -647,7 +640,7 @@ export default function StorefrontPage() {
                   }}
                 >
                   {/* Status badge */}
-                  <div className="flex items-start justify-between">
+                  <div className="flex flex-col items-center gap-3 w-full">
                     <div
                       className="w-11 h-11 rounded-xl flex items-center justify-center"
                       style={{ background: `${borderColor.replace("0.15", "0.08")}` }}
@@ -655,7 +648,7 @@ export default function StorefrontPage() {
                       <Icon className={`w-5 h-5 ${accentTxt}`} aria-hidden="true" />
                     </div>
                     <span
-                      className={`px-2.5 py-1 rounded text-[9px] font-[var(--font-mono)] font-semibold tracking-widest uppercase border ${
+                      className={`px-2.5 py-1 rounded text-[9px] font-data font-semibold tracking-widest uppercase border ${
                         isLive
                           ? `${accentTxt} border-current opacity-70`
                           : "text-white/25 border-white/10"
@@ -679,20 +672,16 @@ export default function StorefrontPage() {
                   </div>
 
                   {/* Tags */}
-                  <div className="flex flex-wrap gap-1.5">
+                  <div className="flex flex-wrap items-center justify-center gap-1.5">
                     {card.tags.map((tag) => (
-                      <span
-                        key={tag}
-                        className="px-2 py-0.5 rounded text-[10px] font-[var(--font-mono)] text-white/30 border border-white/[0.07]"
-                        style={{ background: "rgba(255,255,255,0.02)" }}
-                      >
+                      <span key={tag} className="public-tag">
                         {tag}
                       </span>
                     ))}
                   </div>
 
                   {/* Price / collection footer */}
-                  <div className="pt-3 border-t border-white/[0.06] flex items-center justify-between">
+                  <div className="pt-3 border-t border-white/[0.06] flex items-center justify-center gap-4 w-full">
                     <code
                       className={`text-[10px] font-[var(--font-mono)] ${accentTxt} opacity-70`}
                     >
@@ -737,24 +726,19 @@ export default function StorefrontPage() {
       {/* ═══════════════════════════════════════════════════════════════════
           HALLUCINATION PARADOX — side-by-side proof
       ═══════════════════════════════════════════════════════════════════ */}
-      <section className="py-20 px-6" aria-labelledby="paradox-heading">
-        <div className="max-w-6xl mx-auto">
+      <section className="public-section py-20" aria-labelledby="paradox-heading">
+        <div className="public-grid-shell">
           <motion.div
             initial={{ opacity: 0, y: 24 }}
             whileInView={{ opacity: 1, y: 0 }}
             viewport={{ once: true }}
-            className="mb-14"
+            className="public-section-header"
           >
-            <p className="font-[var(--font-mono)] text-[10px] text-purple-400 tracking-[0.25em] uppercase mb-4">
-              Why Unison
-            </p>
-            <h2
-              id="paradox-heading"
-              className="font-[var(--font-grotesk)] text-4xl sm:text-5xl font-bold text-white mb-5"
-            >
+            <p className="public-eyebrow">Why Unison</p>
+            <h2 id="paradox-heading" className="public-headline text-4xl sm:text-5xl mb-5">
               The Hallucination Paradox
             </h2>
-            <p className="font-[var(--font-inter)] text-white/45 text-lg max-w-xl leading-relaxed">
+            <p className="public-lead">
               Standard LLMs generate confident-sounding fabrications. Unison injects
               cryptographic ground truth directly into the agent context window.
             </p>
@@ -795,7 +779,7 @@ export default function StorefrontPage() {
   "latency_ms": 1940
 }`}
               </pre>
-              <p className="mt-5 font-[var(--font-inter)] text-sm text-red-300/50 leading-relaxed">
+              <p className="mt-5 font-[var(--font-inter)] text-sm text-red-300/50 leading-relaxed text-center">
                 Vague, unverified, medically dangerous. Every downstream agent
                 decision built on this data carries compounding hallucination risk.
               </p>
@@ -831,7 +815,7 @@ med_001   unison_medical_core  Pharmacology  Morphine sulfate:
                                              Peak: oral 90min, IV 20min.
                                              Source: Pepper's System,1893.`}
               </pre>
-              <p className="mt-5 font-[var(--font-inter)] text-sm text-cyan-200/50 leading-relaxed">
+              <p className="mt-5 font-[var(--font-inter)] text-sm text-cyan-200/50 leading-relaxed text-center">
                 Tab-delimited, source-attributed, zero JSON overhead. Exact dosages,
                 exact citations. ~4× fewer tokens than equivalent JSON.
               </p>
@@ -843,24 +827,19 @@ med_001   unison_medical_core  Pharmacology  Morphine sulfate:
       {/* ═══════════════════════════════════════════════════════════════════
           PROGRAMMATIC INSTALLATION BLOCK
       ═══════════════════════════════════════════════════════════════════ */}
-      <section className="py-20 px-6" aria-labelledby="install-heading">
-        <div className="max-w-4xl mx-auto">
+      <section className="public-section py-20" aria-labelledby="install-heading">
+        <div className="public-page-shell max-w-4xl">
           <motion.div
             initial={{ opacity: 0, y: 24 }}
             whileInView={{ opacity: 1, y: 0 }}
             viewport={{ once: true }}
-            className="mb-12"
+            className="public-section-header mb-12"
           >
-            <p className="font-[var(--font-mono)] text-[10px] text-cyan-400 tracking-[0.25em] uppercase mb-4">
-              Integration
-            </p>
-            <h2
-              id="install-heading"
-              className="font-[var(--font-grotesk)] text-4xl sm:text-5xl font-bold text-white mb-5"
-            >
+            <p className="public-eyebrow text-cyan-400">Integration</p>
+            <h2 id="install-heading" className="public-headline text-4xl sm:text-5xl mb-5">
               Wire in 3 Steps
             </h2>
-            <p className="font-[var(--font-inter)] text-white/45 text-lg max-w-xl leading-relaxed">
+            <p className="public-lead">
               Crawl the manifest. Probe the endpoint. Sign the micropayment.
               Your agent receives raw TSV ground truth in under a second.
             </p>
@@ -871,6 +850,7 @@ med_001   unison_medical_core  Pharmacology  Morphine sulfate:
             whileInView={{ opacity: 1, y: 0 }}
             viewport={{ once: true }}
             transition={{ duration: 0.55, delay: 0.1 }}
+            className="public-code-enclave"
           >
             <TerminalBlock />
           </motion.div>
@@ -914,7 +894,7 @@ med_001   unison_medical_core  Pharmacology  Morphine sulfate:
       {/* ═══════════════════════════════════════════════════════════════════
           FINAL CTA BANNER
       ═══════════════════════════════════════════════════════════════════ */}
-      <section className="py-24 px-6" aria-labelledby="cta-heading">
+      <section className="public-section py-24" aria-labelledby="cta-heading">
         <motion.div
           initial={{ opacity: 0, y: 24 }}
           whileInView={{ opacity: 1, y: 0 }}
@@ -979,9 +959,9 @@ med_001   unison_medical_core  Pharmacology  Morphine sulfate:
       {/* ═══════════════════════════════════════════════════════════════════
           FOOTER
       ═══════════════════════════════════════════════════════════════════ */}
-      <footer className="border-t border-white/[0.06] py-10 px-6">
-        <div className="max-w-6xl mx-auto flex flex-col md:flex-row items-center justify-between gap-5">
-          <div className="font-[var(--font-mono)] text-[11px] text-white/25 text-center md:text-left">
+      <footer className="public-section border-t border-white/[0.06] py-10">
+        <div className="public-grid-shell flex flex-col items-center justify-center gap-5 text-center">
+          <div className="font-data text-[11px] text-white/25">
             © 2026 V18 Group · Unison Orchestration
             <span className="mx-3 text-white/10">|</span>
             All data TSV-formatted, source-attributed, zero hallucination.
@@ -995,6 +975,6 @@ med_001   unison_medical_core  Pharmacology  Morphine sulfate:
           </div>
         </div>
       </footer>
-    </>
+    </div>
   );
 }
