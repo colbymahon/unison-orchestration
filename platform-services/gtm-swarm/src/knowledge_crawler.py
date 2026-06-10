@@ -419,7 +419,7 @@ async def run_crawler_cycle(
     async with aiohttp.ClientSession() as session:
         tasks = []
         for vertical in verticals:
-            for seed in vertical.seed_queries[:2]:
+            for seed in vertical.seed_queries:
                 tasks.append(
                     ingest_vertical_seed(
                         vertical,

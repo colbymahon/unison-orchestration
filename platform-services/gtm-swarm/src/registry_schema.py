@@ -54,10 +54,8 @@ CORPUS_VERTICAL_REGISTRY: dict[str, CorpusVertical] = {
             "zero-hallucination agent grounding."
         ),
         seed_queries=(
-            "19th century hydrodynamics experimental flow",
-            "bernoulli principle historical fluid mechanics",
-            "navier stokes viscosity 19th century treatise",
-            "thermodynamic tolerances channel flow",
+            "19th century experimental hydrodynamics treatises describing open-channel flow, weir discharge coefficients, and laminar-to-turbulent transition in Victorian-era fluid mechanics laboratories.",
+            "Historical Bernoulli principle derivations applied to pipe flow measurement, manometer calibration, and pressure-head loss across orifice plates in pre-modern hydraulic engineering texts.",
         ),
         arxiv_categories=("physics.flu-dyn", "physics.hist-ph"),
         github_queries=(
@@ -76,10 +74,8 @@ CORPUS_VERTICAL_REGISTRY: dict[str, CorpusVertical] = {
             "for algorithmic trading agents."
         ),
         seed_queries=(
-            "cross chain arbitrage settlement latency",
-            "market maker liquidity routing spread matrix",
-            "dex atomic arbitrage flash settlement",
-            "base l2 usdc micro settlement reconciliation",
+            "Cross-chain arbitrage settlement latency matrices comparing DEX route depth, bridge finality windows, and atomic flash-loan clearance across Base L2 and Ethereum mainnet liquidity venues.",
+            "Market maker liquidity routing spread decomposition for high-frequency tabular reconciliation of bid-ask imbalance, inventory skew, and USDC micro-settlement on algorithmic trading rails.",
         ),
         arxiv_categories=("q-fin.TR", "q-fin.PM"),
         github_queries=(
@@ -98,10 +94,8 @@ CORPUS_VERTICAL_REGISTRY: dict[str, CorpusVertical] = {
             "retrieval-augmented agents."
         ),
         seed_queries=(
-            "agglutinative morphology morpheme segmentation",
-            "low resource language syntactic token chains",
-            "turkish finnish hungarian morphological analysis",
-            "computational morphosyntax agglutination",
+            "Agglutinative morphology morpheme segmentation pipelines for Turkish, Finnish, and Hungarian token chains with low-resource syntactic attachment and surface-form normalization rules.",
+            "Computational morphosyntax models for agglutinative languages mapping suffix chains to predicate-argument frames without loose JSON intermediates on the retrieval hot path.",
         ),
         arxiv_categories=("cs.CL",),
         github_queries=(
