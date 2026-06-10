@@ -33,19 +33,15 @@ import urllib.request
 from pathlib import Path
 from typing import Any, Protocol
 
-from dotenv import load_dotenv
 from web3 import Web3
 
-_REPO_ROOT = Path(__file__).resolve().parents[3]
-_CLIENT_AGENT = _REPO_ROOT / "client-agent"
-_GTM_STATE = Path(__file__).resolve().parents[1] / ".agent_state"
+from state_paths import agent_state_dir, ensure_state_dirs, is_fly_runtime, load_unison_env
 
-if str(_CLIENT_AGENT) not in sys.path:
-    sys.path.insert(0, str(_CLIENT_AGENT))
+_VENDOR = Path(__file__).resolve().parents[1] / "vendor"
+if str(_VENDOR) not in sys.path:
+    sys.path.insert(0, str(_VENDOR))
 
-load_dotenv(_REPO_ROOT / "data-ingestion" / ".env")
-load_dotenv(_REPO_ROOT / "frontend" / ".env.local")
-load_dotenv(_REPO_ROOT / "client-agent" / ".env")
+load_unison_env()
 
 from base_builder import (  # noqa: E402
     BASE_BUILDER_CODE,
@@ -67,10 +63,19 @@ USDC_DEFAULT = "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913"
 PAYMENT_DEST_DEFAULT = "0xE37BEA19c284eebc561735588e773C097115668B"
 FREE_TIER_NS_DEFAULT = "91fdd2e791234210906e25b8dd90ba96"
 TRANSFER_TOPIC = Web3.keccak(text="Transfer(address,address,uint256)").hex()
-STATE_FILE = _GTM_STATE / "settlement_daemon_state.json"
-WALLET_MAP_FILE = _GTM_STATE / "wallet_agent_map.json"
-CREATOR_MAP_FILE = _GTM_STATE / "collection_creator_map.json"
-TREASURY_CONFIG_FILE = _GTM_STATE / "treasury_config.json"
+def _gtm_state_dir() -> Path:
+    ensure_state_dirs()
+    return agent_state_dir()
+
+
+def _state_file(name: str) -> Path:
+    return _gtm_state_dir() / name
+
+
+STATE_FILE = _state_file("settlement_daemon_state.json")
+WALLET_MAP_FILE = _state_file("wallet_agent_map.json")
+CREATOR_MAP_FILE = _state_file("collection_creator_map.json")
+TREASURY_CONFIG_FILE = _state_file("treasury_config.json")
 TREASURY_CONFIG_KV_KEY = "unison:treasury_config"
 TREASURY_FLY_WORKFLOW_ID = "_ops_treasury_master"
 
@@ -110,7 +115,7 @@ def _load_state() -> dict[str, Any]:
 
 
 def _save_state(state: dict[str, Any]) -> None:
-    _GTM_STATE.mkdir(parents=True, exist_ok=True)
+    ensure_state_dirs()
     processed = state.get("processed_tx", [])
     if len(processed) > 5000:
         processed = processed[-2500:]
@@ -510,7 +515,13 @@ def create_kv_client(
 ) -> KvClient:
     if api_token:
         return CloudflareKvClient(account_id, api_token, namespace_id)
-    wrangler_cwd = _REPO_ROOT / "edge-routing"
+    if is_fly_runtime():
+        raise EnvironmentError(
+            "CLOUDFLARE_API_TOKEN required on Fly — wrangler OAuth fallback unavailable in cloud"
+        )
+    from state_paths import repo_root
+
+    wrangler_cwd = repo_root() / "edge-routing"
     if not wrangler_cwd.exists():
         raise EnvironmentError("edge-routing directory missing for wrangler KV fallback")
     logger.info("CLOUDFLARE_API_TOKEN unset — using wrangler OAuth KV CLI fallback")
@@ -767,10 +778,12 @@ def run_forever() -> None:
     handshake_done = False
 
     logger.info(
-        "Unison 402 settlement daemon booting — builder=%s dest=%s mode=%s",
+        "Unison 402 settlement daemon booting — builder=%s dest=%s mode=%s state=%s fly=%s",
         BASE_BUILDER_CODE,
         payment_dest,
         credit_mode,
+        _gtm_state_dir(),
+        is_fly_runtime(),
     )
 
     while True:

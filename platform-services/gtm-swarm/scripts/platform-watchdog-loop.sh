@@ -23,11 +23,27 @@ http_code() {
 CREATOR_LOCAL="http://127.0.0.1:${CREATOR_API_PORT:-8742}/health"
 MCP_HEALTH="${UNISON_MCP_HEALTH_URL:-https://unison-mcp.fly.dev/health}"
 EDGE_MANIFEST="${UNISON_EDGE_MANIFEST_URL:-https://unison-edge-gateway.unisonorchestration.workers.dev/.well-known/mcp-configuration}"
+STATE_DIR="${STATE_ROOT}/.agent_state"
+SETTLEMENT_STATE="${STATE_DIR}/settlement_daemon_state.json"
+GTM_STATE="${STATE_DIR}/gtm_swarm_telemetry.json"
+
+process_alive() {
+  local pattern="$1"
+  if pgrep -f "${pattern}" >/dev/null 2>&1; then
+    echo "online"
+  else
+    echo "missing"
+  fi
+}
 
 while true; do
   local_code="$(http_code "${CREATOR_LOCAL}")"
   mcp_code="$(http_code "${MCP_HEALTH}")"
   edge_code="$(http_code "${EDGE_MANIFEST}")"
+  settlement_proc="$(process_alive "settlement_daemon.py")"
+  gtm_proc="$(process_alive "gtm_swarm_coordinator.py")"
+  sales_proc="$(process_alive "sales_swarm_commander.py")"
+  crawler_proc="$(process_alive "knowledge_crawler.py")"
 
   if [[ "${local_code}" != "200" ]]; then
     log "WARN creator_api health HTTP ${local_code}"
@@ -38,9 +54,21 @@ while true; do
   if [[ "${edge_code}" != "200" && "${edge_code}" != "401" ]]; then
     log "WARN edge manifest HTTP ${edge_code}"
   fi
+  if [[ "${settlement_proc}" != "online" ]]; then
+    log "WARN settlement_daemon process ${settlement_proc}"
+  fi
+  if [[ "${gtm_proc}" != "online" ]]; then
+    log "WARN gtm_coordinator process ${gtm_proc}"
+  fi
+  if [[ ! -f "${SETTLEMENT_STATE}" ]]; then
+    log "WARN settlement state file missing at ${SETTLEMENT_STATE}"
+  fi
+  if [[ ! -f "${GTM_STATE}" ]]; then
+    log "WARN gtm telemetry file missing at ${GTM_STATE}"
+  fi
 
-  if [[ "${local_code}" == "200" && "${mcp_code}" == "200" ]]; then
-    log "OK perimeter green (creator=${local_code} mcp=${mcp_code} edge=${edge_code})"
+  if [[ "${local_code}" == "200" && "${mcp_code}" == "200" && "${settlement_proc}" == "online" && "${gtm_proc}" == "online" ]]; then
+    log "OK mesh green (creator=${local_code} mcp=${mcp_code} settlement=${settlement_proc} gtm=${gtm_proc} sales=${sales_proc} crawler=${crawler_proc})"
   fi
 
   sleep "${INTERVAL}"

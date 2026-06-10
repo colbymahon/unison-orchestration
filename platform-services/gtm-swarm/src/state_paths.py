@@ -74,3 +74,15 @@ def logs_dir() -> Path:
 def ensure_state_dirs() -> None:
     agent_state_dir().mkdir(parents=True, exist_ok=True)
     logs_dir().mkdir(parents=True, exist_ok=True)
+
+
+def is_fly_runtime() -> bool:
+    """True when executing inside a Fly.io machine (NVMe /data mount expected)."""
+    return bool(os.getenv("FLY_APP_NAME", "").strip())
+
+
+def benchmarks_dir() -> Path:
+    """Cloud-safe benchmark collateral — under /data/logs/benchmarks on Fly."""
+    path = logs_dir() / "benchmarks"
+    path.mkdir(parents=True, exist_ok=True)
+    return path

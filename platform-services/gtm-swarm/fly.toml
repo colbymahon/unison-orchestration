@@ -1,11 +1,14 @@
-# Unison platform-services — unethered cloud mesh (creator API + sales + cache warmer + watchdog)
+# Unison platform-services — total cloud sovereignty (7/7 daemon mesh)
 # Shared NVMe volume: single machine runs all daemons via run-platform-mesh.sh (SQLite WAL).
 #
 # Logical process map (inside platform mesh supervisor):
-#   creator_api  → python3 src/creator_api.py
-#   sales_swarm  → python3 src/sales_swarm_commander.py
-#   query_swarm  → python3 src/query_swarm.py
-#   watchdog     → bash scripts/platform-watchdog-loop.sh
+#   creator_api         → python3 src/creator_api.py
+#   sales_swarm         → python3 src/sales_swarm_commander.py
+#   query_swarm         → python3 src/query_swarm.py
+#   knowledge_crawler   → python3 src/knowledge_crawler.py
+#   settlement_daemon   → python3 src/settlement_daemon.py
+#   gtm_coordinator     → python3 src/gtm_swarm_coordinator.py
+#   watchdog            → bash scripts/platform-watchdog-loop.sh
 
 app = 'unison-platform-services'
 primary_region = 'iad'
@@ -24,10 +27,23 @@ primary_region = 'iad'
   QUERY_WARM_CONCURRENCY = '4'
   KNOWLEDGE_CYCLE_SECONDS = '3600'
   KNOWLEDGE_CRAWLER_CONCURRENCY = '3'
+  GTM_TICK_SECONDS = '43200'
+  SETTLEMENT_POLL_SECONDS = '12'
+  SETTLEMENT_MIN_PAYMENT_USDC = '0.005'
+  SETTLEMENT_QUERY_PRICE_USDC = '0.005'
+  SETTLEMENT_CREDIT_MODE = 'decrement'
+  BASE_CHAIN_ID = '8453'
+  USDC_CONTRACT_ADDRESS = '0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913'
+  PAYMENT_DEST = '0xE37BEA19c284eebc561735588e773C097115668B'
+  CF_FREE_TIER_NAMESPACE_ID = '91fdd2e791234210906e25b8dd90ba96'
   WATCHDOG_INTERVAL_SECONDS = '120'
   UNISON_STOREFRONT_URL = 'https://unisonorchestration.com'
   UNISON_EDGE_GATEWAY_URL = 'https://unison-edge-gateway.unisonorchestration.workers.dev'
   UNISON_MCP_URL = 'https://unison-mcp.fly.dev/mcp/v1/search'
+  MOLTBOOK_POSTING_ENABLED = 'true'
+  MOLTBOOK_POST_INTERVAL_HOURS = '24'
+  MOLTBOOK_SUBMOLT = 'general'
+  MOLTBOOK_TARGET_HANDLE = 'hirespark'
 
 [processes]
   platform = 'bash scripts/run-platform-mesh.sh'
@@ -53,7 +69,7 @@ primary_region = 'iad'
     timeout = '5s'
 
 [[vm]]
-  memory = '1gb'
+  memory = '2gb'
   cpu_kind = 'shared'
-  cpus = 1
+  cpus = 2
   processes = ['platform']
