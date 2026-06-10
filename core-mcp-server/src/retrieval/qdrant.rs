@@ -12,10 +12,22 @@ pub struct QdrantTimings {
 }
 
 #[derive(Serialize)]
+struct QdrantPayloadSelector {
+    include: Vec<&'static str>,
+}
+
+#[derive(Serialize)]
+struct QdrantSearchParams {
+    hnsw_ef: u32,
+    exact: bool,
+}
+
+#[derive(Serialize)]
 struct QdrantSearchRequest {
     vector: Vec<f32>,
     limit: usize,
-    with_payload: bool,
+    with_payload: QdrantPayloadSelector,
+    params: QdrantSearchParams,
 }
 
 #[derive(Deserialize)]
@@ -40,15 +52,23 @@ pub struct QdrantPool {
     api_key: String,
     http: reqwest::Client,
     top_k: usize,
+    hnsw_ef: u32,
 }
 
 impl QdrantPool {
-    pub fn new(base_url: String, api_key: String, http: reqwest::Client, top_k: usize) -> Arc<Self> {
+    pub fn new(
+        base_url: String,
+        api_key: String,
+        http: reqwest::Client,
+        top_k: usize,
+        hnsw_ef: u32,
+    ) -> Arc<Self> {
         Arc::new(Self {
             base_url: base_url.trim_end_matches('/').to_string(),
             api_key,
             http,
             top_k,
+            hnsw_ef,
         })
     }
 
@@ -94,7 +114,13 @@ impl QdrantPool {
             .json(&QdrantSearchRequest {
                 vector,
                 limit: self.top_k,
-                with_payload: true,
+                with_payload: QdrantPayloadSelector {
+                    include: vec!["text", "source_url", "sequence"],
+                },
+                params: QdrantSearchParams {
+                    hnsw_ef: self.hnsw_ef,
+                    exact: false,
+                },
             })
             .send()
             .await

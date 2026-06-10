@@ -605,25 +605,13 @@ async fn search_handler(
         .filter(|s| !s.is_empty())
         .unwrap_or(COLLECTION);
 
-    let dispatched =
-        increment_persistent_counter(&state.telemetry, KEY_TOTAL_QUERIES, 1) as u64;
-    info!("Query #{dispatched} → collection '{collection}'");
-
-    if let Err(err) = state.telemetry.bump_collection(collection) {
-        tracing::warn!("collection counter persist degraded: {err}");
-    }
-
     let agent_id = headers
         .get(AGENT_ID_HEADER)
         .and_then(|v| v.to_str().ok())
         .unwrap_or("anonymous")
         .to_owned();
-    let agent_totals = state.telemetry.agent_totals();
-    if agent_totals.len() < MAX_TRACKED_AGENTS || agent_totals.contains_key(&agent_id) {
-        if let Err(err) = state.telemetry.bump_agent(&agent_id) {
-            tracing::warn!("agent counter persist degraded: {err}");
-        }
-    }
+
+    info!("Search → collection '{collection}' agent={agent_id}");
 
     let (vector, embed_timings) = state
         .embed
@@ -642,17 +630,37 @@ async fn search_handler(
             }
         })?;
 
-    // Track zero-result queries as agentic SEO gap signals
-    if hits.is_empty() {
-        increment_persistent_counter(&state.telemetry, KEY_ZERO_RESULTS, 1);
+    let latency_ms = t0.elapsed().as_millis() as u64;
+    let hits_empty = hits.is_empty();
+    if hits_empty {
         info!("Zero-result query detected: '{q}' → '{collection}'");
     }
 
-    let latency_ms = t0.elapsed().as_millis() as u64;
-    increment_persistent_counter(&state.telemetry, KEY_LATENCY_TOTAL_MS, latency_ms as i64);
-    increment_persistent_counter(&state.telemetry, KEY_LATENCY_SAMPLES, 1);
-
     let tsv = format_tsv(&hits);
+
+    // Defer SQLite telemetry off the hot path — agents receive TSV first.
+    {
+        let telemetry = state.telemetry.clone();
+        let collection_owned = collection.to_string();
+        let agent_owned = agent_id.clone();
+        tokio::task::spawn_blocking(move || {
+            increment_persistent_counter(&telemetry, KEY_TOTAL_QUERIES, 1);
+            if hits_empty {
+                increment_persistent_counter(&telemetry, KEY_ZERO_RESULTS, 1);
+            }
+            let agent_totals = telemetry.agent_totals();
+            if agent_totals.len() < MAX_TRACKED_AGENTS || agent_totals.contains_key(&agent_owned) {
+                if let Err(err) = telemetry.bump_agent(&agent_owned) {
+                    tracing::warn!("agent counter persist degraded: {err}");
+                }
+            }
+            if let Err(err) = telemetry.bump_collection(&collection_owned) {
+                tracing::warn!("collection counter persist degraded: {err}");
+            }
+            increment_persistent_counter(&telemetry, KEY_LATENCY_TOTAL_MS, latency_ms as i64);
+            increment_persistent_counter(&telemetry, KEY_LATENCY_SAMPLES, 1);
+        });
+    }
     let mut response = tsv.into_response();
     let resp_headers = response.headers_mut();
 
@@ -1294,10 +1302,15 @@ async fn main() -> anyhow::Result<()> {
     let qdrant_http = retrieval::qdrant::build_qdrant_http(pool_idle, qdrant_timeout)
         .map_err(|e| anyhow::anyhow!("qdrant HTTP client: {e}"))?;
 
-    let embed = EmbedService::new(openai_key, embed_http, cache_entries, cache_ttl);
-    let qdrant = QdrantPool::new(qdrant_url, qdrant_key, qdrant_http, TOP_K);
+    let hnsw_ef = env::var("QDRANT_HNSW_EF")
+        .ok()
+        .and_then(|s| s.parse().ok())
+        .unwrap_or(64);
 
-    if env::var("QDRANT_WARMUP").ok().as_deref() == Some("1") {
+    let embed = EmbedService::new(openai_key, embed_http, cache_entries, cache_ttl);
+    let qdrant = QdrantPool::new(qdrant_url, qdrant_key, qdrant_http, TOP_K, hnsw_ef);
+
+    if env::var("QDRANT_WARMUP").ok().as_deref() != Some("0") {
         if let Err(e) = qdrant.warmup().await {
             tracing::warn!("Qdrant warmup skipped: {e}");
         }

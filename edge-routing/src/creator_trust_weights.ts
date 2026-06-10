@@ -2,6 +2,8 @@
  * Track 2 Phase 2e — Creator trust_score multipliers synced from marketplace registry.
  */
 
+import { getCachedTrustWeights, setCachedTrustWeights } from "./edge_cache";
+
 export const CREATOR_TRUST_WEIGHTS_KV_KEY = "unison:creator_trust_weights";
 
 export type CreatorTrustWeights = Record<string, number>;
@@ -17,15 +19,21 @@ const DEFAULT_TRUST_SCORE = 1.0;
 export async function loadCreatorTrustWeights(
   kv: KVNamespace | undefined
 ): Promise<CreatorTrustWeights> {
+  const cached = getCachedTrustWeights();
+  if (cached) return cached;
   if (!kv) return {};
   const raw = await kv.get(CREATOR_TRUST_WEIGHTS_KV_KEY);
   if (!raw) return {};
   try {
     const parsed = JSON.parse(raw) as CreatorTrustWeightsEnvelope | CreatorTrustWeights;
+    let weights: CreatorTrustWeights;
     if (parsed && typeof parsed === "object" && "weights" in parsed) {
-      return normalizeWeights((parsed as CreatorTrustWeightsEnvelope).weights ?? {});
+      weights = normalizeWeights((parsed as CreatorTrustWeightsEnvelope).weights ?? {});
+    } else {
+      weights = normalizeWeights(parsed as CreatorTrustWeights);
     }
-    return normalizeWeights(parsed as CreatorTrustWeights);
+    setCachedTrustWeights(weights);
+    return weights;
   } catch {
     return {};
   }

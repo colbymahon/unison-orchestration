@@ -7,6 +7,11 @@ primary_region = 'iad'
 
 [env]
   PORT = '3000'
+  QDRANT_WARMUP = '1'
+  QDRANT_HNSW_EF = '64'
+  EMBED_CACHE_MAX_ENTRIES = '50000'
+  EMBED_CACHE_TTL_SECS = '7200'
+  HTTP_POOL_MAX_IDLE = '48'
 
 [http_service]
   internal_port = 3000

@@ -85,6 +85,7 @@ import {
 import { mergeZkpHeaders, verifyAndAttachZkp } from "./zkp";
 import { loadTreasuryConfig, saveTreasuryConfig } from "./treasury_config";
 import { loadCreatorTrustWeights } from "./creator_trust_weights";
+import { getCachedManifest, setCachedManifest } from "./edge_cache";
 
 // ---------------------------------------------------------------------------
 // Environment bindings
@@ -497,6 +498,73 @@ async function proxyToBackend(
     const hitCount = hitCountHeader ? parseInt(hitCountHeader, 10) : -1;
     const hitCountZero = hitCountHeader === "0";
 
+    const q = incomingUrl.searchParams.get("q")?.trim() ?? "";
+    const collection =
+      incomingUrl.searchParams.get("collection")?.trim() ?? "unison_engineering_core";
+
+    // Fast path: stream TSV immediately when hits confirmed — defer enrichment.
+    if (hitCount > 0) {
+      const intentRouteRaw = extraHeaders["X-Unison-Intent-Confidence"];
+      const intentRoute: IntentRoute | null = intentRouteRaw
+        ? {
+            collection,
+            model: extraHeaders["X-Unison-Recommended-Model"] ?? "gemini-flash",
+            confidence: parseFloat(intentRouteRaw) || 0.5,
+            domain: extraHeaders["X-Unison-Intent-Domain"] ?? "general",
+            matched_signals: [],
+          }
+        : null;
+      Object.assign(
+        extraHeaders,
+        buildTrustAuditHeaders({
+          intentRoute,
+          hitCount,
+          collection,
+          sessionId: request.headers.get("x-session-id"),
+        })
+      );
+      Object.assign(extraHeaders, await buildRevenueSplitHeaders(collection, env));
+      extraHeaders["X-Unison-Delivery"] = "tsv-stream";
+
+      const enrichClone = backendResponse.clone();
+      ctx.waitUntil(
+        (async () => {
+          try {
+            const bodyText = await enrichClone.text();
+            if (env.UNISON_LINEAGE && lineageCtx) {
+              const sessionSecret = resolveLineageSessionSecret(env);
+              await finalizeLineageAfterSearch(
+                env.UNISON_LINEAGE,
+                lineageCtx,
+                collection,
+                q,
+                bodyText,
+                hitCount,
+                sessionSecret
+              );
+            }
+            if (bodyText) {
+              await verifyAndAttachZkp(
+                env.UNISON_LINEAGE,
+                bodyText,
+                collection,
+                lineageEpisodeId
+              );
+            }
+          } catch (err) {
+            console.warn("search enrichment deferred:", err);
+          }
+        })()
+      );
+
+      scheduleGlobalQuerySuccess(ctx, env);
+      const streamed = withCors(backendResponse);
+      for (const [key, val] of Object.entries(extraHeaders)) {
+        streamed.headers.set(key, val);
+      }
+      return streamed;
+    }
+
     let tsvZero = false;
     let bodyText = "";
     const contentType = backendResponse.headers.get("content-type") ?? "";
@@ -508,10 +576,6 @@ async function proxyToBackend(
       }
       extraHeaders["X-Unison-Delivery"] = "tsv-buffered";
     }
-
-    const q = incomingUrl.searchParams.get("q")?.trim() ?? "";
-    const collection =
-      incomingUrl.searchParams.get("collection")?.trim() ?? "unison_engineering_core";
 
     // Phase B0: zero-result trap
     if (env.UNISON_ZERO_LOGS && (hitCountZero || tsvZero)) {
@@ -730,13 +794,16 @@ async function executeMcpSearch(
       url.searchParams.get("collection")?.trim() ?? "unison_engineering_core";
     const q = url.searchParams.get("q")?.trim() ?? "";
     const sessionSecret = resolveLineageSessionSecret(env);
-    const lineageCtx = await prepareLineageForSearch(
+    const lineagePromise = prepareLineageForSearch(
       request,
       env.UNISON_LINEAGE,
       collection,
       q,
       sessionSecret
     );
+    const trustWeightsPromise = loadCreatorTrustWeights(env.FREE_TIER);
+
+    const lineageCtx = await lineagePromise;
 
     const { gate, blockedResponse } = await evaluateAuctionGate(
       request,
@@ -770,7 +837,7 @@ async function executeMcpSearch(
       mergedTier["X-Unison-Recommended-Model"] = intentRoute.model;
       mergedTier["X-Unison-Intent-Confidence"] = String(intentRoute.confidence);
     }
-    const trustWeights = await loadCreatorTrustWeights(env.FREE_TIER);
+    const trustWeights = await trustWeightsPromise;
     const plan = resolveCompositionPlan(
       q,
       collection,
@@ -1165,7 +1232,35 @@ export default {
       if (method !== "GET") {
         return errorResponse(405, "Method Not Allowed. Use GET.");
       }
-      return proxyToBackend(request, env, ctx);
+      const cached = getCachedManifest();
+      if (cached) {
+        return withCors(
+          new Response(cached.body, {
+            status: cached.status,
+            headers: {
+              ...cached.headers,
+              "X-Unison-Cache": "edge-hit",
+            },
+          }),
+          request
+        );
+      }
+      const manifestResp = await proxyToBackend(request, env, ctx);
+      if (manifestResp.ok) {
+        const body = await manifestResp.clone().text();
+        const cacheHeaders: Record<string, string> = {
+          "Content-Type":
+            manifestResp.headers.get("content-type") ?? "application/json",
+          "Cache-Control": "public, max-age=300",
+        };
+        setCachedManifest(body, manifestResp.status, cacheHeaders);
+        const fresh = new Response(body, {
+          status: manifestResp.status,
+          headers: { ...cacheHeaders, "X-Unison-Cache": "edge-miss" },
+        });
+        return withCors(fresh, request);
+      }
+      return manifestResp;
     }
 
     // Health probe — no auth, no payment
