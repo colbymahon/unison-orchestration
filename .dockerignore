@@ -1,0 +1,9 @@
+**/.git
+**/node_modules
+**/frontend/.next
+**/client-agent/venv
+**/__pycache__
+**/*.pyc
+**/logs
+**/.env
+**/.env.*

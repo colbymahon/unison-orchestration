@@ -15,21 +15,13 @@ import urllib.request
 from pathlib import Path
 from typing import Any
 
-from dotenv import load_dotenv
-
 from memory_manager import CreatorRegistryStore
+from state_paths import load_unison_env, repo_root
 
 logger = logging.getLogger("UnisonCreatorKVSync")
 
 CREATOR_TRUST_WEIGHTS_KV_KEY = "unison:creator_trust_weights"
 FREE_TIER_NS_DEFAULT = "91fdd2e791234210906e25b8dd90ba96"
-_REPO_ROOT = Path(__file__).resolve().parents[3]
-
-
-def _load_env() -> None:
-    load_dotenv(_REPO_ROOT / "data-ingestion" / ".env")
-    load_dotenv(_REPO_ROOT / "frontend" / ".env.local")
-    load_dotenv(_REPO_ROOT / "frontend" / ".env")
 
 
 def build_trust_weights_map(store: CreatorRegistryStore) -> dict[str, float]:
@@ -80,7 +72,7 @@ def _put_kv_value(key: str, payload: str) -> bool:
             )
             return False
 
-    wrangler_cwd = _REPO_ROOT / "edge-routing"
+    wrangler_cwd = repo_root() / "edge-routing"
     proc = subprocess.run(
         [
             "npx",
@@ -91,7 +83,8 @@ def _put_kv_value(key: str, payload: str) -> bool:
             key,
             payload,
             f"--namespace-id={namespace_id}",
-            "--expiration-ttl=7776000",
+            "--ttl",
+            "7776000",
         ],
         cwd=wrangler_cwd,
         capture_output=True,
@@ -111,7 +104,7 @@ def _put_kv_value(key: str, payload: str) -> bool:
 def sync_trust_weights_to_kv(
     store: CreatorRegistryStore | None = None,
 ) -> dict[str, Any]:
-    _load_env()
+    load_unison_env()
     registry = store or CreatorRegistryStore()
     weights = build_trust_weights_map(registry)
     body = json.dumps(

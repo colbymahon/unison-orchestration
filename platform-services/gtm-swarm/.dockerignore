@@ -1,0 +1,6 @@
+**/__pycache__
+**/*.pyc
+**/.agent_state
+**/logs
+**/.env
+**/.env.*

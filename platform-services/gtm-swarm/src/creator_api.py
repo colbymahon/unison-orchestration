@@ -28,24 +28,16 @@ from pathlib import Path
 from typing import Any
 
 from aiohttp import web
-from dotenv import load_dotenv
 
 from creator_kv_sync import build_trust_weights_map, sync_trust_weights_to_kv
 from ingestion_pipeline import ingest_creator_payload
 from memory_manager import CreatorRegistryStore
+from state_paths import agent_memory_db, ensure_state_dirs, load_unison_env
 
 logger = logging.getLogger("UnisonCreatorAPI")
 
 _BASE_WALLET_RE = re.compile(r"^0x[a-fA-F0-9]{40}$")
 _SLUG_RE = re.compile(r"^[a-z0-9][a-z0-9_-]{2,63}$")
-
-_REPO_ROOT = Path(__file__).resolve().parents[3]
-
-
-def _load_env() -> None:
-    load_dotenv(_REPO_ROOT / "data-ingestion" / ".env")
-    load_dotenv(_REPO_ROOT / "frontend" / ".env.local")
-    load_dotenv(_REPO_ROOT / "frontend" / ".env")
 
 
 def _json_response(data: dict[str, Any], status: int = 200) -> web.Response:
@@ -227,6 +219,17 @@ async def handle_creator_weights(request: web.Request) -> web.Response:
     )
 
 
+async def handle_health(_request: web.Request) -> web.Response:
+    return web.json_response(
+        {
+            "status": "ok",
+            "service": "unison-platform-services",
+            "region": os.getenv("FLY_REGION", "local"),
+        },
+        headers={"Cache-Control": "no-store"},
+    )
+
+
 async def handle_creator_manifest(request: web.Request) -> web.Response:
     if not authorize_cluster_request(request):
         return _json_response(
@@ -249,9 +252,12 @@ async def handle_creator_manifest(request: web.Request) -> web.Response:
 
 
 def create_app(db_path: str | Path | None = None) -> web.Application:
-    _load_env()
+    load_unison_env()
+    ensure_state_dirs()
+    resolved_db = db_path or agent_memory_db()
     app = web.Application()
-    app["creator_store"] = CreatorRegistryStore(db_path)
+    app["creator_store"] = CreatorRegistryStore(resolved_db)
+    app.router.add_get("/health", handle_health)
     app.router.add_post("/api/v1/creator/register", handle_creator_register)
     app.router.add_post("/api/v1/creator/ingest", handle_creator_ingest)
     app.router.add_get("/api/v1/creator/weights", handle_creator_weights)

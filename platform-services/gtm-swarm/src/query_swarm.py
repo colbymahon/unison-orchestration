@@ -27,7 +27,6 @@ import aiohttp
 from dotenv import load_dotenv
 
 _SRC = Path(__file__).resolve().parent
-_REPO_ROOT = _SRC.parents[2]
 if str(_SRC) not in sys.path:
     sys.path.insert(0, str(_SRC))
 
@@ -37,7 +36,10 @@ logging.basicConfig(
 )
 log = logging.getLogger("UnisonQuerySwarm")
 
-STATE_DIR = _REPO_ROOT / "distribution-agents" / ".agent_state"
+from state_paths import agent_state_dir, ensure_state_dirs, load_unison_env  # noqa: E402
+
+ensure_state_dirs()
+STATE_DIR = agent_state_dir()
 PITCH_FILE = STATE_DIR / "sales_swarm_pitches.jsonl"
 
 WARM_AGENT_ID = "UnisonOrchestrationAgent/v1.0-knowledge-warm"
@@ -95,12 +97,6 @@ class WarmTarget:
     query: str
     source: str
     weight: int = 1
-
-
-def _load_env() -> None:
-    load_dotenv(_REPO_ROOT / "data-ingestion" / ".env")
-    load_dotenv(_REPO_ROOT / "frontend" / ".env.local")
-    load_dotenv(_REPO_ROOT / "frontend" / ".env")
 
 
 def _normalize_query(text: str) -> str:
@@ -332,7 +328,7 @@ async def run_daemon(
 
 
 def main() -> None:
-    _load_env()
+    load_unison_env()
 
     parser = argparse.ArgumentParser(
         description="Unison query swarm — proactive Fly MCP embed cache warmer",

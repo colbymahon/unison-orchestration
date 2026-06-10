@@ -11,9 +11,14 @@ import time
 from pathlib import Path
 from typing import Any
 
-_DEFAULT_DB = (
-    Path(__file__).resolve().parents[1] / ".agent_state" / "agent_memory.db"
-)
+def _default_db() -> Path:
+    from state_paths import agent_memory_db, ensure_state_dirs
+
+    ensure_state_dirs()
+    return agent_memory_db()
+
+
+_DEFAULT_DB = _default_db()
 
 
 class AgentRegistryStore:

@@ -17,14 +17,18 @@ import uuid
 from pathlib import Path
 from typing import Any
 
-from dotenv import load_dotenv
 from openai import OpenAI
 from qdrant_client import QdrantClient
 
-_REPO_ROOT = Path(__file__).resolve().parents[3]
-_DATA_INGESTION = _REPO_ROOT / "data-ingestion"
-if str(_DATA_INGESTION) not in sys.path:
-    sys.path.insert(0, str(_DATA_INGESTION))
+from state_paths import load_unison_env, repo_root
+
+_DATA_INGESTION = repo_root() / "data-ingestion"
+_VENDOR = Path(__file__).resolve().parents[1] / "vendor"
+if _DATA_INGESTION.is_dir():
+    if str(_DATA_INGESTION) not in sys.path:
+        sys.path.insert(0, str(_DATA_INGESTION))
+elif _VENDOR.is_dir() and str(_VENDOR) not in sys.path:
+    sys.path.insert(0, str(_VENDOR))
 
 from _pipeline_common import (  # noqa: E402
     CHUNK_MAX_CHARS,
@@ -41,12 +45,6 @@ logger = logging.getLogger("UnisonCreatorIngest")
 _INGEST_LOCK = threading.Lock()
 _VALID_FORMATS = frozenset({"tsv", "json", "text", "auto"})
 _JSON_TEXT_KEYS = ("text", "content", "body", "value", "description", "title", "summary")
-
-
-def _load_env() -> None:
-    load_dotenv(_REPO_ROOT / "data-ingestion" / ".env")
-    load_dotenv(_REPO_ROOT / "frontend" / ".env.local")
-    load_dotenv(_REPO_ROOT / "frontend" / ".env")
 
 
 def _detect_format(raw_data: str, format_type: str) -> str:
@@ -233,7 +231,7 @@ def ingest_creator_payload(slug: str, raw_data: str, format_type: str = "auto") 
 
     with _INGEST_LOCK:
         try:
-            _load_env()
+            load_unison_env()
             openai_key = os.getenv("OPENAI_API_KEY")
             qdrant_url = os.getenv("QDRANT_URL")
             qdrant_key = os.getenv("QDRANT_API_KEY")

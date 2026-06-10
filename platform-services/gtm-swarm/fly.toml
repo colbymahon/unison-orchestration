@@ -1,0 +1,57 @@
+# Unison platform-services — unethered cloud mesh (creator API + sales + cache warmer + watchdog)
+# Shared NVMe volume: single machine runs all daemons via run-platform-mesh.sh (SQLite WAL).
+#
+# Logical process map (inside platform mesh supervisor):
+#   creator_api  → python3 src/creator_api.py
+#   sales_swarm  → python3 src/sales_swarm_commander.py
+#   query_swarm  → python3 src/query_swarm.py
+#   watchdog     → bash scripts/platform-watchdog-loop.sh
+
+app = 'unison-platform-services'
+primary_region = 'iad'
+
+[build]
+  dockerfile = 'Dockerfile'
+
+[env]
+  UNISON_STATE_ROOT = '/data'
+  CREATOR_API_HOST = '0.0.0.0'
+  CREATOR_API_PORT = '8742'
+  SALES_TICK_SECONDS = '3600'
+  SALES_WORKER_POOL = '3'
+  QUERY_WARM_TICK_SECONDS = '900'
+  QUERY_WARM_MAX_TARGETS = '48'
+  QUERY_WARM_CONCURRENCY = '4'
+  WATCHDOG_INTERVAL_SECONDS = '120'
+  UNISON_STOREFRONT_URL = 'https://unisonorchestration.com'
+  UNISON_EDGE_GATEWAY_URL = 'https://unison-edge-gateway.unisonorchestration.workers.dev'
+  UNISON_MCP_URL = 'https://unison-mcp.fly.dev/mcp/v1/search'
+
+[processes]
+  platform = 'bash scripts/run-platform-mesh.sh'
+
+[[mounts]]
+  source = 'unison_state_vol'
+  destination = '/data'
+
+[http_service]
+  internal_port = 8742
+  force_https = true
+  auto_stop_machines = 'off'
+  auto_start_machines = true
+  min_machines_running = 1
+  processes = ['platform']
+
+  [[http_service.checks]]
+    interval = '15s'
+    grace_period = '15s'
+    method = 'GET'
+    path = '/health'
+    protocol = 'http'
+    timeout = '5s'
+
+[[vm]]
+  memory = '1gb'
+  cpu_kind = 'shared'
+  cpus = 1
+  processes = ['platform']

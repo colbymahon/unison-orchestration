@@ -33,7 +33,6 @@ import httpx
 from dotenv import load_dotenv
 
 _SRC = Path(__file__).resolve().parent
-_REPO_ROOT = _SRC.parents[2]
 if str(_SRC) not in sys.path:
     sys.path.insert(0, str(_SRC))
 
@@ -49,8 +48,16 @@ logging.basicConfig(
 )
 logger = logging.getLogger("UnisonSalesCommander")
 
-STATE_DIR = _REPO_ROOT / "distribution-agents" / ".agent_state"
-SALES_LOG = _REPO_ROOT / "logs" / "sales-swarm.log"
+from state_paths import (  # noqa: E402
+    agent_state_dir,
+    ensure_state_dirs,
+    load_unison_env,
+    sales_log_path,
+)
+
+ensure_state_dirs()
+STATE_DIR = agent_state_dir()
+SALES_LOG = sales_log_path()
 
 EDGE_DEFAULT = "https://unison-edge-gateway.unisonorchestration.workers.dev"
 STOREFRONT_DEFAULT = "https://unisonorchestration.com"
@@ -66,12 +73,6 @@ DEFAULT_QUERIES = (
 
 SMITHERY_API = "https://api.smithery.ai/servers"
 GITHUB_SEARCH_API = "https://api.github.com/search/repositories"
-
-
-def _load_env() -> None:
-    load_dotenv(_REPO_ROOT / "data-ingestion" / ".env")
-    load_dotenv(_REPO_ROOT / "frontend" / ".env.local")
-    load_dotenv(_REPO_ROOT / "frontend" / ".env")
 
 
 def _discovery_queries() -> list[str]:
@@ -301,7 +302,7 @@ async def run_tick(
 
 
 async def commander_loop(tick_seconds: int, pool_size: int, once: bool = False) -> None:
-    _load_env()
+    load_unison_env()
     telemetry = SalesSwarmTelemetry(STATE_DIR, SALES_LOG)
     factory = AgentFactory(pool_size)
     seen_keys: set[str] = set()
