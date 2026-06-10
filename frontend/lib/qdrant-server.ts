@@ -4,8 +4,10 @@
  * when infra-health, dashboard, and moat tab poll within the same window.
  */
 
-const MOAT_CACHE_TTL_MS = Number(process.env.MOAT_CACHE_TTL_MS ?? 15_000);
-const COLLECTION_FETCH_CONCURRENCY = 8;
+const MOAT_CACHE_TTL_MS = Number(process.env.MOAT_CACHE_TTL_MS ?? 60_000);
+const COLLECTION_FETCH_CONCURRENCY = Number(
+  process.env.MOAT_FETCH_CONCURRENCY ?? 16
+);
 
 let moatCache: { data: MoatMetricsResponse; expiresAt: number } | null = null;
 

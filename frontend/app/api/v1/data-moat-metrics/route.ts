@@ -34,7 +34,9 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
     },
     {
       headers: {
-        "Cache-Control": "no-store, max-age=0",
+        "Cache-Control": result.cache_hit
+          ? "private, max-age=30, stale-while-revalidate=60"
+          : "no-store, max-age=0",
         "Server-Timing": `moat;dur=${elapsed}`,
         "X-Unison-Qdrant-Region": "us-east4",
         "X-Unison-Fly-Region": "iad",
