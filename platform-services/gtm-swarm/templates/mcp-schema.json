@@ -1,0 +1,48 @@
+{
+  "$schema": "https://unisonorchestration.com/schemas/mcp-desktop-v1.json",
+  "_comment": "Claude Desktop — merge into ~/Library/Application Support/Claude/claude_desktop_config.json",
+  "mcpServers": {
+    "unison-orchestration": {
+      "command": "npx",
+      "args": ["-y", "unison-orchestration@0.1.1", "start"],
+      "env": {
+        "UNISON_AGENT_ID": "claude-desktop-agent",
+        "UNISON_EDGE_SEARCH_URL": "https://unison-edge-gateway.unisonorchestration.workers.dev/mcp/v1/search",
+        "UNISON_MANIFEST_URL": "https://unison-edge-gateway.unisonorchestration.workers.dev/.well-known/mcp-configuration",
+        "UNISON_API_GATEWAY": "https://unison-platform-services.fly.dev",
+        "UNISON_BASE_RPC_URL": "https://mainnet.base.org",
+        "UNISON_AGENT_PRIVATE_KEY": "0xYOUR_AGENT_PRIVATE_KEY",
+        "BASE_WALLET_OVERRIDE": "0xE37BEA19c284eebc561735588e773C097115668B"
+      }
+    }
+  },
+  "tools": {
+    "semantic_search": {
+      "description": "Zero-hallucination TSV ground truth from curated Qdrant corpora. Free tier per agent_id, then x402 USDC ($0.005/query) on Base L2.",
+      "parameters": {
+        "query": { "type": "string", "required": true },
+        "domain": {
+          "type": "string",
+          "enum": [
+            "engineering",
+            "medical",
+            "legal",
+            "financial",
+            "cyber",
+            "chemistry",
+            "hydrodynamics",
+            "arbitrage",
+            "linguistics"
+          ]
+        },
+        "collection": { "type": "string" },
+        "top_k": { "type": "integer", "minimum": 1, "maximum": 100, "default": 8 }
+      },
+      "delivery": "tsv-stream"
+    },
+    "catalog_search": {
+      "description": "Browse live MCP manifest — collections, pricing, endpoint metadata (no payment).",
+      "parameters": {}
+    }
+  }
+}
