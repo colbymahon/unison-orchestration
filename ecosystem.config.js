@@ -29,6 +29,16 @@ const SETTLEMENT_PYTHON = fs.existsSync(CLIENT_AGENT_PYTHON)
   ? CLIENT_AGENT_PYTHON
   : PYTHON_BIN;
 
+/** Shared crash-recovery policy — exponential backoff, high restart ceiling. */
+const RESILIENCE = {
+  autorestart: true,
+  max_restarts: 200,
+  min_uptime: "15s",
+  restart_delay: 4000,
+  exp_backoff_restart_delay: 2000,
+  kill_timeout: 8000,
+};
+
 module.exports = {
   apps: [
     {
@@ -36,9 +46,7 @@ module.exports = {
       script: PYTHON_BIN,
       args: [path.join(REPO_ROOT, "data-ingestion/autonomous_knowledge_agent.py")],
       cwd: REPO_ROOT,
-      autorestart: true,
-      max_restarts: 50,
-      min_uptime: "30s",
+      ...RESILIENCE,
       max_memory_restart: "500M",
       env: {
         PYTHONUNBUFFERED: "1",
@@ -54,13 +62,39 @@ module.exports = {
       time: true,
     },
     {
+      name: "unison-sales-swarm-commander",
+      script: PYTHON_BIN,
+      args: [
+        path.join(
+          REPO_ROOT,
+          "platform-services/gtm-swarm/src/sales_swarm_commander.py"
+        ),
+      ],
+      cwd: path.join(REPO_ROOT, "platform-services/gtm-swarm/src"),
+      ...RESILIENCE,
+      max_memory_restart: "400M",
+      watch: false,
+      env: {
+        PYTHONUNBUFFERED: "1",
+        SALES_TICK_SECONDS: "3600",
+        SALES_WORKER_POOL: "3",
+        UNISON_STOREFRONT_URL: "https://unisonorchestration.com",
+        UNISON_EDGE_GATEWAY_URL:
+          "https://unison-edge-gateway.unisonorchestration.workers.dev",
+        GITHUB_TOKEN: process.env.GITHUB_TOKEN || "",
+        SMITHERY_API_KEY: process.env.SMITHERY_API_KEY || "",
+      },
+      error_file: path.join(REPO_ROOT, "logs/pm2-sales-swarm-error.log"),
+      out_file: path.join(REPO_ROOT, "logs/pm2-sales-swarm-out.log"),
+      merge_logs: true,
+      time: true,
+    },
+    {
       name: "unison-gtm-swarm",
       script: PYTHON_BIN,
       args: [path.join(REPO_ROOT, "distribution-agents/gtm_swarm_coordinator.py")],
       cwd: REPO_ROOT,
-      autorestart: true,
-      max_restarts: 50,
-      min_uptime: "30s",
+      ...RESILIENCE,
       max_memory_restart: "500M",
       env: {
         PYTHONUNBUFFERED: "1",
@@ -93,9 +127,7 @@ module.exports = {
         "1800",
       ],
       cwd: REPO_ROOT,
-      autorestart: true,
-      max_restarts: 50,
-      min_uptime: "30s",
+      ...RESILIENCE,
       max_memory_restart: "600M",
       watch: false,
       env: {
@@ -118,9 +150,7 @@ module.exports = {
         ),
       ],
       cwd: REPO_ROOT,
-      autorestart: true,
-      max_restarts: 50,
-      min_uptime: "30s",
+      ...RESILIENCE,
       max_memory_restart: "400M",
       env: {
         PYTHONUNBUFFERED: "1",
@@ -155,9 +185,8 @@ module.exports = {
         ),
       ],
       cwd: path.join(REPO_ROOT, "platform-services/gtm-swarm/src"),
-      autorestart: true,
-      max_restarts: 50,
-      min_uptime: "10s",
+      ...RESILIENCE,
+      min_uptime: "8s",
       max_memory_restart: "300M",
       env: {
         PYTHONUNBUFFERED: "1",
@@ -169,6 +198,37 @@ module.exports = {
       },
       error_file: path.join(REPO_ROOT, "logs/pm2-creator-api-error.log"),
       out_file: path.join(REPO_ROOT, "logs/pm2-creator-api-out.log"),
+      merge_logs: true,
+      time: true,
+    },
+    {
+      name: "unison-creator-bridge",
+      script: path.join(REPO_ROOT, "scripts/run-creator-bridge.sh"),
+      interpreter: "/bin/bash",
+      cwd: REPO_ROOT,
+      ...RESILIENCE,
+      max_memory_restart: "120M",
+      min_uptime: "10s",
+      env: {
+        TUNNEL_LOGLEVEL: "info",
+      },
+      error_file: path.join(REPO_ROOT, "logs/pm2-creator-bridge-error.log"),
+      out_file: path.join(REPO_ROOT, "logs/pm2-creator-bridge-out.log"),
+      merge_logs: true,
+      time: true,
+    },
+    {
+      name: "unison-platform-watchdog",
+      script: path.join(REPO_ROOT, "scripts/platform-watchdog-loop.sh"),
+      interpreter: "/bin/bash",
+      cwd: REPO_ROOT,
+      ...RESILIENCE,
+      max_memory_restart: "80M",
+      env: {
+        WATCHDOG_INTERVAL_SECONDS: "120",
+      },
+      error_file: path.join(REPO_ROOT, "logs/pm2-watchdog-error.log"),
+      out_file: path.join(REPO_ROOT, "logs/pm2-watchdog-out.log"),
       merge_logs: true,
       time: true,
     },
