@@ -317,6 +317,17 @@ async def run_daemon(
         log.info("=== Query swarm warm cycle %d START (tick=%ds) ===", cycle, tick_seconds)
         try:
             await run_warm_cycle(max_targets=max_targets, concurrency=concurrency)
+            from registry_agent_reboot import reboot_all_agents  # noqa: WPS433
+
+            await reboot_all_agents(
+                collection=os.getenv("REGISTRY_ACTIVATE_COLLECTION", "unison_engineering_core"),
+                query=os.getenv(
+                    "REGISTRY_ACTIVATE_QUERY",
+                    "registry reboot activation probe thermodynamic tolerances",
+                ),
+                concurrency=int(os.getenv("REGISTRY_REBOOT_CONCURRENCY", "10")),
+                only_idle=True,
+            )
         except Exception as exc:
             log.exception("Warm cycle %d failed (non-fatal): %s", cycle, exc)
         log.info("=== Query swarm warm cycle %d COMPLETE ===", cycle)

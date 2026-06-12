@@ -37,8 +37,13 @@ shutdown() {
 
 trap shutdown SIGTERM SIGINT
 
-start_daemon "sales_swarm" python3 src/sales_swarm_commander.py
-start_daemon "query_swarm" python3 src/query_swarm.py --tick-seconds "${QUERY_WARM_TICK_SECONDS:-900}" --max-targets "${QUERY_WARM_MAX_TARGETS:-48}" --concurrency "${QUERY_WARM_CONCURRENCY:-4}"
+log "registry agent reboot — priming all swarm identities"
+python3 src/registry_agent_reboot.py --concurrency "${REGISTRY_REBOOT_CONCURRENCY:-10}" || \
+  log "WARN registry_agent_reboot exited non-zero (continuing mesh boot)"
+
+start_daemon "swarm_commander" python3 src/swarm_commander.py --interval-seconds "${SWARM_COORDINATOR_TICK_SECONDS:-30}"
+start_daemon "sales_swarm" python3 src/sales_swarm_commander.py --pool-size "${SALES_WORKER_POOL:-10}"
+start_daemon "query_swarm" python3 src/query_swarm.py --tick-seconds "${QUERY_WARM_TICK_SECONDS:-900}" --max-targets "${QUERY_WARM_MAX_TARGETS:-48}" --concurrency "${QUERY_WARM_CONCURRENCY:-10}"
 start_daemon "knowledge_crawler" python3 src/knowledge_crawler.py --cycle-seconds "${KNOWLEDGE_CYCLE_SECONDS:-3600}" --concurrency "${KNOWLEDGE_CRAWLER_CONCURRENCY:-3}"
 start_daemon "settlement_daemon" python3 src/settlement_daemon.py
 start_daemon "gtm_coordinator" python3 src/gtm_swarm_coordinator.py

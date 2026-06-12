@@ -1,4 +1,4 @@
-# Unison platform-services — total cloud sovereignty (7/7 daemon mesh)
+# Unison platform-services — total cloud sovereignty (9/9 daemon mesh)
 # Shared NVMe volume: single machine runs all daemons via run-platform-mesh.sh (SQLite WAL).
 #
 # Logical process map (inside platform mesh supervisor):
@@ -8,6 +8,8 @@
 #   knowledge_crawler   → python3 src/knowledge_crawler.py
 #   settlement_daemon   → python3 src/settlement_daemon.py
 #   gtm_coordinator     → python3 src/gtm_swarm_coordinator.py
+#   swarm_commander     → python3 src/swarm_commander.py
+#   registry_reboot     → python3 src/registry_agent_reboot.py (mesh boot)
 #   watchdog            → bash scripts/platform-watchdog-loop.sh
 
 app = 'unison-platform-services'
@@ -21,10 +23,13 @@ primary_region = 'iad'
   CREATOR_API_HOST = '0.0.0.0'
   CREATOR_API_PORT = '8742'
   SALES_TICK_SECONDS = '3600'
-  SALES_WORKER_POOL = '3'
+  SALES_WORKER_POOL = '10'
+  SWARM_AGENT_COUNT = '10'
+  SWARM_COORDINATOR_TICK_SECONDS = '30'
+  REGISTRY_REBOOT_CONCURRENCY = '10'
   QUERY_WARM_TICK_SECONDS = '900'
   QUERY_WARM_MAX_TARGETS = '48'
-  QUERY_WARM_CONCURRENCY = '4'
+  QUERY_WARM_CONCURRENCY = '10'
   KNOWLEDGE_CYCLE_SECONDS = '3600'
   KNOWLEDGE_CRAWLER_CONCURRENCY = '3'
   GTM_TICK_SECONDS = '43200'

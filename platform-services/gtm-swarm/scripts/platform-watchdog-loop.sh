@@ -43,6 +43,8 @@ while true; do
   settlement_proc="$(process_alive "settlement_daemon.py")"
   gtm_proc="$(process_alive "gtm_swarm_coordinator.py")"
   sales_proc="$(process_alive "sales_swarm_commander.py")"
+  swarm_proc="$(process_alive "swarm_commander.py")"
+  query_proc="$(process_alive "query_swarm.py")"
   crawler_proc="$(process_alive "knowledge_crawler.py")"
 
   if [[ "${local_code}" != "200" ]]; then
@@ -60,6 +62,12 @@ while true; do
   if [[ "${gtm_proc}" != "online" ]]; then
     log "WARN gtm_coordinator process ${gtm_proc}"
   fi
+  if [[ "${swarm_proc}" != "online" ]]; then
+    log "WARN swarm_commander process ${swarm_proc}"
+  fi
+  if [[ "${query_proc}" != "online" ]]; then
+    log "WARN query_swarm process ${query_proc}"
+  fi
   if [[ ! -f "${SETTLEMENT_STATE}" ]]; then
     log "WARN settlement state file missing at ${SETTLEMENT_STATE}"
   fi
@@ -68,7 +76,7 @@ while true; do
   fi
 
   if [[ "${local_code}" == "200" && "${mcp_code}" == "200" && "${settlement_proc}" == "online" && "${gtm_proc}" == "online" ]]; then
-    log "OK mesh green (creator=${local_code} mcp=${mcp_code} settlement=${settlement_proc} gtm=${gtm_proc} sales=${sales_proc} crawler=${crawler_proc})"
+    log "OK mesh green (creator=${local_code} mcp=${mcp_code} settlement=${settlement_proc} gtm=${gtm_proc} swarm=${swarm_proc} query=${query_proc} sales=${sales_proc} crawler=${crawler_proc})"
   fi
 
   sleep "${INTERVAL}"
