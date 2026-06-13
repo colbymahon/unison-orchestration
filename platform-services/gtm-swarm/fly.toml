@@ -1,4 +1,4 @@
-# Unison platform-services — total cloud sovereignty (9/9 daemon mesh)
+# Unison platform-services — total cloud sovereignty (10/10 daemon mesh)
 # Shared NVMe volume: single machine runs all daemons via run-platform-mesh.sh (SQLite WAL).
 #
 # Logical process map (inside platform mesh supervisor):
@@ -7,6 +7,7 @@
 #   query_swarm         → python3 src/query_swarm.py
 #   knowledge_crawler   → python3 src/knowledge_crawler.py
 #   gap_autopilot       → python3 src/gap_autopilot.py
+#   omni_council        → python3 src/omni_capture_council.py
 #   settlement_daemon   → python3 src/settlement_daemon.py
 #   gtm_coordinator     → python3 src/gtm_swarm_coordinator.py
 #   swarm_commander     → python3 src/swarm_commander.py
@@ -36,6 +37,12 @@ primary_region = 'iad'
   GAP_AUTOPILOT_POLL_SECONDS = '60'
   GAP_AUTOPILOT_MAX_PER_CYCLE = '50'
   GAP_AUTOPILOT_PARALLEL = '12'
+  OMNI_SCOUT_WORKERS = '5'
+  OMNI_ARBITER_WORKERS = '10'
+  OMNI_SYNTHESIZER_WORKERS = '5'
+  OMNI_VECTORIZER_WORKERS = '5'
+  OMNI_QUEUE_MAX = '256'
+  OMNI_CYCLE_SLEEP_SECONDS = '300'
   GTM_TICK_SECONDS = '43200'
   SETTLEMENT_POLL_SECONDS = '12'
   SETTLEMENT_MIN_PAYMENT_USDC = '0.005'
