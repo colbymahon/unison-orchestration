@@ -2,7 +2,6 @@
 
 import { motion } from "framer-motion";
 import { RefreshCw, Search } from "lucide-react";
-import { GLOBAL_METRICS } from "@/lib/config/metrics";
 import type { CorporaSyncResponse } from "@/lib/corpora-sync";
 
 interface CorporaHeroProps {
@@ -39,15 +38,13 @@ export function CorporaHero({
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.6 }}
         >
-          <p className="public-eyebrow">Data Matrix</p>
+          <p className="public-eyebrow">Fact Libraries</p>
           <h1 id="vault-heading" className="public-headline">
-            The <span className="gradient-text">Vault</span>
+            Browse Our <span className="gradient-text">Libraries</span>
           </h1>
           <p className="public-lead">
-            {sync.collection_count || catalogLength} live collections ·{" "}
-            {sync.total_vectors.toLocaleString()} vectors · {GLOBAL_METRICS.dimensions}{" "}
-            dimensions · Qdrant{" "}
-            <span className="text-cyan-400/80">{sync.qdrant_region}</span>
+            {sync.collection_count || catalogLength} topic libraries ·{" "}
+            {sync.total_vectors.toLocaleString()} checked facts · ready to search
           </p>
 
           <div className="public-meta-row">
@@ -64,7 +61,7 @@ export function CorporaHero({
                 className={`w-3 h-3 ${refreshing ? "animate-spin" : ""}`}
                 aria-hidden="true"
               />
-              {refreshing ? "syncing…" : "refresh vault"}
+              {refreshing ? "updating…" : "refresh list"}
             </button>
             {error ? (
               <span className="text-amber-400/80" role="status">

@@ -46,28 +46,28 @@ export function LivePlatformMetrics() {
     {
       stat: liveVectors ?? (loading ? 0 : null),
       suffix: "",
-      label: "Live Vectors",
+      label: "Facts Stored",
       live: liveVectors != null,
       accent: "cyan" as const,
     },
     {
       stat: verticals ?? (loading ? 0 : null),
       suffix: "",
-      label: "Verticals",
+      label: "Topic Areas",
       live: verticals != null,
       accent: "purple" as const,
     },
     {
       stat: GLOBAL_METRICS.dimensions,
       suffix: "D",
-      label: "Embeddings",
+      label: "Search Depth",
       live: false,
       accent: "none" as const,
     },
     {
       stat: GLOBAL_METRICS.latencyMs,
       suffix: "ms",
-      label: "Median Latency",
+      label: "Answer Speed",
       live: false,
       accent: "emerald" as const,
     },
@@ -84,7 +84,7 @@ export function LivePlatformMetrics() {
           footer={
             live ? (
               <span className="font-data text-[10px] text-emerald-400/80 block text-center">
-                ● Qdrant live
+                ● live count
               </span>
             ) : undefined
           }

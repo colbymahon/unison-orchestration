@@ -7,9 +7,9 @@ import { motion, AnimatePresence } from "framer-motion";
 import { Menu, X } from "lucide-react";
 
 const navLinks = [
-  { href: "/",        label: "Overview"    },
-  { href: "/corpora", label: "Data Vault"  },
-  { href: "/docs",    label: "Integrate"   },
+  { href: "/",        label: "Home"        },
+  { href: "/corpora", label: "Libraries"  },
+  { href: "/docs",    label: "How To Connect"   },
 ];
 
 export function PublicNav() {
@@ -107,7 +107,7 @@ export function PublicNav() {
               transition-all duration-200
             "
           >
-            MCP Manifest ↗
+            MCP Library List ↗
           </a>
           <Link
             href="/dashboard"
@@ -171,7 +171,7 @@ export function PublicNav() {
                   rel="noopener noreferrer"
                   className="block px-4 py-3 rounded-lg text-sm font-semibold text-cyan-400 border border-cyan-400/25 text-center font-[var(--font-mono)] tracking-wider uppercase"
                 >
-                  MCP Manifest ↗
+                  MCP Library List ↗
                 </a>
               </li>
             </ul>

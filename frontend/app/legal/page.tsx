@@ -14,20 +14,18 @@ export default function LegalPage() {
   return (
     <article className="public-page public-section py-24">
       <div className="public-page-shell public-prose">
-      <h1 className="font-brand text-3xl font-bold text-white mb-6">Legal &amp; Usage</h1>
+      <h1 className="font-brand text-3xl font-bold text-white mb-6">Rules &amp; Legal Stuff</h1>
       <p className="font-data text-sm text-slate-400 mb-8">
         V18 Group · Unison Orchestration · {PRODUCTION_SITE_URL}
       </p>
       <section className="space-y-6 font-[var(--font-inter)] text-sm leading-relaxed text-center">
         <p>
-          Unison Orchestration provides structured TSV vector retrieval for autonomous agents and
-          developers. Queries through the edge gateway may require x402 USDC settlement on Base L2
-          per collection tier.
+          Unison gives apps and robots a way to look up real facts. Some questions cost a
+          tiny USDC fee on the Base network, depending on which library you use.
         </p>
         <p>
-          Source corpora are attributed in collection metadata. Users and agents are responsible for
-          compliance with applicable law, licensing, and institutional policies when consuming
-          retrieved data.
+          Facts come from public sources listed in each library. You are responsible for
+          following the law and your own rules when you use the data.
         </p>
         <p>
           Contact:{" "}
@@ -37,7 +35,7 @@ export default function LegalPage() {
         </p>
       </section>
       <Link href="/" className="inline-block mt-10 text-cyan-400 text-sm font-data hover:underline">
-        ← Storefront
+        ← Back Home
       </Link>
       </div>
     </article>

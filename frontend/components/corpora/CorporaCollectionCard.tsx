@@ -44,7 +44,7 @@ export function CorporaCollectionCard({
       role="button"
       tabIndex={0}
       onKeyDown={(e) => e.key === "Enter" && onSelect(col)}
-      aria-label={`Open ${col.label} — ${col.liveVectors.toLocaleString()} vectors`}
+      aria-label={`Open ${col.label} — ${col.liveVectors.toLocaleString()} facts`}
     >
       <div className="flex flex-col items-center gap-3 mb-4">
         <h2 className={`font-grotesk font-bold text-sm ${accentText[col.color]}`}>
@@ -63,7 +63,7 @@ export function CorporaCollectionCard({
           >
             {col.liveVectors.toLocaleString()}
           </div>
-          <div className="text-[10px] text-white/25 font-data">vectors</div>
+          <div className="text-[10px] text-white/25 font-data">facts</div>
         </div>
       </div>
 

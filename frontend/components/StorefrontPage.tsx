@@ -29,16 +29,16 @@ const ParticleMesh = dynamic(
 
 /* ─── Telemetry ticker items — sourced from GLOBAL_METRICS ──────────────────── */
 const tickerItems = [
-  { label: "ACTIVE NODES",       value: METRIC_DISPLAY.activeNodes,  accent: "cyan"    },
-  { label: "LIVE VECTORS",       value: METRIC_DISPLAY.liveVectors,  accent: "purple"  },
-  { label: "SETTLEMENT",         value: GLOBAL_METRICS.network,      accent: "cyan"    },
-  { label: "LATENCY",            value: METRIC_DISPLAY.latency,      accent: "emerald" },
-  { label: "QUERY PRICE",        value: METRIC_DISPLAY.queryPrice,   accent: "amber"   },
-  { label: "DIMENSIONS",         value: METRIC_DISPLAY.dimensions,   accent: "cyan"    },
-  { label: "ACTIVE VERTICALS",   value: METRIC_DISPLAY.verticals,    accent: "purple"  },
-  { label: "PROTOCOL",           value: GLOBAL_METRICS.protocol,     accent: "cyan"    },
-  { label: "NETWORK",            value: "BASE MAINNET",              accent: "emerald" },
-  { label: "FORMAT",             value: GLOBAL_METRICS.format,       accent: "amber"   },
+  { label: "SERVERS ONLINE",     value: METRIC_DISPLAY.activeNodes,  accent: "cyan"    },
+  { label: "FACTS IN LIBRARY",   value: METRIC_DISPLAY.liveVectors,  accent: "purple"  },
+  { label: "PAYMENT NETWORK",    value: GLOBAL_METRICS.network,      accent: "cyan"    },
+  { label: "ANSWER SPEED",       value: METRIC_DISPLAY.latency,      accent: "emerald" },
+  { label: "PRICE PER QUESTION", value: METRIC_DISPLAY.queryPrice,   accent: "amber"   },
+  { label: "SEARCH DEPTH",       value: METRIC_DISPLAY.dimensions,   accent: "cyan"    },
+  { label: "TOPIC AREAS",        value: METRIC_DISPLAY.verticals,    accent: "purple"  },
+  { label: "PAY AS YOU GO",      value: GLOBAL_METRICS.protocol,     accent: "cyan"    },
+  { label: "BLOCKCHAIN",         value: "BASE MAINNET",              accent: "emerald" },
+  { label: "DATA FORMAT",        value: GLOBAL_METRICS.format,       accent: "amber"   },
 ];
 
 const accentClass: Record<string, string> = {
@@ -52,73 +52,73 @@ const accentClass: Record<string, string> = {
 const moatCards = [
   {
     icon: Scale,
-    title: "Legal Vault",
-    subtitle: "50,994 vectors · Institutional",
+    title: "Law Library",
+    subtitle: "50,994 facts · Courts & rules",
     description:
-      "Supreme Court (SCOTUS) opinions 2025–2026 sourced from CourtListener. Glossip v. Oklahoma, Louisiana v. Callais, Wisconsin Bell v. US, and 500+ primary-source holdings.",
+      "Real court cases and legal rules from trusted public records. Good for apps that need to know what the law actually says — not what an AI imagines.",
     collection: "unison_legal_core",
     price: "$0.050 USDC",
-    tags: ["SCOTUS", "CourtListener", "Holdings", "Precedent"],
+    tags: ["Courts", "Laws", "Cases", "Rules"],
     accent: "purple",
     status: "LIVE",
   },
   {
     icon: TrendingUp,
-    title: "Financial Core",
-    subtitle: "1,551 vectors · Institutional",
+    title: "Money & Business",
+    subtitle: "1,551 facts · Company reports",
     description:
-      "SEC EDGAR 10-K and 10-Q filings for JPMorgan, Goldman Sachs, Bank of America, BlackRock, Apple, Microsoft, Tesla, Nvidia, and Amazon. MD&A, earnings tables, and risk factors.",
+      "Real numbers from big company reports — earnings, risks, and money facts from public filings. Helps apps talk about business without making up numbers.",
     collection: "unison_financial_core",
     price: "$0.050 USDC",
-    tags: ["SEC EDGAR", "10-K / 10-Q", "JPM / GS / BAC", "Earnings"],
+    tags: ["Earnings", "Reports", "Banks", "Stocks"],
     accent: "amber",
     status: "LIVE",
   },
   {
     icon: Wrench,
-    title: "Engineering Core",
-    subtitle: "1,608 vectors",
+    title: "Engineering Facts",
+    subtitle: "1,608 facts",
     description:
-      "Dimensional tolerances, electrical specs (Tesla), naval architecture tables, maritime engineering load ratings, and structural design parameters.",
+      "How things are built — sizes, limits, materials, and design numbers engineers actually use.",
     collection: "unison_engineering_core",
     price: "$0.005 USDC",
-    tags: ["Tolerances", "Tesla", "Naval", "Structural"],
+    tags: ["Build", "Materials", "Ships", "Design"],
     accent: "cyan",
     status: "LIVE",
   },
   {
     icon: Cpu,
-    title: "Manufacturing Core",
-    subtitle: "3,374 vectors",
+    title: "Making Things",
+    subtitle: "3,374 facts",
     description:
-      "CNC machining parameters, metallurgy phase diagrams, tooling sequences, surface finish tables, and material removal rate equations from Rose's Machine-Shop Practice.",
+      "Factory and machine facts — how to cut metal, heat materials, and run tools the right way.",
     collection: "unison_manufacturing_core",
     price: "$0.005 USDC",
-    tags: ["CNC", "Metallurgy", "Tooling", "Phase Diagrams"],
+    tags: ["Machines", "Metal", "Tools", "Factory"],
     accent: "cyan",
     status: "LIVE",
   },
   {
     icon: FlaskConical,
-    title: "Medical Core",
-    subtitle: "4,527 vectors",
+    title: "Health & Medicine",
+    subtitle: "4,527 facts",
     description:
-      "Clinical pathology tables, pharmacological dosage references, anatomical data, and surgical procedure matrices from Osler, Pepper, Gray's Anatomy, and Manual of Surgery.",
+      "Doctor-style facts — drug doses, body science, and surgery info from old trusted medical books.",
     collection: "unison_medical_core",
     price: "$0.005 USDC",
-    tags: ["Pharmacology", "Pathology", "Anatomy", "Surgery"],
+    tags: ["Medicine", "Doses", "Body", "Surgery"],
     accent: "emerald",
     status: "LIVE",
   },
   {
     icon: ShieldCheck,
-    title: "Cartography Core",
-    subtitle: "4,023 vectors",
+    title: "Maps & Places",
+    subtitle: "4,023 facts",
     description:
-      "GeoNames global topological coordinate grid: 169,192 cities with latitude, longitude, elevation, timezone, and population. Plus Bowditch celestial navigation tables.",
+      "City locations, heights, time zones, and map facts for almost every big city on Earth.",
     collection: "unison_cartography_core",
     price: "$0.005 USDC",
-    tags: ["GeoNames", "Coordinates", "169k Cities", "Navigation"],
+    tags: ["Cities", "Maps", "GPS", "Places"],
     accent: "purple",
     status: "LIVE",
   },
@@ -129,21 +129,21 @@ const SMITHERY_INSTALL =
 
 /* ─── Terminal install commands ──────────────────────────────────────────────── */
 const terminalLines = [
-  { type: "comment",  text: "# Step 1 — Discover the MCP manifest" },
+  { type: "comment",  text: "# Step 1 — Find our fact library list" },
   {
     type: "command",
     text: `curl https://unison-edge-gateway.unisonorchestration.workers.dev/.well-known/mcp-configuration`,
   },
   { type: "output",   text: `→  { "name": "Unison Orchestration MCP Hub", "auth": { "type": "x402" }, "collections": 31, "vectors": 83758 }` },
   { type: "blank",    text: "" },
-  { type: "comment",  text: "# Step 2 — Fire a query (probe returns HTTP 402)" },
+  { type: "comment",  text: "# Step 2 — Ask a question (you'll see a tiny payment request)" },
   {
     type: "command",
     text: `curl "https://unison-edge-gateway.unisonorchestration.workers.dev/mcp/v1/search?q=morphine+dosage&collection=unison_medical_core"`,
   },
   { type: "output",   text: `→  HTTP/1.1 402 Payment Required   { "price": "0.005", "token": "USDC", "network": "base" }` },
   { type: "blank",    text: "" },
-  { type: "comment",  text: "# Step 3 — Sign USDC payment (Coinbase CDP wallet), retry" },
+  { type: "comment",  text: "# Step 3 — Pay a few cents, ask again, get real facts back" },
   {
     type: "command",
     text: `curl -H "X-Payment: $SIGNED_TX" "...?q=morphine+dosage&collection=unison_medical_core"`,
@@ -204,7 +204,7 @@ function AgentInstallConsole() {
       </div>
       <div className="px-5 py-6 text-center">
         <p className="font-data text-[10px] text-white/30 mb-3 tracking-wider">
-          # Quick install — route your swarm through the MCP hub
+          # Quick install — hook your robot helper to our fact library
         </p>
         <div className="public-code-enclave">
           <p className="font-data text-sm sm:text-base text-cyan-300/90 break-all leading-relaxed">
@@ -220,16 +220,16 @@ function AgentInstallConsole() {
 function X402PricingLedger() {
   const tiers = [
     {
-      tier: "STANDARD",
-      price: "0.005 USDC / call",
-      targets: "Engineering, Linguistics, Agronomy, Architecture",
+      tier: "EVERYDAY TOPICS",
+      price: "0.005 USDC per question",
+      targets: "Engineering, farming, buildings, and more",
       accent: "border-cyan-400/25 bg-cyan-400/[0.04]",
       label: "text-cyan-400",
     },
     {
-      tier: "PREMIUM",
-      price: "0.050 USDC / call",
-      targets: "Astrophysics, Intelligence Core, Cyber Core, Biotech",
+      tier: "SERIOUS TOPICS",
+      price: "0.050 USDC per question",
+      targets: "Space, spy work, cyber safety, and biotech",
       accent: "border-purple-400/25 bg-purple-400/[0.04]",
       label: "text-[#B300FF]",
     },
@@ -243,13 +243,13 @@ function X402PricingLedger() {
           className={`rounded-xl border p-5 backdrop-blur-xl text-center ${t.accent}`}
         >
           <p className={`font-[var(--font-mono)] text-[10px] tracking-[0.2em] uppercase mb-2 ${t.label}`}>
-            [ COMPUTE TIER: {t.tier} ]
+            [ {t.tier} ]
           </p>
           <p className="font-[var(--font-grotesk)] text-lg font-bold text-white mb-2">
             ➔ {t.price}
           </p>
           <p className="font-[var(--font-mono)] text-[11px] text-white/45 leading-relaxed">
-            ➔ Targets: {t.targets}
+            Covers: {t.targets}
           </p>
         </div>
       ))}
@@ -443,32 +443,31 @@ export default function StorefrontPage() {
           style={{ opacity: heroOpacity, y: heroY }}
           className="relative z-10 public-page-shell public-copy-stack max-w-5xl py-16"
         >
-          <motion.div
-            initial={{ opacity: 0, y: 16 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.55, delay: 0.1 }}
-          >
-            <span
-              className="inline-flex items-center gap-2.5 px-4 py-2 rounded-full border border-cyan-400/20 text-[11px] font-data tracking-[0.2em] text-cyan-400 uppercase"
-              style={{ background: "rgba(0,229,255,0.05)" }}
-            >
-              <span className="w-1.5 h-1.5 rounded-full bg-cyan-400 live-dot" aria-hidden="true" />
-              Agentic SEO · MCP · x402 · 32 Vertical Indices
-            </span>
-          </motion.div>
-
           <motion.h1
             id="hero-headline"
             initial={{ opacity: 0, y: 24 }}
             animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.65, delay: 0.2 }}
-            className="public-headline text-[clamp(1.75rem,5vw,3.25rem)] mb-10 w-full"
+            transition={{ duration: 0.65, delay: 0.15 }}
+            className="public-headline text-[clamp(1.75rem,5vw,3.25rem)] mb-6 w-full"
           >
-            UNISON DATA MOAT:{" "}
+            AI Guesses.{" "}
             <span className="gradient-text block sm:inline mt-2 sm:mt-0">
-              ACHIEVE MACHINE-TO-MACHINE AUTONOMY
+              We Give Real Answers.
             </span>
           </motion.h1>
+
+          <motion.p
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.6, delay: 0.25 }}
+            className="public-lead max-w-3xl mx-auto text-center mb-10"
+          >
+            When apps and robot helpers do not know something, they often guess — and the guess
+            can sound smart but be wrong. That is scary for health, money, and the law.
+            {" "}
+            Unison is a giant library of checked facts. Ask one question, pay a tiny fee, get
+            the true answer back fast.
+          </motion.p>
 
           <motion.div
             initial={{ opacity: 0, y: 20 }}
@@ -491,7 +490,7 @@ export default function StorefrontPage() {
               prefetch
               className="group inline-flex items-center gap-2.5 px-8 py-4 rounded-xl text-sm font-semibold font-[var(--font-grotesk)] tracking-wide uppercase text-[#050914] bg-cyan-400 hover:bg-cyan-300 transition-all shadow-[0_0_40px_rgba(0,229,255,0.4)]"
             >
-              Integration Docs
+              How to Connect
               <Zap className="w-4 h-4 group-hover:translate-x-0.5 transition-transform" aria-hidden="true" />
             </Link>
             <Link
@@ -499,7 +498,7 @@ export default function StorefrontPage() {
               prefetch
               className="inline-flex items-center gap-2 px-7 py-4 rounded-xl text-sm font-medium font-[var(--font-grotesk)] tracking-wide text-white/65 border border-white/[0.12] hover:text-white/90 hover:border-cyan-400/25 transition-all"
             >
-              32 Collections
+              Browse Fact Libraries
               <ChevronRight className="w-4 h-4" aria-hidden="true" />
             </Link>
             <a
@@ -574,10 +573,10 @@ export default function StorefrontPage() {
       <section className="public-section py-20" aria-label="Platform statistics">
         <div className="public-page-shell public-copy-stack">
           <div className="public-section-header">
-            <p className="public-eyebrow">Live Telemetry</p>
-            <h2 className="public-headline text-3xl sm:text-4xl mb-4">Platform Metrics</h2>
+            <p className="public-eyebrow">Live Stats</p>
+            <h2 className="public-headline text-3xl sm:text-4xl mb-4">How Big Is the Library?</h2>
             <p className="public-lead mb-0">
-              Real-time Qdrant vault counts and protocol constants — synced from production.
+              Real-time counts from our live fact storage — updated as the library grows.
             </p>
           </div>
           <LivePlatformMetrics />
@@ -595,13 +594,13 @@ export default function StorefrontPage() {
             viewport={{ once: true }}
             className="public-section-header"
           >
-            <p className="public-eyebrow text-cyan-400">Data Vault</p>
+            <p className="public-eyebrow text-cyan-400">Fact Libraries</p>
             <h2 id="moat-heading" className="public-headline text-4xl sm:text-5xl mb-5">
-              The Data Moat
+              Pick a Topic. Get Real Facts.
             </h2>
             <p className="public-lead">
-              Institutional-grade vector collections purpose-built for the domains where
-              AI hallucination carries the highest cost.
+              Each library holds true answers for one area — medicine, law, money, building,
+              and more. Built for apps that cannot afford to guess.
             </p>
           </motion.div>
 
@@ -721,7 +720,7 @@ export default function StorefrontPage() {
                 px-6 py-3 rounded-xl transition-all duration-200
               "
             >
-              View All 31 Collections
+              See All Libraries
               <ArrowRight className="w-3.5 h-3.5" aria-hidden="true" />
             </Link>
           </motion.div>
@@ -741,11 +740,11 @@ export default function StorefrontPage() {
           >
             <p className="public-eyebrow">Why Unison</p>
             <h2 id="paradox-heading" className="public-headline text-4xl sm:text-5xl mb-5">
-              The Hallucination Paradox
+              Guessing vs. Real Facts
             </h2>
             <p className="public-lead">
-              Standard LLMs generate confident-sounding fabrications. Unison injects
-              cryptographic ground truth directly into the agent context window.
+              A normal AI chatbot fills in blanks when it does not know. Unison sends back
+              facts that were checked and saved on purpose.
             </p>
           </motion.div>
 
@@ -765,7 +764,7 @@ export default function StorefrontPage() {
               <div className="flex items-center gap-3 mb-5">
                 <span className="w-2.5 h-2.5 rounded-full bg-red-500 shadow-[0_0_8px_rgba(239,68,68,0.9)]" />
                 <span className="text-[12px] font-semibold font-[var(--font-mono)] text-red-400 tracking-wider">
-                  Standard LLM — JSON Response
+                  Regular AI — Made-Up Answer
                 </span>
               </div>
               <pre
@@ -785,8 +784,7 @@ export default function StorefrontPage() {
 }`}
               </pre>
               <p className="mt-5 font-[var(--font-inter)] text-sm text-red-300/50 leading-relaxed text-center">
-                Vague, unverified, medically dangerous. Every downstream agent
-                decision built on this data carries compounding hallucination risk.
+                Vague, not checked, and risky. Every choice built on this answer could be wrong.
               </p>
             </motion.article>
 
@@ -805,7 +803,7 @@ export default function StorefrontPage() {
               <div className="flex items-center gap-3 mb-5">
                 <span className="w-2.5 h-2.5 rounded-full bg-cyan-400 shadow-[0_0_8px_rgba(0,229,255,0.9)]" />
                 <span className="text-[12px] font-semibold font-[var(--font-mono)] text-cyan-400 tracking-wider">
-                  Unison — TSV Ground Truth
+                  Unison — Real Checked Facts
                 </span>
               </div>
               <pre
@@ -821,8 +819,8 @@ med_001   unison_medical_core  Pharmacology  Morphine sulfate:
                                              Source: Pepper's System,1893.`}
               </pre>
               <p className="mt-5 font-[var(--font-inter)] text-sm text-cyan-200/50 leading-relaxed text-center">
-                Tab-delimited, source-attributed, zero JSON overhead. Exact dosages,
-                exact citations. ~4× fewer tokens than equivalent JSON.
+                Exact doses, exact sources, plain rows of facts. Shorter and clearer than
+                a pile of JSON — so your app spends less and learns more.
               </p>
             </motion.article>
           </div>
@@ -840,13 +838,13 @@ med_001   unison_medical_core  Pharmacology  Morphine sulfate:
             viewport={{ once: true }}
             className="public-section-header mb-12"
           >
-            <p className="public-eyebrow text-cyan-400">Integration</p>
+            <p className="public-eyebrow text-cyan-400">Get Started</p>
             <h2 id="install-heading" className="public-headline text-4xl sm:text-5xl mb-5">
-              Wire in 3 Steps
+              Connect in 3 Steps
             </h2>
             <p className="public-lead">
-              Crawl the manifest. Probe the endpoint. Sign the micropayment.
-              Your agent receives raw TSV ground truth in under a second.
+              Find our library list. Ask a question. Pay a few cents. Get real facts back
+              in under a second.
             </p>
           </motion.div>
 
@@ -876,7 +874,7 @@ med_001   unison_medical_core  Pharmacology  Morphine sulfate:
                 shadow-[0_0_30px_rgba(0,229,255,0.3)]
               "
             >
-              Full Integration Docs <ArrowRight className="w-4 h-4" />
+              Full Setup Guide <ArrowRight className="w-4 h-4" />
             </Link>
             <a
               href="https://unison-edge-gateway.unisonorchestration.workers.dev/.well-known/mcp-configuration"
@@ -890,7 +888,7 @@ med_001   unison_medical_core  Pharmacology  Morphine sulfate:
                 transition-all duration-200
               "
             >
-              Live MCP Manifest <ExternalLink className="w-4 h-4" />
+              See Library List <ExternalLink className="w-4 h-4" />
             </a>
           </motion.div>
         </div>
@@ -924,11 +922,11 @@ med_001   unison_medical_core  Pharmacology  Morphine sulfate:
             id="cta-heading"
             className="font-[var(--font-grotesk)] text-3xl sm:text-4xl font-bold text-white mb-5"
           >
-            Your swarm needs ground truth.
+            Your apps need real facts — not guesses.
           </h2>
           <p className="font-[var(--font-inter)] text-white/45 text-lg mb-10 leading-relaxed max-w-lg mx-auto">
-            No API keys. No rate limits. No subscriptions.
-            Agents pay autonomously per query. The payment is the authentication.
+            No monthly bill. No secret passwords. Pay a tiny fee per question.
+            The payment proves you asked — then you get the answer.
           </p>
 
           <div className="flex flex-col sm:flex-row gap-4 justify-center">
@@ -942,7 +940,7 @@ med_001   unison_medical_core  Pharmacology  Morphine sulfate:
                 transition-colors shadow-[0_0_40px_rgba(0,229,255,0.35)]
               "
             >
-              Initialize Connection <Zap className="w-4 h-4" aria-hidden="true" />
+              Start Here <Zap className="w-4 h-4" aria-hidden="true" />
             </Link>
             <Link
               href="/corpora"
@@ -955,7 +953,7 @@ med_001   unison_medical_core  Pharmacology  Morphine sulfate:
                 transition-all duration-200
               "
             >
-              Explore the Vault <ChevronRight className="w-4 h-4" aria-hidden="true" />
+              Explore Libraries <ChevronRight className="w-4 h-4" aria-hidden="true" />
             </Link>
           </div>
         </motion.div>
@@ -969,14 +967,14 @@ med_001   unison_medical_core  Pharmacology  Morphine sulfate:
           <div className="font-data text-[11px] text-white/25">
             © 2026 V18 Group · Unison Orchestration
             <span className="mx-3 text-white/10">|</span>
-            All data TSV-formatted, source-attributed, zero hallucination.
+            Real facts, checked sources, no made-up answers.
           </div>
           <div className="flex flex-wrap items-center gap-x-6 gap-y-2 font-[var(--font-mono)] text-[10px] text-white/20 justify-center">
-            <span>Edge: Cloudflare Workers</span>
-            <span>Backend: Fly.io · Rust</span>
-            <span>Vector DB: Qdrant Cloud</span>
-            <span>Settlement: Base L2 · USDC</span>
-            <span>Protocol: x402</span>
+            <span>Front door: Cloudflare</span>
+            <span>Brain: Fly.io</span>
+            <span>Fact storage: Qdrant Cloud</span>
+            <span>Payments: Base · USDC</span>
+            <span>Pay per question</span>
           </div>
         </div>
       </footer>

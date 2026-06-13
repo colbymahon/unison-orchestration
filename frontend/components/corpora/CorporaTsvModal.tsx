@@ -58,7 +58,7 @@ export function CorporaTsvModal({ collection: selected, onClose }: CorporaTsvMod
                 <div className="flex items-center gap-2">
                   <Database className="w-3.5 h-3.5 text-cyan-400/60" aria-hidden="true" />
                   <span className="text-[11px] font-data text-white/40">
-                    {selected.id} · {selected.liveVectors.toLocaleString()} vectors
+                    {selected.id} · {selected.liveVectors.toLocaleString()} facts
                   </span>
                 </div>
               </div>

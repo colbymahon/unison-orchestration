@@ -16,7 +16,7 @@ export const COLLECTIONS: Collection[] = [
     vectors: 4527,
     category: "Life Sciences",
     description:
-      "Clinical pathology tables, pharmacological dosages, anatomical reference data, and surgical procedure matrices drawn from canonical public-domain medical texts.",
+      "Doctor-style facts — drug doses, body science, and surgery info from trusted old medical books.",
     sources: ["William Osler", "Pepper's System of Medicine", "Gray's Anatomy", "Manual of Surgery"],
     color: "emerald",
     sampleTsv: `chunk_id\tcollection\tcategory\tcontent
@@ -29,7 +29,7 @@ med_002\tunison_medical_core\tPathology\tPneumonia differential: Streptococcus p
     vectors: 3374,
     category: "Engineering",
     description:
-      "CNC machining parameters, metallurgy phase diagrams, tooling sequences, and material removal rate equations from foundational machine-shop practice references.",
+      "How factories work — cutting metal, heating materials, and running machines the right way.",
     sources: ["Rose Modern Machine-Shop Practice"],
     color: "cyan",
     sampleTsv: `chunk_id\tcollection\tcategory\tcontent
@@ -42,7 +42,7 @@ mfg_002\tunison_manufacturing_core\tMetallurgy\tAnnealing temperature table: low
     vectors: 3700,
     category: "Strategy & Philosophy",
     description:
-      "Strategic and philosophical frameworks from Sun Tzu, Clausewitz, Musashi, Machiavelli, and Taylor — structured as dense TSV for agent consumption.",
+      "Smart ideas about war, plans, and how groups work — from famous old strategy books.",
     sources: ["Sun Tzu", "Clausewitz On War", "Musashi Book of Five Rings", "Machiavelli", "Taylor Principles"],
     color: "purple",
     sampleTsv: `chunk_id\tcollection\tcategory\tcontent
@@ -55,7 +55,7 @@ pub_002\tunison_public_domain\tPhilosophy\tClausewitz: "War is merely the contin
     vectors: 1774,
     category: "Physical Sciences",
     description:
-      "Stoichiometric formulas, elemental tables, synthesis equations, and molecular weight data from Mendeleev's Principles of Chemistry.",
+      "Science facts about elements, reactions, and how chemicals combine.",
     sources: ["Mendeleev Principles of Chemistry"],
     color: "cyan",
     sampleTsv: `chunk_id\tcollection\tcategory\tcontent
@@ -68,7 +68,7 @@ chem_002\tunison_chemistry_core\tStoichiometry\tCombustion of ethane: 2C2H6 + 7O
     vectors: 1765,
     category: "Finance & Trade",
     description:
-      "Tariff schedules, trade pricing matrices, division-of-labour frameworks, and market mechanism tables from Adam Smith's Wealth of Nations.",
+      "How countries trade, set prices, and split up work — from classic economics books.",
     sources: ["Adam Smith Wealth of Nations"],
     color: "amber",
     sampleTsv: `chunk_id\tcollection\tcategory\tcontent
@@ -81,7 +81,7 @@ econ_002\tunison_macroeconomics_core\tPricing\tMarket price vs. natural price: s
     vectors: 1564,
     category: "Finance & Trade",
     description:
-      "Ledger-row protection schemas, trading blueprints, and numerical market grids from Mackay's Extraordinary Popular Delusions, plus SEC EDGAR 10-K institutional tier (AAPL, MSFT, TSLA, NVDA, AMZN FY2025/2026).",
+      "Real money facts from big company reports — earnings, risks, and business numbers.",
     sources: ["Mackay Extraordinary Popular Delusions 1841", "SEC EDGAR 10-K FY2025/2026"],
     color: "amber",
     sampleTsv: `chunk_id\tcollection\tcategory\tcontent
@@ -94,7 +94,7 @@ fin_002\tunison_financial_core\tRisk\tTulip mania price index 1636-37: Semper Au
     vectors: 1608,
     category: "Engineering",
     description:
-      "Electrical specs, dimensional tolerances, naval architecture data, maritime engineering tables, and ArXiv cs.AI research from Tesla and canonical engineering references.",
+      "How to build things — sizes, limits, materials, and design numbers engineers use.",
     sources: ["Nikola Tesla", "Bourne Handbook", "Nares Seamanship", "Douglas Naval Architecture", "ArXiv cs.AI"],
     color: "cyan",
     sampleTsv: `chunk_id\tcollection\tcategory\tcontent
@@ -107,7 +107,7 @@ eng_002\tunison_engineering_core\tNaval\tDisplacement formula: D = L×B×T×Cb×
     vectors: 50994,
     category: "Law",
     description:
-      "Supreme Court (SCOTUS) opinions, judicial holdings, and case law precedent sourced from CourtListener v4 — 500+ opinions including Glossip v. Oklahoma, Louisiana v. Callais, Whitton v. Dixon, Wisconsin Bell v. US (2025-2026 term). Institutional-tier x402 pricing.",
+      "Court cases and legal rules from public records — what the law actually says.",
     sources: ["CourtListener SCOTUS Opinions 2025-2026", "Blackstone Commentaries", "Holmes The Common Law"],
     color: "purple",
     sampleTsv: `chunk_id\tcollection\tcategory\tcontent
@@ -133,7 +133,7 @@ edgar_002\tunison_edgar_institutional\tEquity\tNVIDIA FY2026 10-K: Revenue $130.
     vectors: 593,
     category: "Physical Sciences",
     description:
-      "Orbital mechanics equations, celestial navigation tables, physics constants, and Newtonian gravitational formulas from Newton's Principia (Motte translation).",
+      "Space facts — how planets move, gravity, and ideas from Newton and other scientists.",
     sources: ["Newton Principia Mathematica (Motte trans.)"],
     color: "purple",
     sampleTsv: `chunk_id\tcollection\tcategory\tcontent
@@ -146,7 +146,7 @@ astro_002\tunison_astrophysics_core\tGravitation\tNewton: F = Gm₁m₂/r². G=6
     vectors: 585,
     category: "Formal Sciences",
     description:
-      "Symbolic logic notation, formal proof schemas, algebraic reasoning frameworks, and set theory foundations from De Morgan's Formal Logic.",
+      "Math facts — equations, proofs, and number patterns from classic books.",
     sources: ["De Morgan Formal Logic", "Granville Calculus Excerpt"],
     color: "purple",
     sampleTsv: `chunk_id\tcollection\tcategory\tcontent
@@ -159,7 +159,7 @@ math_002\tunison_mathematics_core\tCalculus\tTaylor series: f(x)=Σ[f^(n)(a)/n!]
     vectors: 476,
     category: "Life Sciences",
     description:
-      "Amino acid sequences, metabolic pathway matrices, pharmacological interaction tables, and biochemical synthesis routes from Thatcher's Plant Life.",
+      "Life-science facts — cells, genes, and how living things work at a tiny level.",
     sources: ["Thatcher Plant Life"],
     color: "emerald",
     sampleTsv: `chunk_id\tcollection\tcategory\tcontent
@@ -172,7 +172,7 @@ bio_002\tunison_biotech_core\tAmino Acids\tEssential amino acids (human): His, I
     vectors: 414,
     category: "Engineering",
     description:
-      "Building codes, material stress tables, structural load equations, and architectural proportion systems from Vitruvius's Ten Books on Architecture.",
+      "Building design facts — shapes, loads, and how structures stand up safely.",
     sources: ["Vitruvius Ten Books on Architecture"],
     color: "cyan",
     sampleTsv: `chunk_id\tcollection\tcategory\tcontent
@@ -185,7 +185,7 @@ arch_002\tunison_architecture_core\tMaterials\tRoman concrete (opus caementicium
     vectors: 330,
     category: "Life Sciences",
     description:
-      "Soil chemistry tables (N-P-K and pH), crop yield matrices, irrigation physics, and soil amendment protocols from King's The Soil.",
+      "Farming facts — soil, crops, and how to grow food the right way.",
     sources: ["King's The Soil"],
     color: "emerald",
     sampleTsv: `chunk_id\tcollection\tcategory\tcontent
@@ -198,7 +198,7 @@ agro_002\tunison_agronomy_core\tNPK\tN-P-K deficiency symptoms: Nitrogen=yellowi
     vectors: 324,
     category: "Commerce",
     description:
-      "Step-by-step fulfillment processes, supply chain routing matrices, and direct-response conversion formulas from public-domain commerce texts.",
+      "Direct-to-customer business facts — brands, ads, and selling online.",
     sources: ["Gutenberg #43659"],
     color: "amber",
     sampleTsv: `chunk_id\tcollection\tcategory\tcontent
@@ -211,7 +211,7 @@ dtc_002\tunison_dtc_core\tConversion\tDirect response formula (AIDA): Attention 
     vectors: 256,
     category: "Physical Sciences",
     description:
-      "Heat transfer laws, Carnot engine efficiency equations, thermodynamic cycle tables, and entropy derivations from Carnot's Motive Power of Heat.",
+      "Heat and energy facts — how engines work and energy moves around.",
     sources: ["Carnot Motive Power of Heat"],
     color: "emerald",
     sampleTsv: `chunk_id\tcollection\tcategory\tcontent
@@ -224,7 +224,7 @@ thermo_002\tunison_thermodynamics_core\tHeatTransfer\tFourier's law: q = -kA(dT/
     vectors: 196,
     category: "Commerce",
     description:
-      "Vintage Pokémon TCG checklists, alphanumeric card numbers, set variant matrices, parallel tracking, and break probability grids for Base Era sets.",
+      "Collecting facts — rare items, prices, and what makes things valuable to collectors.",
     sources: ["Pokémon TCG Base Era Reference Data"],
     color: "amber",
     sampleTsv: `chunk_id\tcollection\tcategory\tcontent
@@ -237,7 +237,7 @@ col_002\tunison_collectibles_core\tBreakProbability\tBase Set booster pack odds:
     vectors: 145,
     category: "Engineering",
     description:
-      "Flight dynamics equations, aerodynamic coefficient tables, airfoil performance data, and lift/drag polar matrices from Fage's The Aeroplane.",
+      "Flying facts — planes, rockets, and how things move through the air and space.",
     sources: ["Fage The Aeroplane"],
     color: "cyan",
     sampleTsv: `chunk_id\tcollection\tcategory\tcontent
@@ -250,7 +250,7 @@ aero_002\tunison_aerospace_core\tPropulsion\tThrust equation: F = ṁ(V_e - V_0)
     vectors: 145,
     category: "Strategy & Philosophy",
     description:
-      "OSINT/HUMINT tradecraft frameworks, clandestine field protocols, operational security hierarchies, and counter-intelligence methods from Grant's Spies & Secret Service.",
+      "Spy and research facts — how information is gathered and checked in the field.",
     sources: ["Grant Spies & Secret Service"],
     color: "purple",
     sampleTsv: `chunk_id\tcollection\tcategory\tcontent
@@ -263,7 +263,7 @@ intel_002\tunison_intelligence_core\tTradecraft\tDead drop protocol: concealment
     vectors: 140,
     category: "Formal Sciences",
     description:
-      "Foundational cryptography algorithms, historical cipher matrices, early telegraphic protocols, and key exchange frameworks from Robinson's 1897 treatise.",
+      "Computer safety facts — how secure connections and certificates work.",
     sources: ["Robinson Telegraphic Ciphers 1897"],
     color: "cyan",
     sampleTsv: `chunk_id\tcollection\tcategory\tcontent
@@ -276,7 +276,7 @@ cyber_002\tunison_cyber_core\tProtocol\tMorse code timing ratios: dot=1 unit, da
     vectors: 237,
     category: "Life Sciences",
     description:
-      "Mendelian inheritance ratios, phenotypic probability matrices, hybridisation outcome tables, and dominant/recessive probability grids from Mendel's Experiments.",
+      "Gene facts — DNA, inheritance, and how traits pass from parents to kids.",
     sources: ["Mendel Experiments on Plant Hybridisation"],
     color: "emerald",
     sampleTsv: `chunk_id\tcollection\tcategory\tcontent
@@ -289,7 +289,7 @@ gen_002\tunison_genetics_core\tProbability\tMendel pea trait table: seed shape (
     vectors: 501,
     category: "Formal Sciences",
     description:
-      "Oceanic navigation methods, celestial fix procedures, dead reckoning formulas, and surveying principles from Bowditch's American Practical Navigator.",
+      "Map facts — city locations, heights, time zones, and places around the world.",
     sources: ["Bowditch American Practical Navigator"],
     color: "amber",
     sampleTsv: `chunk_id\tcollection\tcategory\tcontent
@@ -302,7 +302,7 @@ cart_002\tunison_cartography_core\tDeadReckoning\tDR position update: new_lat = 
     vectors: 82,
     category: "Physical Sciences",
     description:
-      "X-ray diffraction tables, atomic lattice parameters, crystal structure data, and d-spacing references from Bragg's X Rays and Crystal Structure.",
+      "Material facts — how metals, plastics, and other stuff behave under heat and stress.",
     sources: ["Bragg X Rays and Crystal Structure"],
     color: "cyan",
     sampleTsv: `chunk_id\tcollection\tcategory\tcontent
@@ -315,7 +315,7 @@ mat_002\tunison_materials_core\tXRD\tX-ray diffraction peak positions for iron (
     vectors: 486,
     category: "Formal Sciences",
     description:
-      "Linguistic theory frameworks, phonetic shift principles, grammatical analysis tables, and language structure schemas from Sapir's Language.",
+      "Language facts — how words work, grammar patterns, and meaning.",
     sources: ["Sapir's Language: An Introduction to the Study of Speech"],
     color: "purple",
     sampleTsv: `chunk_id\tcollection\tcategory\tcontent
@@ -328,7 +328,7 @@ ling_002\tunison_linguistics_core\tMorphology\tAgglutinative vs inflectional: Tu
     vectors: 129,
     category: "Physical Sciences",
     description:
-      "Atmospheric pressure laws, weather pattern matrices, Beaufort scale data, and meteorological observation frameworks from Waldo's Elementary Meteorology.",
+      "Weather facts — clouds, storms, and how the air moves.",
     sources: ["Waldo Elementary Meteorology"],
     color: "cyan",
     sampleTsv: `chunk_id\tcollection\tcategory\tcontent
@@ -341,7 +341,7 @@ met_002\tunison_meteorology_core\tFronts\tCold front: temperature drop 5-10°C/h
     vectors: 2548,
     category: "Engineering",
     description:
-      "Civil engineering load tables, power grid impedance matrices, structural tolerances, hydraulic flow data, and geotechnical bearing capacity parameters from historical industrial texts. Premium-tier x402 pricing.",
+      "Big-system facts — roads, power, water, and how cities stay running.",
     sources: ["Gutenberg Industrial Engineering Reference", "ASCE Transactions"],
     color: "amber",
     sampleTsv: `chunk_id\tcollection\tcategory\tcontent

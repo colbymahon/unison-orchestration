@@ -6,9 +6,9 @@ export const dynamic = "force-dynamic";
 export const revalidate = 0;
 
 export const metadata: Metadata = {
-  title: "Data Vault",
+  title: "Fact Libraries",
   description:
-    "Browse Unison Orchestration's live vector collections spanning medicine, engineering, law, astrophysics, chemistry, manufacturing, and more. Click any corpus to inspect raw TSV ground-truth data.",
+    "Browse Unison's topic libraries — medicine, law, money, building, space, and more. Click any library to see sample real facts.",
 };
 
 const EMPTY_SYNC = {

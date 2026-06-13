@@ -2,9 +2,9 @@ import type { Metadata } from "next";
 import { DocsClient } from "./DocsClient";
 
 export const metadata: Metadata = {
-  title: "Integrate · MCP Gateway",
+  title: "How To Connect",
   description:
-    "Complete developer documentation for wiring autonomous agents to Unison Orchestration. Covers manifest crawling, x402 handshake, collection routing, and OpenTelemetry observability.",
+    "Simple steps to hook your app or robot helper to Unison's fact library. Find the list, ask a question, pay a tiny fee, get real answers.",
 };
 
 export default function DocsPage() {

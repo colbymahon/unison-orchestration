@@ -8,11 +8,11 @@ import {
 } from "lucide-react";
 
 const sections = [
-  { id: "manifest",      label: "The Manifest",    icon: BookOpen  },
-  { id: "integrate",     label: "SDK & MCP",       icon: Plug      },
-  { id: "handshake",     label: "x402 Handshake",  icon: Zap       },
-  { id: "routing",       label: "Dynamic Routing",  icon: Route     },
-  { id: "observability", label: "Observability",    icon: Activity  },
+  { id: "manifest",      label: "Library List",    icon: BookOpen  },
+  { id: "integrate",     label: "Plug It In",       icon: Plug      },
+  { id: "handshake",     label: "Tiny Payment",  icon: Zap       },
+  { id: "routing",       label: "Pick a Topic",  icon: Route     },
+  { id: "observability", label: "Track Usage",    icon: Activity  },
 ];
 
 const snippets = {
@@ -253,11 +253,11 @@ export function DocsClient() {
       <section className="public-section pb-10" aria-label="Integration documentation header">
         <div className="public-page-shell">
           <div className="public-copy-stack">
-            <p className="public-eyebrow">MCP Gateway</p>
-            <h1 className="public-headline">Integrate</h1>
+            <p className="public-eyebrow">Setup Guide</p>
+            <h1 className="public-headline">How To Connect</h1>
             <p className="public-lead">
-              Wire autonomous agents to Unison Orchestration — manifest discovery, x402 settlement,
-              collection routing, and OpenTelemetry observability.
+              Hook your app or robot helper to Unison — find the library list, pay a tiny
+              fee per question, and get real facts back.
             </p>
           </div>
 
@@ -320,17 +320,17 @@ export function DocsClient() {
             transition={{ duration: 0.3 }}
             aria-labelledby="manifest-h"
           >
-            <SectionIntro step="Step 1" stepColor="text-cyan-400" icon={BookOpen} title="The Manifest">
+            <SectionIntro step="Step 1" stepColor="text-cyan-400" icon={BookOpen} title="The Library List">
               <p id="manifest-h">
-                Autonomous agents discover Unison by crawling{" "}
+                Apps find Unison by opening{" "}
                 <code className="font-data text-cyan-400 text-sm">
                   /.well-known/mcp-configuration
                 </code>
-                — the MCP industry-standard discovery URL. The manifest declares all collections,
-                the x402 payment spec, and the search endpoint. No human intervention required.
+                — a public list that shows every topic library, the search address, and how
+                to pay. No human setup needed.
               </p>
             </SectionIntro>
-            <h2 className="font-grotesk text-lg font-bold text-white mb-3">Crawl the Manifest</h2>
+            <h2 className="font-grotesk text-lg font-bold text-white mb-3">Get the List</h2>
             <div className="public-code-enclave mb-8">
               <CodeBlock code={snippets.manifestCurl} lang="bash" />
             </div>
@@ -347,9 +347,9 @@ export function DocsClient() {
                 Agent Framework Compatibility
               </h3>
               <p className="font-[var(--font-inter)] text-sm text-white/45 leading-relaxed">
-                Compatible with OpenAI Agents SDK, Anthropic tool-use, LangChain tool
-                registration, AutoGen, CrewAI, and any MCP-spec framework. The manifest
-                is auto-indexed by Smithery and PulseMCP for third-party agent discovery.
+                Works with popular AI tool kits — OpenAI agents, Anthropic tools, LangChain,
+                AutoGen, CrewAI, and others. Listed on Smithery and PulseMCP so other robots
+                can find us too.
               </p>
             </div>
           </motion.section>
@@ -367,14 +367,13 @@ export function DocsClient() {
               step="Wire in 3 Steps"
               stepColor="text-cyan-400"
               icon={Plug}
-              title="SDK & MCP Ingress"
+              title="Plug In Your App"
             >
               <p id="integrate-h">
                 Install the{" "}
                 <code className="font-data text-cyan-400 text-sm">unison-orchestration</code>{" "}
-                npm package, drop a LangChain tool into your agent loop, or register the stdio MCP
-                server in Claude Desktop and Cursor. x402 settlement paths are unchanged — free tier
-                first, then autonomous USDC on Base.
+                package, add it to LangChain, or turn it on in Claude Desktop and Cursor.
+                Free tries first — then a tiny USDC payment per question on Base.
               </p>
             </SectionIntro>
 
@@ -434,7 +433,7 @@ export function DocsClient() {
                 Smithery Registry
               </h3>
               <p className="font-[var(--font-inter)] text-sm text-white/45 leading-relaxed mb-4">
-                One-line install for MCP-native agent frameworks and hosted runners.
+                One-line install for robot helpers that speak MCP.
               </p>
               <div className="public-code-enclave max-w-xl mx-auto">
                 <CodeBlock code={snippets.smitheryInstall} lang="bash" />
@@ -451,16 +450,15 @@ export function DocsClient() {
             transition={{ duration: 0.3 }}
             aria-labelledby="handshake-h"
           >
-            <SectionIntro step="Step 2" stepColor="text-purple-400" icon={Zap} title="The x402 Handshake">
+            <SectionIntro step="Step 2" stepColor="text-purple-400" icon={Zap} title="The Tiny Payment">
               <p id="handshake-h">
-                Every query to{" "}
+                Every search to{" "}
                 <code className="font-data text-cyan-400 text-sm">/mcp/v1/search</code>{" "}
-                is gated by x402. An unauthenticated request returns{" "}
-                <code className="font-data text-red-400 text-sm">HTTP 402</code> with a
-                payment challenge. The agent signs a{" "}
-                <strong className="text-white/80">$0.005 USDC</strong> transaction on{" "}
-                <strong className="text-white/80">Base L2</strong> using its Coinbase CDP wallet,
-                then retries with the signature. Settlement completes in under one second.
+                needs a small payment first. Without payment you get{" "}
+                <code className="font-data text-red-400 text-sm">HTTP 402</code> — a message
+                saying how much to pay. Your app sends about{" "}
+                <strong className="text-white/80">$0.005 USDC</strong> on{" "}
+                <strong className="text-white/80">Base</strong>, then asks again and gets the facts.
               </p>
             </SectionIntro>
 
@@ -519,10 +517,10 @@ export function DocsClient() {
               className="mt-6 rounded-xl p-5 border border-purple-400/[0.12] text-center"
               style={{ background: "rgba(179,0,255,0.03)" }}
             >
-              <h3 className="font-grotesk font-semibold text-white mb-2">No API Keys</h3>
+              <h3 className="font-grotesk font-semibold text-white mb-2">No Passwords Needed</h3>
               <p className="font-[var(--font-inter)] text-sm text-white/45 leading-relaxed">
-                Unison has no API key management, no rate-limit tiers, and no subscription plans.
-                Agents pay per query. The payment IS the authentication.
+                No API keys. No monthly plans. You pay per question — and paying proves
+                you are allowed to ask.
               </p>
             </div>
           </motion.section>
@@ -536,13 +534,14 @@ export function DocsClient() {
             transition={{ duration: 0.3 }}
             aria-labelledby="routing-h"
           >
-            <SectionIntro step="Step 3" stepColor="text-cyan-400" icon={Route} title="Dynamic Routing">
+            <SectionIntro step="Step 3" stepColor="text-cyan-400" icon={Route} title="Pick a Topic">
               <p id="routing-h">
-                All collections are queryable via the{" "}
+                Add{" "}
                 <code className="font-data text-cyan-400 text-sm">?collection=</code>{" "}
-                parameter. Each is an independent Qdrant namespace with 1536-dimension cosine
-                similarity search. Top-K is tunable via{" "}
-                <code className="font-data text-cyan-400 text-sm">?top_k=</code> (default: 5).
+                to pick which library to search — medicine, law, space, and more.
+                You can also set{" "}
+                <code className="font-data text-cyan-400 text-sm">?top_k=</code> to say how
+                many answers to return (default: 5).
               </p>
             </SectionIntro>
             <h2 className="font-grotesk text-lg font-bold text-white mb-3">Examples</h2>
@@ -599,20 +598,12 @@ export function DocsClient() {
             transition={{ duration: 0.3 }}
             aria-labelledby="obs-h"
           >
-            <SectionIntro step="Step 4" stepColor="text-emerald-400" icon={Activity} title="Observability">
+            <SectionIntro step="Step 4" stepColor="text-emerald-400" icon={Activity} title="Track Your Questions">
               <p id="obs-h">
-                Every Unison response carries{" "}
-                <a
-                  href="https://www.w3.org/TR/trace-context/"
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="text-cyan-400 hover:text-cyan-300 underline underline-offset-2"
-                >
-                  W3C Trace Context headers
-                </a>{" "}
-                (<code className="font-data text-sm text-cyan-400">traceparent</code> +{" "}
-                <code className="font-data text-sm text-cyan-400">tracestate</code>).
-                Wire an OTEL collector and every Unison query appears as a fully attributed span.
+                Every answer includes tracking tags (
+                <code className="font-data text-sm text-cyan-400">traceparent</code> +{" "}
+                <code className="font-data text-sm text-cyan-400">tracestate</code>
+                ) so you can see which questions ran, what library was used, and if payment worked.
               </p>
             </SectionIntro>
             <div className="public-code-enclave mb-8">

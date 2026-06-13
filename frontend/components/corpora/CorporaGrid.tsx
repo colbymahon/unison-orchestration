@@ -27,7 +27,7 @@ export function CorporaGrid({ collections, query, onSelect }: CorporaGridProps) 
 
       {collections.length === 0 ? (
         <p className="public-empty-state">
-          No collections match &ldquo;{query}&rdquo;
+          No libraries match &ldquo;{query}&rdquo;
         </p>
       ) : null}
     </section>

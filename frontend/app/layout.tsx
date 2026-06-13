@@ -52,11 +52,11 @@ export const viewport: Viewport = {
 export const metadata: Metadata = {
   metadataBase: new URL(SITE_URL),
   title: {
-    default: "Unison Orchestration | The Amazon for AI Data",
+    default: "Unison Orchestration | Real Facts for AI Apps",
     template: "%s | Unison Orchestration",
   },
   description:
-    "High-frequency, token-optimized data vectors for autonomous reasoning engines. Live Qdrant-backed scientific verticals, x402 autonomous settlement on Base L2. Zero hallucination. Zero JSON overhead.",
+    "AI often guesses when it does not know. Unison is a giant library of checked facts for apps and robots. Ask a question, pay a tiny fee, get the true answer back.",
   keywords: [
     "Model Context Protocol",
     "MCP server",
@@ -99,9 +99,9 @@ export const metadata: Metadata = {
     locale: "en_US",
     url: SITE_URL,
     siteName: "Unison Orchestration",
-    title: "Unison Orchestration | The Amazon for AI Data",
+    title: "Unison Orchestration | Real Facts for AI Apps",
     description:
-      "High-frequency, token-optimized data vectors for autonomous reasoning engines. Live Qdrant verticals, x402 micropayments, zero hallucination.",
+      "A huge library of checked facts for apps and robots. Pay a tiny fee per question. Get true answers — not guesses.",
     images: [
       {
         url: BASE_APP_PROFILE.assets.hero_1200x630,
@@ -113,9 +113,9 @@ export const metadata: Metadata = {
   },
   twitter: {
     card: "summary_large_image",
-    title: "Unison Orchestration | The Amazon for AI Data",
+    title: "Unison Orchestration | Real Facts for AI Apps",
     description:
-      "Scientific verticals with live vector counts from Qdrant Cloud. x402 autonomous micropayments. Zero hallucination.",
+      "A huge library of checked facts for apps and robots. Pay a tiny fee per question. Get true answers — not guesses.",
     creator: "@v18group",
     images: [BASE_APP_PROFILE.assets.hero_1200x630],
   },

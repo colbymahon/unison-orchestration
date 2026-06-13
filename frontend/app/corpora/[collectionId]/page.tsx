@@ -125,8 +125,8 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
   const vectors = live?.count ?? collection.vectors;
 
   return {
-    title: `${collection.label} | Unison Data Vault`,
-    description: `${collection.description} ${vectors.toLocaleString()} vectors (${moat.total_vectors.toLocaleString()} network). MCP TSV · x402 USDC · ZKP-verified edge.`,
+    title: `${collection.label} | Unison Libraries`,
+    description: `${collection.description} ${vectors.toLocaleString()} checked facts in this library (${moat.total_vectors.toLocaleString()} total). Pay a tiny fee per question — get real answers.`,
     alternates: { canonical: `${PRODUCTION_SITE_URL}/corpora/${collectionId}` },
     keywords: [
       collection.id,
@@ -194,7 +194,7 @@ export default async function CollectionCorpusPage({ params }: PageProps) {
       <div className="public-copy-stack items-start sm:items-center text-left sm:text-center mb-10">
       <nav className="font-[var(--font-mono)] text-xs text-white/40 mb-8">
         <Link href="/corpora" className="hover:text-cyan-400">
-          Data Vault
+          Libraries
         </Link>
         <span className="mx-2">/</span>
         <span className="text-white/70">{collection.id}</span>
@@ -211,23 +211,23 @@ export default async function CollectionCorpusPage({ params }: PageProps) {
 
       <dl className="grid grid-cols-2 sm:grid-cols-3 gap-4 mb-10 font-[var(--font-mono)] text-sm text-center">
         <div className="rounded-xl border border-white/10 bg-white/5 p-4">
-          <dt className="text-white/40 text-xs uppercase mb-1">Collection vectors</dt>
+          <dt className="text-white/40 text-xs uppercase mb-1">Facts in this library</dt>
           <dd className="text-cyan-400 text-xl">{vectors.toLocaleString()}</dd>
         </div>
         <div className="rounded-xl border border-white/10 bg-white/5 p-4">
-          <dt className="text-white/40 text-xs uppercase mb-1">Network total</dt>
+          <dt className="text-white/40 text-xs uppercase mb-1">All libraries combined</dt>
           <dd className="text-cyan-400 text-xl">{moat.total_vectors.toLocaleString()}</dd>
         </div>
         <div className="rounded-xl border border-white/10 bg-white/5 p-4 col-span-2 sm:col-span-1">
-          <dt className="text-white/40 text-xs uppercase mb-1">ZKP digest</dt>
+          <dt className="text-white/40 text-xs uppercase mb-1">Proof stamp</dt>
           <dd className="text-white/70 text-[10px] break-all">
-            {probe.zkpDigest ?? "live probe pending"}
+            {probe.zkpDigest ?? "checking…"}
           </dd>
         </div>
       </dl>
 
       <section className="mb-10">
-        <h2 className="text-lg font-semibold text-white mb-3">Primary sources</h2>
+        <h2 className="text-lg font-semibold text-white mb-3">Where the facts come from</h2>
         <ul className="list-disc list-inside text-white/60 space-y-1">
           {collection.sources.map((s) => (
             <li key={s}>{s}</li>
@@ -237,11 +237,11 @@ export default async function CollectionCorpusPage({ params }: PageProps) {
 
       <section className="mb-10 rounded-xl border border-cyan-400/20 bg-cyan-400/5 p-6">
         <h2 className="font-[var(--font-mono)] text-xs text-cyan-400 uppercase tracking-widest mb-3">
-          Agent install (Smithery)
+          Quick install for robot helpers
         </h2>
         <code className="block text-sm text-white/80 break-all">{SMITHERY_INSTALL}</code>
         <p className="mt-3 text-sm text-white/50">
-          Query endpoint:{" "}
+          Ask questions here:{" "}
           <a href={searchUrl} className="text-cyan-400 hover:underline break-all">
             {searchUrl}
           </a>
@@ -253,9 +253,9 @@ export default async function CollectionCorpusPage({ params }: PageProps) {
           id="tsv-preview-heading"
           className="text-lg font-semibold text-white mb-3"
         >
-          Crawlable TSV ground-truth preview
+          Sample real facts
           <span className="ml-2 text-xs font-[var(--font-mono)] text-white/35">
-            top {previewRows.length} artifacts
+            showing {previewRows.length} rows
           </span>
         </h2>
         <div className="space-y-3">
