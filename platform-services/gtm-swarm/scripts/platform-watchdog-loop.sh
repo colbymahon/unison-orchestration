@@ -46,6 +46,7 @@ while true; do
   swarm_proc="$(process_alive "swarm_commander.py")"
   query_proc="$(process_alive "query_swarm.py")"
   crawler_proc="$(process_alive "knowledge_crawler.py")"
+  gap_proc="$(process_alive "gap_autopilot.py")"
 
   if [[ "${local_code}" != "200" ]]; then
     log "WARN creator_api health HTTP ${local_code}"
@@ -68,6 +69,9 @@ while true; do
   if [[ "${query_proc}" != "online" ]]; then
     log "WARN query_swarm process ${query_proc}"
   fi
+  if [[ "${gap_proc}" != "online" ]]; then
+    log "WARN gap_autopilot process ${gap_proc}"
+  fi
   if [[ ! -f "${SETTLEMENT_STATE}" ]]; then
     log "WARN settlement state file missing at ${SETTLEMENT_STATE}"
   fi
@@ -76,7 +80,7 @@ while true; do
   fi
 
   if [[ "${local_code}" == "200" && "${mcp_code}" == "200" && "${settlement_proc}" == "online" && "${gtm_proc}" == "online" ]]; then
-    log "OK mesh green (creator=${local_code} mcp=${mcp_code} settlement=${settlement_proc} gtm=${gtm_proc} swarm=${swarm_proc} query=${query_proc} sales=${sales_proc} crawler=${crawler_proc})"
+    log "OK mesh green (creator=${local_code} mcp=${mcp_code} settlement=${settlement_proc} gtm=${gtm_proc} swarm=${swarm_proc} query=${query_proc} sales=${sales_proc} crawler=${crawler_proc} gap_autopilot=${gap_proc})"
   fi
 
   sleep "${INTERVAL}"

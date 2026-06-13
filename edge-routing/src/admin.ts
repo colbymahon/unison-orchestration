@@ -123,3 +123,25 @@ export async function markPipelineQueued(
   await kv.put(key, JSON.stringify(event));
   return event;
 }
+
+export async function markGapRecovered(
+  kv: KVNamespace,
+  key: string,
+  replayHitCount?: number
+): Promise<ZeroLogEvent | null> {
+  const raw = await kv.get(key);
+  if (!raw) return null;
+  const event = JSON.parse(raw) as ZeroLogEvent & {
+    pipeline_status?: string;
+    recovered_at?: string;
+    replay_hit_count?: number;
+  };
+  event.pipeline_status = "recovered";
+  event.recovered_at = new Date().toISOString();
+  if (replayHitCount !== undefined) {
+    event.replay_hit_count = replayHitCount;
+  }
+  event.last_seen = event.recovered_at;
+  await kv.put(key, JSON.stringify(event));
+  return event;
+}

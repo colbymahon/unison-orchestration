@@ -151,3 +151,10 @@ The database is dynamically routed via the `collection` parameter in the `mcp/v1
 cd packages/unison-langchain
 TWINE_USERNAME=__token__ TWINE_PASSWORD=<pypi-token> python3 -m twine upload dist/unison_langchain-0.2.1*
 ```
+
+## 11. Week 2 — Revenue Gap Autopilot (2026-06-02)
+**Shipped:**
+- `platform-services/gtm-swarm/src/gap_autopilot.py` — 60s poll, GPT-4o synthesis, Qdrant upsert, replay verify
+- SQLite `revenue_gap_ledger` in `agent_memory.db` (WAL + busy_timeout)
+- Edge `POST /api/admin/mark-gap-recovered` — KV `pipeline_status: recovered`
+- Fly mesh: `gap_autopilot` daemon + watchdog monitoring

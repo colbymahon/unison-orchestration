@@ -199,6 +199,29 @@ class AgentRegistryStore:
                 ON corpus_registry (status, last_ingested_at DESC)
                 """
             )
+            conn.execute(
+                """
+                CREATE TABLE IF NOT EXISTS revenue_gap_ledger (
+                    gap_key TEXT PRIMARY KEY,
+                    query TEXT NOT NULL,
+                    collection TEXT NOT NULL,
+                    status TEXT NOT NULL DEFAULT 'zero_hit',
+                    vectors_upserted INTEGER NOT NULL DEFAULT 0,
+                    replay_hit_count INTEGER NOT NULL DEFAULT 0,
+                    lost_revenue_usdc REAL NOT NULL DEFAULT 0.0,
+                    created_at REAL NOT NULL,
+                    updated_at REAL NOT NULL,
+                    recovered_at REAL,
+                    last_error TEXT
+                )
+                """
+            )
+            conn.execute(
+                """
+                CREATE INDEX IF NOT EXISTS idx_revenue_gap_status
+                ON revenue_gap_ledger (status, updated_at DESC)
+                """
+            )
             self._seed_corpus_verticals(conn)
             conn.commit()
 
@@ -349,6 +372,86 @@ class AgentRegistryStore:
             "session_count": session_count + (1 if new_session else 0),
             "last_seen_at": now,
         }
+
+    def upsert_gap_trap(
+        self,
+        *,
+        gap_key: str,
+        query: str,
+        collection: str,
+        lost_revenue_usdc: float = 0.005,
+        status: str = "zero_hit",
+    ) -> None:
+        now = time.time()
+        with self._connect() as conn:
+            conn.execute("PRAGMA journal_mode=WAL")
+            conn.execute("PRAGMA busy_timeout=5000")
+            conn.execute(
+                """
+                INSERT INTO revenue_gap_ledger
+                (gap_key, query, collection, status, lost_revenue_usdc,
+                 created_at, updated_at)
+                VALUES (?, ?, ?, ?, ?, ?, ?)
+                ON CONFLICT(gap_key) DO UPDATE SET
+                    query = excluded.query,
+                    collection = excluded.collection,
+                    lost_revenue_usdc = MAX(revenue_gap_ledger.lost_revenue_usdc, excluded.lost_revenue_usdc),
+                    updated_at = excluded.updated_at,
+                    status = CASE
+                        WHEN revenue_gap_ledger.status = 'recovered' THEN 'recovered'
+                        ELSE excluded.status
+                    END
+                """,
+                (gap_key, query, collection, status, lost_revenue_usdc, now, now),
+            )
+            conn.commit()
+
+    def get_gap_status(self, gap_key: str) -> str | None:
+        with self._connect() as conn:
+            row = conn.execute(
+                "SELECT status FROM revenue_gap_ledger WHERE gap_key = ?",
+                (gap_key,),
+            ).fetchone()
+        return str(row["status"]) if row else None
+
+    def update_gap_status(
+        self,
+        gap_key: str,
+        *,
+        status: str,
+        vectors_upserted: int = 0,
+        replay_hit_count: int = 0,
+        last_error: str | None = None,
+    ) -> None:
+        now = time.time()
+        with self._connect() as conn:
+            conn.execute("PRAGMA journal_mode=WAL")
+            conn.execute("PRAGMA busy_timeout=5000")
+            conn.execute(
+                """
+                UPDATE revenue_gap_ledger
+                SET status = ?,
+                    vectors_upserted = CASE WHEN ? > 0 THEN ? ELSE vectors_upserted END,
+                    replay_hit_count = CASE WHEN ? > 0 THEN ? ELSE replay_hit_count END,
+                    updated_at = ?,
+                    recovered_at = CASE WHEN ? = 'recovered' THEN ? ELSE recovered_at END,
+                    last_error = ?
+                WHERE gap_key = ?
+                """,
+                (
+                    status,
+                    vectors_upserted,
+                    vectors_upserted,
+                    replay_hit_count,
+                    replay_hit_count,
+                    now,
+                    status,
+                    now if status == "recovered" else None,
+                    last_error,
+                    gap_key,
+                ),
+            )
+            conn.commit()
 
 
 def upsert_agent_state(

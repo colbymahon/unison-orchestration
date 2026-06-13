@@ -6,6 +6,7 @@
 #   sales_swarm         → python3 src/sales_swarm_commander.py
 #   query_swarm         → python3 src/query_swarm.py
 #   knowledge_crawler   → python3 src/knowledge_crawler.py
+#   gap_autopilot       → python3 src/gap_autopilot.py
 #   settlement_daemon   → python3 src/settlement_daemon.py
 #   gtm_coordinator     → python3 src/gtm_swarm_coordinator.py
 #   swarm_commander     → python3 src/swarm_commander.py
@@ -32,6 +33,8 @@ primary_region = 'iad'
   QUERY_WARM_CONCURRENCY = '10'
   KNOWLEDGE_CYCLE_SECONDS = '3600'
   KNOWLEDGE_CRAWLER_CONCURRENCY = '3'
+  GAP_AUTOPILOT_POLL_SECONDS = '60'
+  GAP_AUTOPILOT_MAX_PER_CYCLE = '5'
   GTM_TICK_SECONDS = '43200'
   SETTLEMENT_POLL_SECONDS = '12'
   SETTLEMENT_MIN_PAYMENT_USDC = '0.005'

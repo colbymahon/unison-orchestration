@@ -23,6 +23,7 @@ import {
   isAdminTelemetryRoute,
   listTrappedGaps,
   markPipelineQueued,
+  markGapRecovered,
   resolveAdminPathname,
 } from "./admin";
 import { scheduleAffiliateLedger } from "./affiliate_ledger";
@@ -1215,6 +1216,38 @@ export default {
         return errorResponse(400, "Missing or invalid gap key.");
       }
       const updated = await markPipelineQueued(env.UNISON_ZERO_LOGS, body.key);
+      if (!updated) {
+        return errorResponse(404, "Gap key not found.");
+      }
+      return withCors(
+        new Response(JSON.stringify({ ok: true, gap: updated }), {
+          status: 200,
+          headers: { "Content-Type": "application/json" },
+        }),
+        request
+      );
+    }
+
+    if (adminPath === "/api/admin/mark-gap-recovered") {
+      if (method !== "POST") {
+        return errorResponse(405, "Method Not Allowed. Use POST.", request);
+      }
+      const authBlock = await requireAdminAccess(request, adminAuthEnv, pathname);
+      if (authBlock) return authBlock;
+      let body: { key?: string; replay_hit_count?: number };
+      try {
+        body = (await request.json()) as { key?: string; replay_hit_count?: number };
+      } catch {
+        return errorResponse(400, "Invalid JSON body.");
+      }
+      if (!body.key?.startsWith("miss:")) {
+        return errorResponse(400, "Missing or invalid gap key.");
+      }
+      const updated = await markGapRecovered(
+        env.UNISON_ZERO_LOGS,
+        body.key,
+        body.replay_hit_count
+      );
       if (!updated) {
         return errorResponse(404, "Gap key not found.");
       }
