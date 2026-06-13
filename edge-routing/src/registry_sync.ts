@@ -52,6 +52,10 @@ export async function syncAgentTelemetry(
   }
 
   const agentId = resolveAgentId(clientId);
+  if (agentId.startsWith("ip:")) {
+    return;
+  }
+
   const payload = {
     client_id: clientId,
     agent_id: agentId,
@@ -102,5 +106,9 @@ export function scheduleAgentRegistrySync(
   attestation: string | null,
   env: RegistrySyncEnv
 ): void {
+  const trimmed = clientId.trim();
+  if (trimmed.startsWith("ip:")) {
+    return;
+  }
   ctx.waitUntil(syncAgentTelemetry(clientId, sessionId, attestation, env, ctx));
 }

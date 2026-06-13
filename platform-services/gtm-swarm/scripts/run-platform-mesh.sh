@@ -41,6 +41,20 @@ log "registry agent reboot — priming all swarm identities"
 python3 src/registry_agent_reboot.py --concurrency "${REGISTRY_REBOOT_CONCURRENCY:-10}" || \
   log "WARN registry_agent_reboot exited non-zero (continuing mesh boot)"
 
+log "ephemeral storage prune — agent_context + pitch log"
+python3 src/platform_storage_cleanup.py || \
+  log "WARN platform_storage_cleanup exited non-zero (continuing mesh boot)"
+
+if [[ -n "${ADMIN_API_SECRET:-}" ]]; then
+  MCP_PRUNE_URL="${UNISON_MCP_PRUNE_URL:-https://unison-mcp.fly.dev/api/admin/prune-storage}"
+  log "MCP registry prune — ${MCP_PRUNE_URL}"
+  curl -sS -X POST "${MCP_PRUNE_URL}" \
+    -H "Authorization: Bearer ${ADMIN_API_SECRET}" \
+    -H "Content-Type: application/json" \
+    --max-time 30 >/dev/null || \
+    log "WARN MCP prune-storage API failed (deploy core-mcp-server first)"
+fi
+
 start_daemon "swarm_commander" python3 src/swarm_commander.py --interval-seconds "${SWARM_COORDINATOR_TICK_SECONDS:-30}"
 start_daemon "sales_swarm" python3 src/sales_swarm_commander.py --pool-size "${SALES_WORKER_POOL:-10}"
 start_daemon "query_swarm" python3 src/query_swarm.py --tick-seconds "${QUERY_WARM_TICK_SECONDS:-900}" --max-targets "${QUERY_WARM_MAX_TARGETS:-48}" --concurrency "${QUERY_WARM_CONCURRENCY:-10}"

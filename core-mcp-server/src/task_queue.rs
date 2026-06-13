@@ -293,6 +293,19 @@ impl TaskQueueStore {
         }
         Ok(out)
     }
+
+    /// Delete terminal tasks older than `max_age_secs` (completed/failed/cancelled).
+    pub fn prune_terminal_tasks(&self, max_age_secs: f64) -> Result<usize, TaskQueueError> {
+        let cutoff = unix_now_secs() - max_age_secs;
+        let conn = self.conn.lock().map_err(|_| TaskQueueError::Poisoned)?;
+        let deleted = conn.execute(
+            "DELETE FROM task_queue
+             WHERE status IN ('completed', 'failed', 'cancelled')
+               AND created_at < ?1",
+            params![cutoff],
+        )?;
+        Ok(deleted)
+    }
 }
 
 #[derive(Debug, Clone, Default, serde::Serialize)]

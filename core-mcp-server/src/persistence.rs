@@ -184,6 +184,30 @@ impl TelemetryStore {
         self.read_prefixed_counters(AGENT_PREFIX)
             .unwrap_or_default()
     }
+
+    /// Remove telemetry keys matching a SQL LIKE pattern (e.g. `agent:ip:%`).
+    pub fn delete_keys_matching(&self, like_pattern: &str) -> Result<usize, PersistError> {
+        let conn = self.conn.lock().map_err(|_| PersistError::Poisoned)?;
+        let deleted = conn.execute(
+            "DELETE FROM telemetry_counters WHERE metric_key LIKE ?1",
+            params![like_pattern],
+        )?;
+        Ok(deleted)
+    }
+
+    /// Drop scanner/NAT noise — ephemeral edge `ip:*` identities and orphan heartbeats.
+    pub fn prune_noise_agent_keys(&self) -> Result<usize, PersistError> {
+        let mut total = 0usize;
+        for pattern in [
+            "agent:ip:%",
+            "registry_heartbeat:ip:%",
+            "agent:anonymous",
+            "registry_heartbeat:anonymous",
+        ] {
+            total += self.delete_keys_matching(pattern)?;
+        }
+        Ok(total)
+    }
 }
 
 pub fn increment_persistent_counter(

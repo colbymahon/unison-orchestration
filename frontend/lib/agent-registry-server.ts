@@ -61,6 +61,11 @@ export interface AgentRegistryPayload {
 const QUERY_PRICE = 0.005;
 const IDLE_WINDOW_SECS = 86_400;
 
+/** Scanner/NAT edge clients — not operational swarm agents. */
+function isRegistryNoise(agentId: string): boolean {
+  return agentId.startsWith("ip:") || agentId === "anonymous";
+}
+
 function deriveAgentStatus(
   queryCount: number,
   lastSeenAt: number | null,
@@ -169,7 +174,9 @@ export async function fetchAgentRegistry(): Promise<AgentRegistryPayload> {
         0,
         Number(body.active_sessions_count) || 0
       );
-      agents = (body.agents ?? []).map((row) => {
+      agents = (body.agents ?? [])
+        .filter((row) => !isRegistryNoise(row.agent_id ?? ""))
+        .map((row) => {
         const attestation = attestationByAgent.get(row.agent_id);
         const attestation_hash =
           row.attestation_hash ??
@@ -243,7 +250,9 @@ export async function fetchAgentRegistry(): Promise<AgentRegistryPayload> {
           estimated_spend_usd?: number;
         }>;
       };
-      agents = (telemetry.top_agents ?? []).map((row) => {
+      agents = (telemetry.top_agents ?? [])
+        .filter((row) => !isRegistryNoise(row.agent_id ?? ""))
+        .map((row) => {
         const attestation = attestationByAgent.get(row.agent_id);
         const query_count = Math.max(0, Number(row.query_count) || 0);
         return {

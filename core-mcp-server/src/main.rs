@@ -816,6 +816,22 @@ fn unix_now_secs() -> f64 {
         .unwrap_or(0.0)
 }
 
+/// Edge scanner / NAT clients — not part of the operational GTM swarm.
+fn is_registry_noise(agent_id: &str) -> bool {
+    agent_id.starts_with("ip:") || agent_id == "anonymous"
+}
+
+fn verify_admin_secret(headers: &HeaderMap) -> bool {
+    let Some(expected) = env::var("ADMIN_API_SECRET").ok().filter(|s| !s.is_empty()) else {
+        return false;
+    };
+    let provided = headers
+        .get(axum::http::header::AUTHORIZATION)
+        .and_then(|v| v.to_str().ok())
+        .unwrap_or("");
+    provided == format!("Bearer {expected}")
+}
+
 async fn agent_heartbeat_handler(
     State(state): State<Arc<AppState>>,
     Json(payload): Json<AgentHeartbeatPayload>,
@@ -827,6 +843,9 @@ async fn agent_heartbeat_handler(
             Json(serde_json::json!({"error": "agent_id required"})),
         )
             .into_response();
+    }
+    if is_registry_noise(agent_id) {
+        return StatusCode::NO_CONTENT.into_response();
     }
 
     let now = unix_now_secs();
@@ -1016,6 +1035,7 @@ async fn registry_agents_handler(State(state): State<Arc<AppState>>) -> Response
 
     let mut agents: Vec<RegistryAgentResponse> = registry
         .values()
+        .filter(|r| !is_registry_noise(&r.agent_id))
         .map(|r| {
             let disk_queries = agent_totals.get(&r.agent_id).copied().unwrap_or(0);
             let query_count = r.query_count.max(disk_queries);
@@ -1032,7 +1052,7 @@ async fn registry_agents_handler(State(state): State<Arc<AppState>>) -> Response
         .collect();
 
     for (agent_id, count) in agent_totals {
-        if registry.contains_key(&agent_id) {
+        if is_registry_noise(&agent_id) || registry.contains_key(&agent_id) {
             continue;
         }
         agents.push(RegistryAgentResponse {
@@ -1055,6 +1075,69 @@ async fn registry_agents_handler(State(state): State<Arc<AppState>>) -> Response
         Json(RegistryAgentsResponse {
             agents,
             active_sessions_count,
+        }),
+    )
+        .into_response()
+}
+
+#[derive(Debug, Serialize)]
+struct PruneStorageResponse {
+    telemetry_keys_deleted: usize,
+    task_rows_deleted: usize,
+    registry_agents_removed: usize,
+}
+
+async fn prune_storage_handler(
+    State(state): State<Arc<AppState>>,
+    headers: HeaderMap,
+) -> Response {
+    if !verify_admin_secret(&headers) {
+        return (
+            StatusCode::UNAUTHORIZED,
+            Json(serde_json::json!({"error": "admin authorization required"})),
+        )
+            .into_response();
+    }
+
+    let telemetry_keys_deleted = match state.telemetry.prune_noise_agent_keys() {
+        Ok(n) => n,
+        Err(err) => {
+            tracing::error!("prune_noise_agent_keys failed: {err}");
+            0
+        }
+    };
+
+    let task_rows_deleted = match state.task_queue.prune_terminal_tasks(7.0 * 86_400.0) {
+        Ok(n) => n,
+        Err(err) => {
+            tracing::error!("prune_terminal_tasks failed: {err}");
+            0
+        }
+    };
+
+    let registry_agents_removed = {
+        let mut registry = state.agent_registry.lock().unwrap_or_else(|e| e.into_inner());
+        let before = registry.len();
+        registry.retain(|id, _| !is_registry_noise(id));
+        before.saturating_sub(registry.len())
+    };
+
+    let mut sessions = state
+        .agent_session_ids
+        .lock()
+        .unwrap_or_else(|e| e.into_inner());
+    sessions.retain(|id, _| !is_registry_noise(id));
+
+    info!(
+        "Storage prune complete: telemetry_keys={telemetry_keys_deleted} tasks={task_rows_deleted} registry={registry_agents_removed}"
+    );
+
+    (
+        StatusCode::OK,
+        Json(PruneStorageResponse {
+            telemetry_keys_deleted,
+            task_rows_deleted,
+            registry_agents_removed,
         }),
     )
         .into_response()
@@ -1351,6 +1434,15 @@ async fn main() -> anyhow::Result<()> {
         workflow_store,
     });
 
+    let telemetry_boot = state.telemetry.clone();
+    tokio::task::spawn_blocking(move || {
+        match telemetry_boot.prune_noise_agent_keys() {
+            Ok(n) if n > 0 => info!("Boot telemetry prune removed {n} noise agent keys"),
+            Ok(_) => {}
+            Err(err) => tracing::warn!("Boot telemetry prune degraded: {err}"),
+        }
+    });
+
     let cors = CorsLayer::new()
         .allow_origin(AllowOrigin::any())
         .allow_methods(AllowMethods::list([
@@ -1377,6 +1469,7 @@ async fn main() -> anyhow::Result<()> {
         .route("/api/v1/tasks",                    post(enqueue_task_handler))
         .route("/api/v1/tasks/summary",            get(task_summary_handler))
         .route("/api/v1/registry/agents",          get(registry_agents_handler))
+        .route("/api/admin/prune-storage",         post(prune_storage_handler))
         .route("/api/v1/workflows",               get(list_workflows_handler).post(upsert_workflow_handler))
         .route("/api/v1/workflows/:id",            get(get_workflow_handler))
         .route("/api/v1/workflows/:id/publish",    post(publish_workflow_handler))
