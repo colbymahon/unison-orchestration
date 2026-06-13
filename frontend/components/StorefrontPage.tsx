@@ -21,6 +21,9 @@ import {
 } from "lucide-react";
 import Link from "next/link";
 import { LivePlatformMetrics } from "@/components/LivePlatformMetrics";
+import { MagneticButton } from "@/components/public/MagneticButton";
+import { PublicFooter } from "@/components/public/PublicFooter";
+import { SplitReveal } from "@/components/public/SplitReveal";
 
 const ParticleMesh = dynamic(
   () => import("@/components/ParticleMesh").then((m) => m.ParticleMesh),
@@ -52,75 +55,81 @@ const accentClass: Record<string, string> = {
 const moatCards = [
   {
     icon: Scale,
-    title: "Law Library",
-    subtitle: "50,994 facts · Courts & rules",
+    title: "Law library",
+    subtitle: "50,994 verified records · courts & statutes",
     description:
-      "Real court cases and legal rules from trusted public records. Good for apps that need to know what the law actually says — not what an AI imagines.",
+      "Court cases, statutes, and legal rules from public records. Built for agents that need to cite what the law actually says—not what a model imagines.",
     collection: "unison_legal_core",
     price: "$0.050 USDC",
-    tags: ["Courts", "Laws", "Cases", "Rules"],
+    tags: ["Courts", "Statutes", "Cases"],
     accent: "purple",
     status: "LIVE",
+    span: "public-bento-span-6",
   },
   {
     icon: TrendingUp,
-    title: "Money & Business",
-    subtitle: "1,551 facts · Company reports",
+    title: "Finance & business",
+    subtitle: "1,551 records · SEC filings",
     description:
-      "Real numbers from big company reports — earnings, risks, and money facts from public filings. Helps apps talk about business without making up numbers.",
+      "Earnings, risks, and financial data from public company reports. Your agent gets real numbers instead of invented ones.",
     collection: "unison_financial_core",
     price: "$0.050 USDC",
-    tags: ["Earnings", "Reports", "Banks", "Stocks"],
+    tags: ["Earnings", "Filings", "Markets"],
     accent: "amber",
     status: "LIVE",
+    span: "public-bento-span-3",
   },
   {
     icon: Wrench,
-    title: "Engineering Facts",
-    subtitle: "1,608 facts",
+    title: "Engineering",
+    subtitle: "1,608 records",
     description:
-      "How things are built — sizes, limits, materials, and design numbers engineers actually use.",
+      "Dimensions, material limits, and design values engineers reference in the field.",
     collection: "unison_engineering_core",
     price: "$0.005 USDC",
-    tags: ["Build", "Materials", "Ships", "Design"],
+    tags: ["Materials", "Structures", "Design"],
     accent: "cyan",
     status: "LIVE",
+    span: "public-bento-span-3",
   },
   {
     icon: Cpu,
-    title: "Making Things",
-    subtitle: "3,374 facts",
+    title: "Manufacturing",
+    subtitle: "3,374 records",
     description:
-      "Factory and machine facts — how to cut metal, heat materials, and run tools the right way.",
+      "Factory processes, machining specs, and production standards—how things are actually made.",
     collection: "unison_manufacturing_core",
     price: "$0.005 USDC",
-    tags: ["Machines", "Metal", "Tools", "Factory"],
+    tags: ["Machining", "Production", "Tools"],
     accent: "cyan",
     status: "LIVE",
+    span: "public-bento-span-4",
   },
   {
     icon: FlaskConical,
-    title: "Health & Medicine",
-    subtitle: "4,527 facts",
+    title: "Health & medicine",
+    subtitle: "4,527 records",
     description:
-      "Doctor-style facts — drug doses, body science, and surgery info from old trusted medical books.",
+      "Drug dosages, pharmacology, and clinical facts sourced from established medical references.",
     collection: "unison_medical_core",
     price: "$0.005 USDC",
-    tags: ["Medicine", "Doses", "Body", "Surgery"],
+    tags: ["Pharmacology", "Dosing", "Clinical"],
     accent: "emerald",
     status: "LIVE",
+    span: "public-bento-span-4",
   },
   {
     icon: ShieldCheck,
-    title: "Maps & Places",
-    subtitle: "4,023 facts",
+    title: "Geography & maps",
+    subtitle: "4,023 records",
     description:
-      "City locations, heights, time zones, and map facts for almost every big city on Earth.",
+      "City coordinates, elevations, time zones, and cartographic data for location-aware agents.",
     collection: "unison_cartography_core",
     price: "$0.005 USDC",
-    tags: ["Cities", "Maps", "GPS", "Places"],
+    tags: ["Cities", "Coordinates", "Maps"],
     accent: "purple",
     status: "LIVE",
+    span: "public-bento-span-4",
   },
 ];
 
@@ -129,21 +138,21 @@ const SMITHERY_INSTALL =
 
 /* ─── Terminal install commands ──────────────────────────────────────────────── */
 const terminalLines = [
-  { type: "comment",  text: "# Step 1 — Find our fact library list" },
+  { type: "comment",  text: "# Step 1 — Fetch the MCP library manifest" },
   {
     type: "command",
     text: `curl https://unison-edge-gateway.unisonorchestration.workers.dev/.well-known/mcp-configuration`,
   },
   { type: "output",   text: `→  { "name": "Unison Orchestration MCP Hub", "auth": { "type": "x402" }, "collections": 31, "vectors": 83758 }` },
   { type: "blank",    text: "" },
-  { type: "comment",  text: "# Step 2 — Ask a question (you'll see a tiny payment request)" },
+  { type: "comment",  text: "# Step 2 — Query a collection (expect HTTP 402 payment challenge)" },
   {
     type: "command",
     text: `curl "https://unison-edge-gateway.unisonorchestration.workers.dev/mcp/v1/search?q=morphine+dosage&collection=unison_medical_core"`,
   },
   { type: "output",   text: `→  HTTP/1.1 402 Payment Required   { "price": "0.005", "token": "USDC", "network": "base" }` },
   { type: "blank",    text: "" },
-  { type: "comment",  text: "# Step 3 — Pay a few cents, ask again, get real facts back" },
+  { type: "comment",  text: "# Step 3 — Sign USDC payment, retry, receive TSV facts" },
   {
     type: "command",
     text: `curl -H "X-Payment: $SIGNED_TX" "...?q=morphine+dosage&collection=unison_medical_core"`,
@@ -168,7 +177,7 @@ function AgentInstallConsole() {
 
   return (
     <div
-      className="w-full max-w-3xl mx-auto rounded-2xl overflow-hidden border border-cyan-400/20 shadow-[0_0_48px_rgba(0,229,255,0.14)]"
+      className="w-full rounded-2xl overflow-hidden border border-cyan-400/20 shadow-[0_0_48px_rgba(0,229,255,0.14)]"
       style={{ background: "rgba(3,5,10,0.95)" }}
     >
       <div className="flex items-center justify-between px-5 py-3 border-b border-white/[0.08] bg-[#0A0F1C]/90">
@@ -204,7 +213,7 @@ function AgentInstallConsole() {
       </div>
       <div className="px-5 py-6 text-center">
         <p className="font-data text-[10px] text-white/30 mb-3 tracking-wider">
-          # Quick install — hook your robot helper to our fact library
+          # One-line install — connect your agent via Smithery
         </p>
         <div className="public-code-enclave">
           <p className="font-data text-sm sm:text-base text-cyan-300/90 break-all leading-relaxed">
@@ -220,36 +229,36 @@ function AgentInstallConsole() {
 function X402PricingLedger() {
   const tiers = [
     {
-      tier: "EVERYDAY TOPICS",
-      price: "0.005 USDC per question",
-      targets: "Engineering, farming, buildings, and more",
+      tier: "Standard topics",
+      price: "0.005 USDC per query",
+      targets: "Engineering, agriculture, architecture, and general domains",
       accent: "border-cyan-400/25 bg-cyan-400/[0.04]",
       label: "text-cyan-400",
     },
     {
-      tier: "SERIOUS TOPICS",
-      price: "0.050 USDC per question",
-      targets: "Space, spy work, cyber safety, and biotech",
+      tier: "Specialized topics",
+      price: "0.050 USDC per query",
+      targets: "Aerospace, intelligence, cybersecurity, and biotech",
       accent: "border-purple-400/25 bg-purple-400/[0.04]",
       label: "text-[#B300FF]",
     },
   ];
 
   return (
-    <div className="grid md:grid-cols-2 gap-4 w-full max-w-4xl mx-auto mt-8 text-center">
+    <div className="grid md:grid-cols-2 gap-3 w-full mt-6 text-left">
       {tiers.map((t) => (
         <div
           key={t.tier}
           className={`rounded-xl border p-5 backdrop-blur-xl text-center ${t.accent}`}
         >
-          <p className={`font-[var(--font-mono)] text-[10px] tracking-[0.2em] uppercase mb-2 ${t.label}`}>
-            [ {t.tier} ]
+          <p className={`font-[var(--font-mono)] text-[10px] tracking-[0.15em] uppercase mb-2 ${t.label}`}>
+            {t.tier}
           </p>
-          <p className="font-[var(--font-grotesk)] text-lg font-bold text-white mb-2">
-            ➔ {t.price}
+          <p className="font-[var(--font-grotesk)] text-base font-semibold text-white mb-1.5">
+            {t.price}
           </p>
-          <p className="font-[var(--font-mono)] text-[11px] text-white/45 leading-relaxed">
-            Covers: {t.targets}
+          <p className="font-[var(--font-inter)] text-xs text-white/45 leading-relaxed">
+            {t.targets}
           </p>
         </div>
       ))}
@@ -410,12 +419,11 @@ export default function StorefrontPage() {
       ═══════════════════════════════════════════════════════════════════ */}
       <section
         ref={heroRef}
-        className="relative min-h-screen flex flex-col items-center justify-center overflow-hidden pt-16 bg-[#050914] public-section"
+        className="relative min-h-[100dvh] flex flex-col items-center justify-center overflow-hidden pt-20 bg-[#050914] public-section public-noise-overlay"
         aria-labelledby="hero-headline"
       >
         <ParticleMesh />
 
-        {/* Abyssal hex grid */}
         <div
           aria-hidden="true"
           className="absolute inset-0 pointer-events-none opacity-40"
@@ -441,74 +449,68 @@ export default function StorefrontPage() {
 
         <motion.div
           style={{ opacity: heroOpacity, y: heroY }}
-          className="relative z-10 public-page-shell public-copy-stack max-w-5xl py-16"
+          className="relative z-10 public-page-shell py-16 lg:py-24"
         >
-          <motion.h1
-            id="hero-headline"
-            initial={{ opacity: 0, y: 24 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.65, delay: 0.15 }}
-            className="public-headline text-[clamp(1.75rem,5vw,3.25rem)] mb-6 w-full"
-          >
-            AI Guesses.{" "}
-            <span className="gradient-text block sm:inline mt-2 sm:mt-0">
-              We Give Real Answers.
-            </span>
-          </motion.h1>
+          <div className="public-hero-split">
+            <div className="public-copy-stack">
+              <motion.p
+                initial={{ opacity: 0, y: 12 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.5, delay: 0.05 }}
+                className="public-eyebrow mb-4"
+              >
+                Verified fact infrastructure
+              </motion.p>
 
-          <motion.p
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.6, delay: 0.25 }}
-            className="public-lead max-w-3xl mx-auto text-center mb-10"
-          >
-            When apps and robot helpers do not know something, they often guess — and the guess
-            can sound smart but be wrong. That is scary for health, money, and the law.
-            {" "}
-            Unison is a giant library of checked facts. Ask one question, pay a tiny fee, get
-            the true answer back fast.
-          </motion.p>
+              <SplitReveal
+                id="hero-headline"
+                lines={["AI guesses.", "We return verified facts."]}
+                accentIndex={1}
+              />
 
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.6, delay: 0.35 }}
-            className="w-full flex flex-col items-center"
-          >
-            <AgentInstallConsole />
-            <X402PricingLedger />
-          </motion.div>
+              <motion.p
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.6, delay: 0.35 }}
+                className="public-lead mt-6 mb-8"
+              >
+                When an AI does not know the answer, it fills in the blank—and that guess
+                can sound confident while being wrong. That matters for health, finance,
+                and legal decisions. Unison is a searchable library of verified facts.
+                Ask a question, pay a small fee, and get a sourced answer in under a second.
+              </motion.p>
 
-          <motion.div
-            initial={{ opacity: 0, y: 16 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.55, delay: 0.5 }}
-            className="flex flex-col sm:flex-row items-center justify-center gap-4 mt-10 w-full"
-          >
-            <Link
-              href="/docs"
-              prefetch
-              className="group inline-flex items-center gap-2.5 px-8 py-4 rounded-xl text-sm font-semibold font-[var(--font-grotesk)] tracking-wide uppercase text-[#050914] bg-cyan-400 hover:bg-cyan-300 transition-all shadow-[0_0_40px_rgba(0,229,255,0.4)]"
+              <motion.div
+                initial={{ opacity: 0, y: 16 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.55, delay: 0.45 }}
+                className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 w-full"
+              >
+                <MagneticButton href="/docs" variant="primary">
+                  Connect your agent <Zap className="w-4 h-4" aria-hidden="true" />
+                </MagneticButton>
+                <MagneticButton href="/corpora" variant="ghost">
+                  Browse libraries <ChevronRight className="w-4 h-4" aria-hidden="true" />
+                </MagneticButton>
+              </motion.div>
+            </div>
+
+            <motion.div
+              initial={{ opacity: 0, y: 24 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.65, delay: 0.3 }}
+              className="w-full"
             >
-              How to Connect
-              <Zap className="w-4 h-4 group-hover:translate-x-0.5 transition-transform" aria-hidden="true" />
-            </Link>
-            <Link
-              href="/corpora"
-              prefetch
-              className="inline-flex items-center gap-2 px-7 py-4 rounded-xl text-sm font-medium font-[var(--font-grotesk)] tracking-wide text-white/65 border border-white/[0.12] hover:text-white/90 hover:border-cyan-400/25 transition-all"
-            >
-              Browse Fact Libraries
-              <ChevronRight className="w-4 h-4" aria-hidden="true" />
-            </Link>
-            <a
-              href="/.well-known/ai-plugin.json"
-              className="inline-flex items-center gap-2 px-7 py-4 rounded-xl text-sm font-[var(--font-mono)] text-purple-300/80 border border-purple-400/20 hover:border-purple-400/40 transition-all"
-            >
-              ai-plugin.json
-              <ExternalLink className="w-4 h-4" aria-hidden="true" />
-            </a>
-          </motion.div>
+              <AgentInstallConsole />
+              <X402PricingLedger />
+              <a
+                href="/.well-known/ai-plugin.json"
+                className="mt-4 inline-flex items-center gap-2 text-xs font-data text-purple-300/70 hover:text-purple-300 transition-colors"
+              >
+                ai-plugin.json <ExternalLink className="w-3.5 h-3.5" aria-hidden="true" />
+              </a>
+            </motion.div>
+          </div>
         </motion.div>
 
         <motion.div
@@ -573,10 +575,10 @@ export default function StorefrontPage() {
       <section className="public-section py-20" aria-label="Platform statistics">
         <div className="public-page-shell public-copy-stack">
           <div className="public-section-header">
-            <p className="public-eyebrow">Live Stats</p>
-            <h2 className="public-headline text-3xl sm:text-4xl mb-4">How Big Is the Library?</h2>
+            <p className="public-eyebrow">Live metrics</p>
+            <h2 className="public-headline text-3xl sm:text-4xl mb-4">Library at a glance</h2>
             <p className="public-lead mb-0">
-              Real-time counts from our live fact storage — updated as the library grows.
+              Real-time counts from our vector store—updated as collections grow.
             </p>
           </div>
           <LivePlatformMetrics />
@@ -592,19 +594,19 @@ export default function StorefrontPage() {
             initial={{ opacity: 0, y: 24 }}
             whileInView={{ opacity: 1, y: 0 }}
             viewport={{ once: true }}
-            className="public-section-header"
+            className="public-section-header-left"
           >
-            <p className="public-eyebrow text-cyan-400">Fact Libraries</p>
+            <p className="public-eyebrow text-cyan-400">Topic libraries</p>
             <h2 id="moat-heading" className="public-headline text-4xl sm:text-5xl mb-5">
-              Pick a Topic. Get Real Facts.
+              Pick a domain. Get sourced facts.
             </h2>
             <p className="public-lead">
-              Each library holds true answers for one area — medicine, law, money, building,
-              and more. Built for apps that cannot afford to guess.
+              Each collection holds verified answers for one field—medicine, law, finance,
+              engineering, and more. Designed for agents that cannot afford to hallucinate.
             </p>
           </motion.div>
 
-          <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-5">
+          <div className="public-bento-grid">
             {moatCards.map((card, i) => {
               const Icon = card.icon;
               const isLive = card.status === "LIVE";
@@ -633,20 +635,16 @@ export default function StorefrontPage() {
                   viewport={{ once: true }}
                   transition={{ duration: 0.45, delay: i * 0.08 }}
                   className={`
-                    group relative rounded-2xl p-7 flex flex-col items-center text-center gap-5 cursor-default
+                    group public-bento-card ${card.span} cursor-default text-left
                     border transition-all duration-300 ${hoverGlow}
-                    hover:border-[${borderColor}]
                   `}
                   style={{
-                    background: "rgba(255,255,255,0.03)",
-                    backdropFilter: "blur(16px)",
                     border: `1px solid ${borderColor}`,
                   }}
                 >
-                  {/* Status badge */}
-                  <div className="flex flex-col items-center gap-3 w-full">
+                  <div className="flex items-start justify-between gap-3 w-full">
                     <div
-                      className="w-11 h-11 rounded-xl flex items-center justify-center"
+                      className="w-11 h-11 rounded-xl flex items-center justify-center shrink-0"
                       style={{ background: `${borderColor.replace("0.15", "0.08")}` }}
                     >
                       <Icon className={`w-5 h-5 ${accentTxt}`} aria-hidden="true" />
@@ -662,21 +660,19 @@ export default function StorefrontPage() {
                     </span>
                   </div>
 
-                  {/* Content */}
                   <div className="flex-1">
-                    <h3 className={`font-[var(--font-grotesk)] font-bold text-lg text-white mb-1`}>
+                    <h3 className="font-[var(--font-grotesk)] font-bold text-lg text-white mb-1">
                       {card.title}
                     </h3>
                     <p className={`font-[var(--font-mono)] text-[11px] mb-3 ${accentTxt}`}>
                       {card.subtitle}
                     </p>
-                    <p className="font-[var(--font-inter)] text-sm text-white/45 leading-relaxed">
+                    <p className="font-[var(--font-inter)] text-sm text-white/50 leading-relaxed">
                       {card.description}
                     </p>
                   </div>
 
-                  {/* Tags */}
-                  <div className="flex flex-wrap items-center justify-center gap-1.5">
+                  <div className="flex flex-wrap items-center gap-1.5">
                     {card.tags.map((tag) => (
                       <span key={tag} className="public-tag">
                         {tag}
@@ -685,7 +681,7 @@ export default function StorefrontPage() {
                   </div>
 
                   {/* Price / collection footer */}
-                  <div className="pt-3 border-t border-white/[0.06] flex items-center justify-center gap-4 w-full">
+                  <div className="pt-3 border-t border-white/[0.06] flex items-center justify-between gap-4 w-full mt-auto">
                     <code
                       className={`text-[10px] font-[var(--font-mono)] ${accentTxt} opacity-70`}
                     >
@@ -740,11 +736,11 @@ export default function StorefrontPage() {
           >
             <p className="public-eyebrow">Why Unison</p>
             <h2 id="paradox-heading" className="public-headline text-4xl sm:text-5xl mb-5">
-              Guessing vs. Real Facts
+              Hallucination vs. verified facts
             </h2>
             <p className="public-lead">
-              A normal AI chatbot fills in blanks when it does not know. Unison sends back
-              facts that were checked and saved on purpose.
+              A standard LLM fills gaps when it lacks data. Unison returns facts that were
+              indexed, sourced, and stored on purpose.
             </p>
           </motion.div>
 
@@ -764,7 +760,7 @@ export default function StorefrontPage() {
               <div className="flex items-center gap-3 mb-5">
                 <span className="w-2.5 h-2.5 rounded-full bg-red-500 shadow-[0_0_8px_rgba(239,68,68,0.9)]" />
                 <span className="text-[12px] font-semibold font-[var(--font-mono)] text-red-400 tracking-wider">
-                  Regular AI — Made-Up Answer
+                  Standard LLM — estimated response
                 </span>
               </div>
               <pre
@@ -783,8 +779,8 @@ export default function StorefrontPage() {
   "latency_ms": 1940
 }`}
               </pre>
-              <p className="mt-5 font-[var(--font-inter)] text-sm text-red-300/50 leading-relaxed text-center">
-                Vague, not checked, and risky. Every choice built on this answer could be wrong.
+              <p className="mt-5 font-[var(--font-inter)] text-sm text-red-300/50 leading-relaxed">
+                Vague, unsourced, and risky. Every downstream decision built on this answer could be wrong.
               </p>
             </motion.article>
 
@@ -803,7 +799,7 @@ export default function StorefrontPage() {
               <div className="flex items-center gap-3 mb-5">
                 <span className="w-2.5 h-2.5 rounded-full bg-cyan-400 shadow-[0_0_8px_rgba(0,229,255,0.9)]" />
                 <span className="text-[12px] font-semibold font-[var(--font-mono)] text-cyan-400 tracking-wider">
-                  Unison — Real Checked Facts
+                  Unison — sourced TSV facts
                 </span>
               </div>
               <pre
@@ -818,9 +814,8 @@ med_001   unison_medical_core  Pharmacology  Morphine sulfate:
                                              Peak: oral 90min, IV 20min.
                                              Source: Pepper's System,1893.`}
               </pre>
-              <p className="mt-5 font-[var(--font-inter)] text-sm text-cyan-200/50 leading-relaxed text-center">
-                Exact doses, exact sources, plain rows of facts. Shorter and clearer than
-                a pile of JSON — so your app spends less and learns more.
+              <p className="mt-5 font-[var(--font-inter)] text-sm text-cyan-200/50 leading-relaxed">
+                Exact values, named sources, tab-separated rows. Less token overhead than JSON—and easier for your agent to parse.
               </p>
             </motion.article>
           </div>
@@ -838,13 +833,13 @@ med_001   unison_medical_core  Pharmacology  Morphine sulfate:
             viewport={{ once: true }}
             className="public-section-header mb-12"
           >
-            <p className="public-eyebrow text-cyan-400">Get Started</p>
+            <p className="public-eyebrow text-cyan-400">Get started</p>
             <h2 id="install-heading" className="public-headline text-4xl sm:text-5xl mb-5">
-              Connect in 3 Steps
+              Connect in three steps
             </h2>
             <p className="public-lead">
-              Find our library list. Ask a question. Pay a few cents. Get real facts back
-              in under a second.
+              Fetch the manifest, send a query, sign the x402 payment. Verified facts
+              return in under a second.
             </p>
           </motion.div>
 
@@ -865,31 +860,16 @@ med_001   unison_medical_core  Pharmacology  Morphine sulfate:
             transition={{ delay: 0.3 }}
             className="mt-8 flex flex-col sm:flex-row items-center gap-4 justify-center"
           >
-            <Link
-              href="/docs"
-              className="
-                inline-flex items-center gap-2 px-7 py-3.5 rounded-xl
-                text-sm font-semibold font-[var(--font-grotesk)] tracking-wide uppercase
-                text-[#050914] bg-cyan-400 hover:bg-cyan-300 transition-colors
-                shadow-[0_0_30px_rgba(0,229,255,0.3)]
-              "
-            >
-              Full Setup Guide <ArrowRight className="w-4 h-4" />
-            </Link>
-            <a
+            <MagneticButton href="/docs" variant="primary">
+              Full setup guide <ArrowRight className="w-4 h-4" />
+            </MagneticButton>
+            <MagneticButton
               href="https://unison-edge-gateway.unisonorchestration.workers.dev/.well-known/mcp-configuration"
-              target="_blank"
-              rel="noopener noreferrer"
-              className="
-                inline-flex items-center gap-2 px-7 py-3.5 rounded-xl
-                text-sm font-medium font-[var(--font-grotesk)] tracking-wide
-                text-white/60 border border-white/[0.12]
-                hover:text-white/90 hover:border-cyan-400/25
-                transition-all duration-200
-              "
+              variant="ghost"
+              external
             >
-              See Library List <ExternalLink className="w-4 h-4" />
-            </a>
+              MCP manifest <ExternalLink className="w-4 h-4" />
+            </MagneticButton>
           </motion.div>
         </div>
       </section>
@@ -922,62 +902,25 @@ med_001   unison_medical_core  Pharmacology  Morphine sulfate:
             id="cta-heading"
             className="font-[var(--font-grotesk)] text-3xl sm:text-4xl font-bold text-white mb-5"
           >
-            Your apps need real facts — not guesses.
+            Your agents need verified facts—not guesses.
           </h2>
-          <p className="font-[var(--font-inter)] text-white/45 text-lg mb-10 leading-relaxed max-w-lg mx-auto">
-            No monthly bill. No secret passwords. Pay a tiny fee per question.
-            The payment proves you asked — then you get the answer.
+          <p className="font-[var(--font-inter)] text-white/50 text-lg mb-10 leading-relaxed max-w-lg mx-auto">
+            No subscription. No API keys to manage. Pay per query on Base with USDC.
+            The payment proves the request—then you get the answer.
           </p>
 
           <div className="flex flex-col sm:flex-row gap-4 justify-center">
-            <Link
-              href="/docs"
-              className="
-                inline-flex items-center justify-center gap-2
-                px-8 py-4 rounded-xl text-sm font-semibold
-                font-[var(--font-grotesk)] tracking-wide uppercase
-                text-[#050914] bg-cyan-400 hover:bg-cyan-300
-                transition-colors shadow-[0_0_40px_rgba(0,229,255,0.35)]
-              "
-            >
-              Start Here <Zap className="w-4 h-4" aria-hidden="true" />
-            </Link>
-            <Link
-              href="/corpora"
-              className="
-                inline-flex items-center justify-center gap-2
-                px-8 py-4 rounded-xl text-sm font-medium
-                font-[var(--font-grotesk)] tracking-wide
-                text-white/60 border border-white/[0.12]
-                hover:text-white/90 hover:border-cyan-400/25
-                transition-all duration-200
-              "
-            >
-              Explore Libraries <ChevronRight className="w-4 h-4" aria-hidden="true" />
-            </Link>
+            <MagneticButton href="/docs" variant="primary">
+              Start here <Zap className="w-4 h-4" aria-hidden="true" />
+            </MagneticButton>
+            <MagneticButton href="/corpora" variant="ghost">
+              Explore libraries <ChevronRight className="w-4 h-4" aria-hidden="true" />
+            </MagneticButton>
           </div>
         </motion.div>
       </section>
 
-      {/* ═══════════════════════════════════════════════════════════════════
-          FOOTER
-      ═══════════════════════════════════════════════════════════════════ */}
-      <footer className="public-section border-t border-white/[0.06] py-10">
-        <div className="public-grid-shell flex flex-col items-center justify-center gap-5 text-center">
-          <div className="font-data text-[11px] text-white/25">
-            © 2026 V18 Group · Unison Orchestration
-            <span className="mx-3 text-white/10">|</span>
-            Real facts, checked sources, no made-up answers.
-          </div>
-          <div className="flex flex-wrap items-center gap-x-6 gap-y-2 font-[var(--font-mono)] text-[10px] text-white/20 justify-center">
-            <span>Front door: Cloudflare</span>
-            <span>Brain: Fly.io</span>
-            <span>Fact storage: Qdrant Cloud</span>
-            <span>Payments: Base · USDC</span>
-            <span>Pay per question</span>
-          </div>
-        </div>
-      </footer>
+      <PublicFooter />
     </div>
   );
 }

@@ -8,11 +8,11 @@ import {
 } from "lucide-react";
 
 const sections = [
-  { id: "manifest",      label: "Library List",    icon: BookOpen  },
-  { id: "integrate",     label: "Plug It In",       icon: Plug      },
-  { id: "handshake",     label: "Tiny Payment",  icon: Zap       },
-  { id: "routing",       label: "Pick a Topic",  icon: Route     },
-  { id: "observability", label: "Track Usage",    icon: Activity  },
+  { id: "manifest",      label: "Manifest",       icon: BookOpen  },
+  { id: "integrate",     label: "Integration",    icon: Plug      },
+  { id: "handshake",     label: "x402 payment",   icon: Zap       },
+  { id: "routing",       label: "Collections",    icon: Route     },
+  { id: "observability", label: "Usage tracking", icon: Activity  },
 ];
 
 const snippets = {
@@ -253,11 +253,11 @@ export function DocsClient() {
       <section className="public-section pb-10" aria-label="Integration documentation header">
         <div className="public-page-shell">
           <div className="public-copy-stack">
-            <p className="public-eyebrow">Setup Guide</p>
-            <h1 className="public-headline">How To Connect</h1>
+            <p className="public-eyebrow">Integration guide</p>
+            <h1 className="public-headline">Connect your agent</h1>
             <p className="public-lead">
-              Hook your app or robot helper to Unison — find the library list, pay a tiny
-              fee per question, and get real facts back.
+              Fetch the MCP manifest, wire your agent, sign x402 payments on Base,
+              and receive verified TSV facts per query.
             </p>
           </div>
 

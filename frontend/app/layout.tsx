@@ -56,7 +56,7 @@ export const metadata: Metadata = {
     template: "%s | Unison Orchestration",
   },
   description:
-    "AI often guesses when it does not know. Unison is a giant library of checked facts for apps and robots. Ask a question, pay a tiny fee, get the true answer back.",
+    "When AI lacks data, it guesses. Unison returns verified facts from indexed collections. Pay per query with USDC on Base—no subscription required.",
   keywords: [
     "Model Context Protocol",
     "MCP server",
@@ -101,7 +101,7 @@ export const metadata: Metadata = {
     siteName: "Unison Orchestration",
     title: "Unison Orchestration | Real Facts for AI Apps",
     description:
-      "A huge library of checked facts for apps and robots. Pay a tiny fee per question. Get true answers — not guesses.",
+      "Verified fact infrastructure for AI agents. Pay per query with USDC on Base. Sourced answers—not hallucinations.",
     images: [
       {
         url: BASE_APP_PROFILE.assets.hero_1200x630,
@@ -115,7 +115,7 @@ export const metadata: Metadata = {
     card: "summary_large_image",
     title: "Unison Orchestration | Real Facts for AI Apps",
     description:
-      "A huge library of checked facts for apps and robots. Pay a tiny fee per question. Get true answers — not guesses.",
+      "Verified fact infrastructure for AI agents. Pay per query with USDC on Base. Sourced answers—not hallucinations.",
     creator: "@v18group",
     images: [BASE_APP_PROFILE.assets.hero_1200x630],
   },
@@ -333,9 +333,15 @@ export default async function RootLayout({
           W3C trace context propagated on all responses.
         </div>
 
+        <a
+          href="#main-content"
+          className="sr-only focus:not-sr-only focus:fixed focus:top-4 focus:left-4 focus:z-[100] focus:px-4 focus:py-2 focus:rounded-lg focus:bg-cyan-400 focus:text-[#050914] focus:font-semibold"
+        >
+          Skip to content
+        </a>
         <ScanlineOverlay />
         <PublicNav />
-        <main>{children}</main>
+        <main id="main-content">{children}</main>
 
         {/* ── Footer-level LLMSEO reinforcement ──────────────────────── */}
         <div className="sr-only" aria-hidden="true">

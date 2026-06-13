@@ -5,11 +5,12 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { motion, AnimatePresence } from "framer-motion";
 import { Menu, X } from "lucide-react";
+import { MagneticButton } from "@/components/public/MagneticButton";
 
 const navLinks = [
-  { href: "/",        label: "Home"        },
+  { href: "/",        label: "Home"       },
   { href: "/corpora", label: "Libraries"  },
-  { href: "/docs",    label: "How To Connect"   },
+  { href: "/docs",    label: "Connect"    },
 ];
 
 export function PublicNav() {
@@ -95,19 +96,25 @@ export function PublicNav() {
 
         {/* Desktop CTA */}
         <div className="hidden md:flex items-center gap-3">
+          <MagneticButton
+            href="/docs"
+            variant="primary"
+            className="!px-5 !py-2.5 !text-xs"
+          >
+            Connect agent
+          </MagneticButton>
           <a
             href="https://unison-edge-gateway.unisonorchestration.workers.dev/.well-known/mcp-configuration"
             target="_blank"
             rel="noopener noreferrer"
             className="
-              px-4 py-2 rounded-lg text-[12px] font-semibold
-              font-[var(--font-mono)] tracking-wider uppercase
-              text-cyan-400 border border-cyan-400/25
-              hover:border-cyan-400/60 hover:bg-cyan-400/[0.08]
+              px-4 py-2 rounded-lg text-[12px] font-medium
+              font-[var(--font-mono)] tracking-wide
+              text-white/45 hover:text-cyan-400
               transition-all duration-200
             "
           >
-            MCP Library List ↗
+            MCP manifest ↗
           </a>
         </div>
 
@@ -151,14 +158,17 @@ export function PublicNav() {
                   </Link>
                 </li>
               ))}
-              <li className="pt-2">
+              <li className="pt-2 flex flex-col gap-2">
+                <MagneticButton href="/docs" variant="primary" className="w-full">
+                  Connect agent
+                </MagneticButton>
                 <a
                   href="https://unison-edge-gateway.unisonorchestration.workers.dev/.well-known/mcp-configuration"
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="block px-4 py-3 rounded-lg text-sm font-semibold text-cyan-400 border border-cyan-400/25 text-center font-[var(--font-mono)] tracking-wider uppercase"
+                  className="block px-4 py-3 rounded-lg text-sm font-medium text-white/45 hover:text-cyan-400 text-center font-[var(--font-mono)]"
                 >
-                  MCP Library List ↗
+                  MCP manifest ↗
                 </a>
               </li>
             </ul>

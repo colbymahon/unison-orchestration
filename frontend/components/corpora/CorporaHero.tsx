@@ -38,13 +38,13 @@ export function CorporaHero({
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.6 }}
         >
-          <p className="public-eyebrow">Fact Libraries</p>
+          <p className="public-eyebrow">Topic libraries</p>
           <h1 id="vault-heading" className="public-headline">
-            Browse Our <span className="gradient-text">Libraries</span>
+            Browse <span className="gradient-text">collections</span>
           </h1>
           <p className="public-lead">
-            {sync.collection_count || catalogLength} topic libraries ·{" "}
-            {sync.total_vectors.toLocaleString()} checked facts · ready to search
+            {sync.collection_count || catalogLength} indexed libraries ·{" "}
+            {sync.total_vectors.toLocaleString()} verified vectors · searchable now
           </p>
 
           <div className="public-meta-row">
@@ -77,7 +77,7 @@ export function CorporaHero({
             />
             <input
               type="search"
-              placeholder="Search collections…"
+              placeholder="Search by name or topic…"
               value={query}
               onChange={(e) => onQueryChange(e.target.value)}
               className="public-search-input"

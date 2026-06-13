@@ -14,18 +14,18 @@ export default function LegalPage() {
   return (
     <article className="public-page public-section py-24">
       <div className="public-page-shell public-prose">
-      <h1 className="font-brand text-3xl font-bold text-white mb-6">Rules &amp; Legal Stuff</h1>
+      <h1 className="font-brand text-3xl font-bold text-white mb-6">Legal & policies</h1>
       <p className="font-data text-sm text-slate-400 mb-8">
         V18 Group · Unison Orchestration · {PRODUCTION_SITE_URL}
       </p>
-      <section className="space-y-6 font-[var(--font-inter)] text-sm leading-relaxed text-center">
+      <section className="space-y-6 font-[var(--font-inter)] text-sm leading-relaxed max-w-2xl">
         <p>
-          Unison gives apps and robots a way to look up real facts. Some questions cost a
-          tiny USDC fee on the Base network, depending on which library you use.
+          Unison provides verified fact lookup for AI agents and applications. Query pricing
+          uses USDC micropayments on the Base network, depending on which collection you access.
         </p>
         <p>
-          Facts come from public sources listed in each library. You are responsible for
-          following the law and your own rules when you use the data.
+          Facts are sourced from public records and attributed in each library. You are
+          responsible for complying with applicable laws and your own use policies.
         </p>
         <p>
           Contact:{" "}
