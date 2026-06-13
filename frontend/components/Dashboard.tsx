@@ -222,87 +222,67 @@ export default function Dashboard() {
   const trappedGaps = activeLedger?.trapped_gaps ?? [];
 
   return (
-    <div className="min-h-screen bg-[#030712] text-gray-100 flex flex-col font-sans selection:bg-emerald-500/20 selection:text-emerald-400">
+    <div className="ops-shell font-sans selection:bg-cyan-500/20 selection:text-cyan-300">
 
-      {/* LIVE MAINNET WARNING STRIP */}
-      <div className="bg-amber-950/40 border-b border-amber-900/50 px-4 py-2 flex items-center justify-between text-xs font-mono text-amber-400">
-        <div className="flex items-center space-x-2">
-          <AlertTriangle className="w-4 h-4 animate-pulse shrink-0" />
+      <div className="ops-live-strip">
+        <div className="flex items-center gap-2">
+          <AlertTriangle className="w-4 h-4 shrink-0" aria-hidden />
           <span>
-            <strong>LIVE WORKSPACE:</strong> Base Mainnet Enforced. Fly.io iad telemetry active. Qdrant GCP sync verified.
+            <strong>Live workspace</strong> — Base Mainnet · Fly.io iad telemetry · Qdrant GCP sync
           </span>
         </div>
-        <div className="hidden sm:block opacity-60">ID: 8453 // MAINNET</div>
+        <div className="hidden sm:block opacity-70">chain 8453</div>
       </div>
 
-      {/* HEADER */}
-      <header className="border-b border-gray-900 bg-[#030712]/90 backdrop-blur sticky top-0 z-40 px-6 py-4 flex flex-col xl:flex-row items-start xl:items-center justify-between gap-4">
-        <div className="flex items-center space-x-3">
+      <header className="ops-header">
+        <div className="flex items-center gap-3">
           <div
-            className={`h-3 w-3 rounded-full ${
-              telemetry
-                ? "bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.7)]"
-                : "bg-amber-500 animate-pulse"
+            className={`ops-status-dot ${
+              telemetry ? "ops-status-dot--live" : "ops-status-dot--pending"
             }`}
+            aria-hidden
           />
           <div>
-            <div className="flex items-center space-x-2">
-              <h1 className="text-lg font-black tracking-wider font-[var(--font-grotesk)] text-white uppercase">
-                UNISON // COMMAND CENTER
-              </h1>
-              <span className="text-[10px] bg-gray-900 text-gray-400 px-2 py-0.5 border border-gray-800 rounded-md font-mono">
-                v18.0
-              </span>
-              {pollError && (
-                <span className="text-[10px] bg-amber-900/30 text-amber-400 border border-amber-800 px-2 py-0.5 rounded font-mono">
-                  telemetry offline
-                </span>
-              )}
+            <div className="flex flex-wrap items-center gap-2">
+              <h1 className="ops-title">Command center</h1>
+              <span className="ops-badge">v18.0</span>
+              {pollError && <span className="ops-badge ops-badge--warn">telemetry offline</span>}
             </div>
-            <p className="text-xs text-gray-500 font-mono mt-0.5">
-              INSTITUTIONAL ORCHESTRATION HUB
-              {lastPoll && <span className="ml-3 text-gray-700">· {lastPoll}</span>}
+            <p className="ops-subtitle">
+              Institutional orchestration hub
+              {lastPoll && <span className="ml-2 text-white/25">· synced {lastPoll}</span>}
             </p>
           </div>
         </div>
 
-        <div className="flex flex-wrap items-center gap-2">
-          <a
-            href={`${OPS_BASE}/workflows`}
-            className="hidden sm:inline font-mono text-[10px] text-purple-400/80 hover:text-purple-300 border border-purple-900/30 px-2 py-1.5 rounded-lg"
-          >
+        <div className="flex flex-wrap items-center gap-2 w-full xl:w-auto">
+          <a href={`${OPS_BASE}/workflows`} className="ops-quick-link ops-quick-link--purple">
             Workflows →
           </a>
-          <a
-            href={`${OPS_BASE}/register-corpus`}
-            className="hidden sm:inline font-mono text-[10px] text-emerald-400/80 hover:text-emerald-300 border border-emerald-900/30 px-2 py-1.5 rounded-lg"
-          >
-            Register Corpus →
+          <a href={`${OPS_BASE}/register-corpus`} className="ops-quick-link ops-quick-link--emerald">
+            Register corpus →
           </a>
 
-          <nav className="flex space-x-1 bg-gray-900/60 p-1 border border-gray-800 rounded-lg text-xs font-mono">
-            {TABS.map(tab => (
+          <nav className="ops-tab-rail" aria-label="Dashboard sections">
+            {TABS.map((tab) => (
               <button
                 key={tab.id}
+                type="button"
                 onClick={() => setActiveTab(tab.id)}
-                className={`px-3 py-1.5 rounded-md capitalize transition-all ${
-                  activeTab === tab.id
-                    ? "bg-gray-800 text-emerald-400 border border-gray-700/50 font-bold"
-                    : "text-gray-400 hover:text-gray-200"
-                }`}
+                className={`ops-tab ${activeTab === tab.id ? "ops-tab--active" : ""}`}
+                aria-current={activeTab === tab.id ? "page" : undefined}
               >
                 {tab.label}
               </button>
             ))}
           </nav>
 
-          <div className="flex items-center space-x-2 text-xs font-mono bg-gray-900 border border-gray-800 rounded-lg px-3 py-2 text-gray-400">
-            <Radio className={`w-3.5 h-3.5 ${telemetry ? "text-emerald-500 animate-pulse" : "text-amber-500"}`} />
+          <div className="ops-latency-chip">
+            <Radio className={`w-3.5 h-3.5 ${telemetry ? "text-emerald-400" : "text-amber-400"}`} aria-hidden />
             <span>
-              {edgeLatencyMs != null ? `${Math.round(edgeLatencyMs)}ms` : "—"}
-              {" · iad"}
+              {edgeLatencyMs != null ? `${Math.round(edgeLatencyMs)}ms` : "—"} edge · iad
               {meanLatency > 0 && (
-                <span className="text-gray-600 hidden sm:inline">
+                <span className="text-white/30 hidden sm:inline">
                   {" "}
                   · fly {Math.round(meanLatency)}ms
                 </span>
@@ -312,8 +292,7 @@ export default function Dashboard() {
         </div>
       </header>
 
-      {/* MAIN */}
-      <main className="flex-1 p-6 space-y-6 max-w-[1800px] w-full mx-auto">
+      <main className="ops-main space-y-6">
 
         {/* ── TAB 1: OVERVIEW ─────────────────────────────────────────── */}
         {activeTab === "overview" && (
@@ -346,7 +325,7 @@ export default function Dashboard() {
                   st.status === "DEGRADED"    ? "#f59e0b" :
                   st.status === "OFFLINE"     ? "#ef4444" : "#6b7280";
                 return (
-                  <div key={ep.name} className="bg-gray-950 border border-gray-900 p-4 rounded-xl flex items-center justify-between">
+                  <div key={ep.name} className="ops-card p-4 flex items-center justify-between">
                     <div className="flex items-center gap-3">
                       <div className="w-2.5 h-2.5 rounded-full shrink-0" style={{ background: col, boxShadow: st.status === "OPERATIONAL" ? `0 0 6px ${col}` : "none" }} />
                       <div>
@@ -370,11 +349,16 @@ export default function Dashboard() {
             </div>
 
             {/* Telemetry snapshot */}
-            <div className="bg-gray-950 border border-gray-900 p-6 rounded-xl">
-              <h3 className="text-xs font-mono text-gray-500 uppercase tracking-wider mb-4 flex items-center gap-2">
-                <Globe className="w-3.5 h-3.5 text-emerald-400" />
-                Live Telemetry Snapshot
-                <button onClick={() => void refreshLedger()} className="ml-auto text-gray-600 hover:text-gray-400 transition-colors">
+            <div className="ops-card p-6">
+              <h3 className="ops-card-header">
+                <Globe className="w-3.5 h-3.5 text-emerald-400" aria-hidden />
+                Live telemetry snapshot
+                <button
+                  type="button"
+                  onClick={() => void refreshLedger()}
+                  className="ml-auto text-white/35 hover:text-cyan-400 transition-colors"
+                  aria-label="Refresh telemetry"
+                >
                   <RefreshCw size={12} />
                 </button>
               </h3>
@@ -388,7 +372,7 @@ export default function Dashboard() {
                   { label: "Uptime",        val: `${Math.floor(uptime / 3600)}h ${Math.floor((uptime % 3600) / 60)}m`, color: "#34d399" },
                   { label: "Server Ver.",   val: telemetry?.server_version ?? "—",              color: "#6b7280" },
                 ].map(s => (
-                  <div key={s.label} className="bg-gray-900/50 border border-gray-900 rounded-lg p-3">
+                  <div key={s.label} className="ops-card-muted p-3 text-center">
                     <div className="text-[9px] text-gray-600 uppercase tracking-wider mb-1">{s.label}</div>
                     <div className="text-sm font-bold" style={{ color: s.color }}>{s.val}</div>
                   </div>
@@ -440,10 +424,10 @@ export default function Dashboard() {
             />
 
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 hidden lg:grid">
-              <div className="bg-gray-950 border border-gray-900 p-6 rounded-xl space-y-4">
-                <h3 className="text-xs font-mono text-gray-500 uppercase tracking-wider flex items-center gap-2 border-b border-gray-900 pb-3">
-                  <HardDrive className="w-3.5 h-3.5 text-purple-400" />
-                  Qdrant Cluster · us-east4-0.gcp
+              <div className="ops-card p-6 space-y-4">
+                <h3 className="ops-card-header">
+                  <HardDrive className="w-3.5 h-3.5 text-purple-400" aria-hidden />
+                  Qdrant cluster · us-east4-0.gcp
                 </h3>
                 <div className="grid grid-cols-2 gap-3">
                   {[
@@ -452,7 +436,7 @@ export default function Dashboard() {
                     { label: "Indexed", val: moatSnapshot.indexed_total.toLocaleString(), color: "#34d399" },
                     { label: "Dimensions", val: "1536", color: "#6b7280" },
                   ].map(s => (
-                    <div key={s.label} className="bg-gray-900/50 border border-gray-800 p-4 rounded-lg text-center">
+                    <div key={s.label} className="ops-card-muted p-4 text-center">
                       <div className="text-[10px] text-gray-500 font-mono uppercase mb-1">{s.label}</div>
                       <div className="text-2xl font-black font-[var(--font-grotesk)]" style={{ color: s.color }}>{s.val}</div>
                     </div>
@@ -460,10 +444,10 @@ export default function Dashboard() {
                 </div>
               </div>
 
-              <div className="bg-gray-950 border border-gray-900 p-6 rounded-xl space-y-4">
-                <h3 className="text-xs font-mono text-gray-500 uppercase tracking-wider flex items-center gap-2 border-b border-gray-900 pb-3">
-                  <ServerCrash className="w-3.5 h-3.5 text-rose-500" />
-                  W3C Trace Context · Error Log
+              <div className="ops-card p-6 space-y-4">
+                <h3 className="ops-card-header">
+                  <ServerCrash className="w-3.5 h-3.5 text-rose-500" aria-hidden />
+                  W3C trace context · error log
                 </h3>
                 <div className="bg-rose-950/10 border border-rose-900/30 p-4 rounded-lg font-mono text-xs text-rose-400 leading-relaxed">
                   <p className="text-emerald-400">// Zero recent fatal backend panics.</p>
@@ -502,48 +486,48 @@ export default function Dashboard() {
 
             <a
               href={`${OPS_BASE}/revenue-gaps`}
-              className="block bg-cyan-950/20 border border-cyan-900/40 rounded-xl p-4 hover:border-cyan-500/50 transition-colors"
+              className="ops-action-card ops-action-card--cyan"
             >
-              <div className="font-mono text-xs text-cyan-400 font-bold uppercase tracking-wider">
-                Open Revenue-Gap Command Surface →
+              <div className="font-mono text-xs text-cyan-400 font-semibold tracking-wide">
+                Open revenue-gap command surface →
               </div>
-              <div className="text-[10px] text-gray-500 mt-1">
+              <div className="text-[10px] text-white/40 mt-1">
                 Phase B0 live KV ledger · one-click pipeline_zero_result.py
               </div>
             </a>
 
             <a
               href={`${OPS_BASE}/register-corpus`}
-              className="block bg-emerald-950/20 border border-emerald-900/40 rounded-xl p-4 hover:border-emerald-500/50 transition-colors"
+              className="ops-action-card ops-action-card--emerald"
             >
-              <div className="font-mono text-xs text-emerald-400 font-bold uppercase tracking-wider">
-                Open Creator Marketplace — Register Corpus →
+              <div className="font-mono text-xs text-emerald-400 font-semibold tracking-wide">
+                Open creator marketplace — register corpus →
               </div>
-              <div className="text-[10px] text-gray-500 mt-1">
+              <div className="text-[10px] text-white/40 mt-1">
                 Track 2 Phase 2c · WebAuthn-gated slug claim · Base L2 wallet routing
               </div>
             </a>
 
-            <div className="bg-gray-950 border border-gray-900 p-6 rounded-xl">
-              <div className="flex justify-between items-center border-b border-gray-900 pb-4 mb-4">
-                <h3 className="text-xs font-mono text-gray-500 uppercase tracking-wider flex items-center gap-2">
-                  <SearchX className="w-3.5 h-3.5 text-amber-500" />
-                  Unfulfilled Demand — KV Trapped Gaps (Live)
+            <div className="ops-card p-6">
+              <div className="flex justify-between items-center ops-card-header mb-0 pb-4">
+                <h3 className="flex items-center gap-2 m-0 p-0 border-0">
+                  <SearchX className="w-3.5 h-3.5 text-amber-500" aria-hidden />
+                  Unfulfilled demand — KV trapped gaps
                 </h3>
-                <span className="text-[10px] text-gray-600 font-mono">
+                <span className="text-[10px] text-white/35 font-mono normal-case tracking-normal">
                   {activeLedger?.sources.edge_kv ? "edge KV synced" : "KV offline"}
                 </span>
               </div>
 
-              <div className="border border-gray-800 rounded-lg overflow-hidden">
-                <table className="w-full text-left font-mono text-xs">
+              <div className="ops-table-wrap">
+                <table className="ops-table w-full text-left font-mono text-xs">
                   <thead>
-                    <tr className="bg-gray-900/80 text-[10px] uppercase tracking-wider text-gray-500">
-                      <th className="p-3 border-b border-gray-800">Search Parameter</th>
-                      <th className="p-3 border-b border-gray-800">Collection</th>
-                      <th className="p-3 border-b border-gray-800">Failed Attempts</th>
-                      <th className="p-3 border-b border-gray-800">Agent</th>
-                      <th className="p-3 border-b border-gray-800">Lost (USDC)</th>
+                    <tr>
+                      <th>Search parameter</th>
+                      <th>Collection</th>
+                      <th>Failed attempts</th>
+                      <th>Agent</th>
+                      <th>Lost (USDC)</th>
                     </tr>
                   </thead>
                   <tbody className="text-gray-300">
@@ -557,13 +541,13 @@ export default function Dashboard() {
                       trappedGaps.map((zr) => (
                         <tr
                           key={zr.key ?? `${zr.collection}:${zr.query}`}
-                          className="hover:bg-gray-900/30 transition-colors border-b border-gray-800/50 last:border-0"
+                          className="transition-colors"
                         >
-                          <td className="p-3 text-white font-bold max-w-[200px] truncate">{zr.query}</td>
-                          <td className="p-3 text-gray-500 text-[10px]">{zr.collection}</td>
-                          <td className="p-3 text-amber-400">{zr.failed_attempts}</td>
-                          <td className="p-3 text-gray-400">{zr.originating_agent}</td>
-                          <td className="p-3 text-rose-400">
+                          <td className="text-white font-semibold max-w-[200px] truncate">{zr.query}</td>
+                          <td className="text-white/40 text-[10px]">{zr.collection}</td>
+                          <td className="text-amber-400">{zr.failed_attempts}</td>
+                          <td className="text-white/50">{zr.originating_agent}</td>
+                          <td className="text-rose-400">
                             ${zr.accumulated_lost_revenue.toFixed(3)} ({zr.tier} @ ${zr.lost_revenue})
                           </td>
                         </tr>
@@ -590,11 +574,10 @@ export default function Dashboard() {
         {activeTab === "terminal" && <LiveTerminal />}
       </main>
 
-      {/* FOOTER */}
-      <footer className="border-t border-gray-900 bg-[#030712] px-6 py-2 flex flex-col sm:flex-row items-center justify-between font-mono text-[10px] text-gray-600 gap-1">
-        <span>V18 GROUP · UNISON ORCHESTRATION · PRIVATE</span>
+      <footer className="ops-footer">
+        <span>V18 Group · Unison Orchestration · private</span>
         <span>
-          {liveCollections} COLLECTIONS · {moatVectors.toLocaleString()} VECTORS · PULSEMCP + SMITHERY REGISTERED
+          {liveCollections} collections · {moatVectors.toLocaleString()} vectors · PulseMCP + Smithery
         </span>
       </footer>
     </div>

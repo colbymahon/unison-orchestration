@@ -88,7 +88,7 @@ export function InfraTelemetry({
     <div className="p-6 space-y-6">
       {/* Top stats row */}
       <div className="grid grid-cols-2 lg:grid-cols-5 gap-4">
-        <div className="bg-gray-950 border border-gray-900 rounded-xl p-4" style={{ borderLeftColor: CYAN, borderLeftWidth: 3 }}>
+        <div className="ops-card rounded-xl p-4" style={{ borderLeftColor: CYAN, borderLeftWidth: 3 }}>
           <div className="text-xs font-mono text-gray-500 uppercase tracking-widest mb-2 flex items-center gap-1.5">
             <Activity size={11} className="text-cyan-400" /> Edge Ingress
           </div>
@@ -98,7 +98,7 @@ export function InfraTelemetry({
           <div className="text-xs font-mono text-gray-600 mt-1">admin-telemetry · Track A</div>
         </div>
 
-        <div className="bg-gray-950 border border-gray-900 rounded-xl p-4" style={{ borderLeftColor: PURPLE, borderLeftWidth: 3 }}>
+        <div className="ops-card rounded-xl p-4" style={{ borderLeftColor: PURPLE, borderLeftWidth: 3 }}>
           <div className="text-xs font-mono text-gray-500 uppercase tracking-widest mb-2 flex items-center gap-1.5">
             <Zap size={11} className="text-purple-400" /> Search Cold-Avg
           </div>
@@ -111,7 +111,7 @@ export function InfraTelemetry({
           <div className="text-xs font-mono text-gray-600 mt-1">Fly embed + Qdrant aggregate</div>
         </div>
 
-        <div className="bg-gray-950 border border-gray-900 rounded-xl p-4" style={{ borderLeftColor: "#34d399", borderLeftWidth: 3 }}>
+        <div className="ops-card rounded-xl p-4" style={{ borderLeftColor: "#34d399", borderLeftWidth: 3 }}>
           <div className="text-xs font-mono text-gray-500 uppercase tracking-widest mb-2 flex items-center gap-1.5">
             <Clock size={11} className="text-emerald-400" /> Uptime
           </div>
@@ -121,7 +121,7 @@ export function InfraTelemetry({
           <div className="text-xs font-mono text-gray-600 mt-1">since last deploy</div>
         </div>
 
-        <div className="bg-gray-950 border border-gray-900 rounded-xl p-4" style={{ borderLeftColor: PURPLE, borderLeftWidth: 3 }}>
+        <div className="ops-card rounded-xl p-4" style={{ borderLeftColor: PURPLE, borderLeftWidth: 3 }}>
           <div className="text-xs font-mono text-gray-500 uppercase tracking-widest mb-2 flex items-center gap-1.5">
             <Zap size={11} className="text-purple-400" /> Total Queries
           </div>
@@ -131,7 +131,7 @@ export function InfraTelemetry({
           <div className="text-xs font-mono text-gray-600 mt-1">dispatched this session</div>
         </div>
 
-        <div className="bg-gray-950 border border-gray-900 rounded-xl p-4" style={{ borderLeftColor: "#f59e0b", borderLeftWidth: 3 }}>
+        <div className="ops-card rounded-xl p-4" style={{ borderLeftColor: "#f59e0b", borderLeftWidth: 3 }}>
           <div className="text-xs font-mono text-gray-500 uppercase tracking-widest mb-2 flex items-center gap-1.5">
             <Server size={11} className="text-amber-400" /> Fly.io Machines
           </div>
@@ -146,7 +146,7 @@ export function InfraTelemetry({
 
       {/* Latency sparkline + endpoint status */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-        <div className="bg-gray-950 border border-gray-900 rounded-xl p-4">
+        <div className="ops-card rounded-xl p-4">
           <div className="text-xs font-mono text-gray-500 uppercase tracking-widest mb-3">
             Edge API Ingress — Live (ms)
           </div>
@@ -174,7 +174,7 @@ export function InfraTelemetry({
         </div>
 
         {/* Endpoint matrix */}
-        <div className="bg-gray-950 border border-gray-900 rounded-xl p-4">
+        <div className="ops-card rounded-xl p-4">
           <div className="text-xs font-mono text-gray-500 uppercase tracking-widest mb-3">
             Endpoint Matrix
           </div>
@@ -228,7 +228,7 @@ export function InfraTelemetry({
       </div>
 
       {/* Per-collection query distribution */}
-      <div className="bg-gray-950 border border-gray-900 rounded-xl p-4">
+      <div className="ops-card rounded-xl p-4">
         <div className="text-xs font-mono text-gray-500 uppercase tracking-widest mb-3 flex items-center gap-2">
           <Database size={11} className="text-cyan-400" />
           Query Distribution by Collection
@@ -262,7 +262,7 @@ export function InfraTelemetry({
       </div>
 
       {moat && (
-        <div className="bg-gray-950 border border-gray-900 rounded-xl p-4">
+        <div className="ops-card rounded-xl p-4">
           <div className="text-xs font-mono text-gray-500 uppercase tracking-widest mb-3 flex items-center gap-2">
             <Database size={11} className="text-purple-400" />
             Qdrant Cluster · Live Scan
@@ -282,7 +282,7 @@ export function InfraTelemetry({
                 color: "#f59e0b",
               },
             ].map((s) => (
-              <div key={s.label} className="bg-gray-900/50 border border-gray-800 p-4 rounded-lg">
+              <div key={s.label} className="ops-card-muted p-4 rounded-lg">
                 <div className="text-[10px] text-gray-500 uppercase mb-1">{s.label}</div>
                 <div className="text-2xl font-black font-[var(--font-grotesk)]" style={{ color: s.color }}>
                   {s.val}

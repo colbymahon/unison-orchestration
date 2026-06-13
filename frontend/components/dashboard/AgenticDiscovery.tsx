@@ -153,7 +153,7 @@ export function AgenticDiscovery({ telemetry, trappedGaps, promotion }: Props) {
       </div>
 
       <div className="grid grid-cols-2 lg:grid-cols-3 gap-4">
-        <div className="bg-gray-950 border border-gray-900 rounded-xl p-5" style={{ borderLeftColor: CYAN, borderLeftWidth: 3 }}>
+        <div className="ops-card rounded-xl p-5" style={{ borderLeftColor: CYAN, borderLeftWidth: 3 }}>
           <div className="text-xs font-mono text-gray-500 uppercase tracking-widest mb-2 flex items-center gap-1.5">
             <Globe size={11} className="text-cyan-400" />
             Manifest Crawl Hits
@@ -166,7 +166,7 @@ export function AgenticDiscovery({ telemetry, trappedGaps, promotion }: Props) {
           </div>
         </div>
 
-        <div className="bg-gray-950 border border-gray-900 rounded-xl p-5" style={{ borderLeftColor: PURPLE, borderLeftWidth: 3 }}>
+        <div className="ops-card rounded-xl p-5" style={{ borderLeftColor: PURPLE, borderLeftWidth: 3 }}>
           <div className="text-xs font-mono text-gray-500 uppercase tracking-widest mb-2 flex items-center gap-1.5">
             <Radio size={11} className="text-purple-400" />
             Crawl Rate
@@ -177,7 +177,7 @@ export function AgenticDiscovery({ telemetry, trappedGaps, promotion }: Props) {
           <div className="text-xs font-mono text-gray-600 mt-1">hits / hour</div>
         </div>
 
-        <div className="bg-gray-950 border border-gray-900 rounded-xl p-5" style={{ borderLeftColor: "#ef4444", borderLeftWidth: 3 }}>
+        <div className="ops-card rounded-xl p-5" style={{ borderLeftColor: "#ef4444", borderLeftWidth: 3 }}>
           <div className="text-xs font-mono text-gray-500 uppercase tracking-widest mb-2 flex items-center gap-1.5">
             <SearchX size={11} className="text-red-400" />
             KV Trapped Gaps
@@ -191,7 +191,7 @@ export function AgenticDiscovery({ telemetry, trappedGaps, promotion }: Props) {
         </div>
       </div>
 
-      <div className="bg-gray-950 border border-gray-900 rounded-xl p-5">
+      <div className="ops-card rounded-xl p-5">
         <div className="text-xs font-mono text-gray-500 uppercase tracking-widest mb-4 flex items-center gap-2">
           <Globe size={11} className="text-cyan-400" />
           Registry Submission Status
@@ -235,7 +235,7 @@ export function AgenticDiscovery({ telemetry, trappedGaps, promotion }: Props) {
         </div>
       </div>
 
-      <div className="bg-gray-950 border border-gray-900 rounded-xl p-5">
+      <div className="ops-card rounded-xl p-5">
         <div className="text-xs font-mono text-gray-500 uppercase tracking-widest mb-4 flex items-center gap-2">
           <SearchX size={11} className="text-red-400" />
           Ingestion Gap Signals — Live KV
@@ -273,7 +273,7 @@ export function AgenticDiscovery({ telemetry, trappedGaps, promotion }: Props) {
         )}
       </div>
 
-      <div className="bg-gray-950 border border-gray-900 rounded-xl p-5">
+      <div className="ops-card rounded-xl p-5">
         <div className="text-xs font-mono text-gray-500 uppercase tracking-widest mb-4">
           Query Distribution — Live Fly Telemetry
         </div>

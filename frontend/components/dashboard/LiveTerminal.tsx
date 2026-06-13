@@ -69,7 +69,7 @@ export function LiveTerminal() {
         </div>
       </div>
 
-      <div className="bg-gray-950 border border-gray-900 p-4 rounded-xl">
+      <div className="ops-card p-4 rounded-xl">
         <div className="text-[10px] font-mono text-gray-500 uppercase tracking-widest mb-3">
           BIP-44 Child Wallets — Base Mainnet
         </div>
@@ -138,7 +138,7 @@ export function LiveTerminal() {
           { label: "Std Price", val: "$0.005" },
           { label: "Premium", val: "$0.050" },
         ].map((r) => (
-          <div key={r.label} className="bg-gray-950 border border-gray-900 rounded-lg p-3">
+          <div key={r.label} className="ops-card rounded-lg p-3">
             <div className="text-[10px] text-gray-600 uppercase">{r.label}</div>
             <div className="text-sm font-bold text-white mt-1">{r.val}</div>
           </div>

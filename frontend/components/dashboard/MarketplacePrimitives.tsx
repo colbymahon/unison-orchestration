@@ -49,7 +49,7 @@ export function MarketplacePrimitives({ zkpIntegrity }: Props) {
   const live = zkpIntegrity?.edge_attestation_live;
 
   return (
-    <div className="bg-gray-950 border border-gray-900 rounded-xl p-5 font-mono">
+    <div className="ops-card rounded-xl p-5 font-mono">
       <div className="text-[10px] text-gray-600 uppercase tracking-widest mb-4">
         Marketplace Primitives (Edge)
       </div>

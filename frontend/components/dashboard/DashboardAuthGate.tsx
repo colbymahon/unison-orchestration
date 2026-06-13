@@ -168,9 +168,9 @@ export default function DashboardAuthGate({ children }: { children: ReactNode })
 
   if (session.loading) {
     return (
-      <div className="min-h-screen bg-[#03050A] flex items-center justify-center">
-        <p className="font-mono text-xs text-cyan-400/70 tracking-[0.3em] uppercase animate-pulse">
-          Synchronizing secure enclave handshake…
+      <div className="ops-auth-shell">
+        <p className="font-data text-xs text-cyan-400/70 tracking-[0.25em] uppercase animate-pulse">
+          Verifying secure session…
         </p>
       </div>
     );
@@ -178,9 +178,9 @@ export default function DashboardAuthGate({ children }: { children: ReactNode })
 
   if (!session.authenticated) {
     return (
-      <div className="min-h-screen bg-[#03050A] text-white flex flex-col items-center justify-center px-6 relative overflow-hidden">
+      <div className="ops-auth-shell">
         <div
-          className="absolute inset-0 opacity-[0.07]"
+          className="absolute inset-0 opacity-[0.06]"
           style={{
             backgroundImage:
               "linear-gradient(#00E5FF 1px, transparent 1px), linear-gradient(90deg, #00E5FF 1px, transparent 1px)",
@@ -188,25 +188,23 @@ export default function DashboardAuthGate({ children }: { children: ReactNode })
           }}
           aria-hidden
         />
-        <div className="relative z-10 max-w-lg w-full text-center space-y-8">
-          <div className="inline-flex items-center justify-center w-16 h-16 rounded-2xl border border-cyan-400/30 bg-cyan-400/5 shadow-[0_0_48px_rgba(0,229,255,0.15)]">
+        <div className="ops-auth-card space-y-8">
+          <div className="inline-flex items-center justify-center w-16 h-16 rounded-2xl border border-cyan-400/30 bg-cyan-400/5 shadow-[0_0_48px_rgba(0,229,255,0.15)] mx-auto">
             <Shield className="w-8 h-8 text-cyan-400" aria-hidden />
           </div>
           <div className="space-y-3">
-            <p className="font-mono text-[10px] text-cyan-400/60 uppercase tracking-[0.35em]">
-              Unison Operations Intercept
-            </p>
-            <h1 className="font-[var(--font-grotesk)] text-2xl sm:text-3xl font-bold tracking-tight text-white/95">
-              Hardware Biometric Verification Required
+            <p className="ops-eyebrow">Admin access</p>
+            <h1 className="font-[var(--font-grotesk)] text-2xl sm:text-3xl font-bold tracking-tight text-white">
+              Biometric verification required
             </h1>
-            <p className="font-mono text-xs text-white/45 leading-relaxed">
-              WebAuthn / FIDO2 platform authenticator (Touch ID, Face ID, or Windows Hello).
-              No password dialogs. Session sealed via httpOnly cryptographic cookie.
+            <p className="font-[var(--font-inter)] text-sm text-white/50 leading-relaxed">
+              Use Touch ID, Face ID, or Windows Hello. Sessions are sealed with an httpOnly
+              cryptographic cookie—no password prompts.
             </p>
           </div>
 
           {session.error && (
-            <p className="font-mono text-xs text-red-400/90 border border-red-400/20 bg-red-400/5 rounded-lg px-4 py-3">
+            <p className="font-data text-xs text-red-400/90 border border-red-400/20 bg-red-400/5 rounded-lg px-4 py-3">
               {session.error}
             </p>
           )}
@@ -217,33 +215,33 @@ export default function DashboardAuthGate({ children }: { children: ReactNode })
                 type="button"
                 disabled={busy}
                 onClick={() => void runRegister()}
-                className="inline-flex items-center gap-2.5 px-8 py-4 rounded-xl font-mono text-xs font-bold uppercase tracking-widest text-[#03050A] bg-cyan-400 hover:bg-cyan-300 disabled:opacity-50 transition-all shadow-[0_0_40px_rgba(0,229,255,0.35)]"
+                className="inline-flex items-center gap-2.5 px-8 py-4 rounded-xl font-data text-xs font-bold uppercase tracking-widest text-[#03050A] bg-cyan-400 hover:bg-cyan-300 disabled:opacity-50 transition-all shadow-[0_0_40px_rgba(0,229,255,0.35)]"
               >
                 {busy ? (
                   <Loader2 className="w-4 h-4 animate-spin" aria-hidden />
                 ) : (
                   <Fingerprint className="w-4 h-4" aria-hidden />
                 )}
-                Register Touch ID
+                Register passkey
               </button>
             ) : (
               <button
                 type="button"
                 disabled={busy}
                 onClick={() => void runAuthenticate()}
-                className="inline-flex items-center gap-2.5 px-8 py-4 rounded-xl font-mono text-xs font-bold uppercase tracking-widest text-[#03050A] bg-cyan-400 hover:bg-cyan-300 disabled:opacity-50 transition-all shadow-[0_0_40px_rgba(0,229,255,0.35)]"
+                className="inline-flex items-center gap-2.5 px-8 py-4 rounded-xl font-data text-xs font-bold uppercase tracking-widest text-[#03050A] bg-cyan-400 hover:bg-cyan-300 disabled:opacity-50 transition-all shadow-[0_0_40px_rgba(0,229,255,0.35)]"
               >
                 {busy ? (
                   <Loader2 className="w-4 h-4 animate-spin" aria-hidden />
                 ) : (
                   <Fingerprint className="w-4 h-4" aria-hidden />
                 )}
-                Authenticate with Biometrics
+                Authenticate
               </button>
             )}
           </div>
 
-          <p className="font-mono text-[10px] text-white/25">
+          <p className="font-data text-[10px] text-white/25">
             First deploy: register once, then set WEBAUTHN_CREDENTIALS_JSON on Vercel.
           </p>
         </div>

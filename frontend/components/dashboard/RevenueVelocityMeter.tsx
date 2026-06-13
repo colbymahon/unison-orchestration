@@ -160,7 +160,7 @@ export function RevenueVelocityMeter({
   }
 
   return (
-    <div className="bg-gray-950 border border-gray-900 p-6 rounded-xl relative overflow-hidden min-h-[140px]">
+    <div className="ops-card p-6 rounded-xl relative overflow-hidden min-h-[140px]">
       <span className="font-brand text-xs tracking-widest text-slate-400 uppercase block">
         Revenue Velocity
       </span>

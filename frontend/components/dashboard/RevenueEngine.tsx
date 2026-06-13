@@ -38,7 +38,7 @@ function StatBox({
 }) {
   return (
     <div
-      className="bg-gray-950 border border-gray-900 rounded-xl p-5 flex flex-col gap-2 relative overflow-hidden"
+      className="ops-card rounded-xl p-5 flex flex-col gap-2 relative overflow-hidden"
       style={{ borderLeftColor: accent, borderLeftWidth: 3 }}
     >
       <div className="flex items-center gap-2 text-xs font-mono text-gray-500 uppercase tracking-widest">
@@ -149,7 +149,7 @@ export function RevenueEngine({
       {/* Charts row */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
         {/* Revenue accumulation */}
-        <div className="bg-gray-950 border border-gray-900 rounded-xl p-4">
+        <div className="ops-card rounded-xl p-4">
           <div className="text-xs font-mono text-gray-500 uppercase tracking-widest mb-3">
             USDC Revenue Accumulation
           </div>
@@ -174,7 +174,7 @@ export function RevenueEngine({
         </div>
 
         {/* 402 rejection volume */}
-        <div className="bg-gray-950 border border-gray-900 rounded-xl p-4">
+        <div className="ops-card rounded-xl p-4">
           <div className="text-xs font-mono text-gray-500 uppercase tracking-widest mb-3">
             402 Rejection Volume (Blocked Agents)
           </div>
@@ -200,7 +200,7 @@ export function RevenueEngine({
       </div>
 
       {/* Agent LTV table */}
-      <div className="bg-gray-950 border border-gray-900 rounded-xl p-4">
+      <div className="ops-card rounded-xl p-4">
         <div className="flex items-center justify-between mb-3">
           <div className="text-xs font-mono text-gray-500 uppercase tracking-widest flex items-center gap-2">
             <Wallet size={12} className="text-purple-400" />

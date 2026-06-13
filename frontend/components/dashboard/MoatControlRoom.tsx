@@ -132,7 +132,7 @@ export function MoatControlRoom() {
       )}
 
       {chartData.length > 0 && (
-        <div className="bg-gray-950 border border-gray-900 rounded-xl p-4">
+        <div className="ops-card rounded-xl p-4">
           <div className="text-xs font-mono text-gray-500 uppercase tracking-widest mb-3">
             Vector Density — Top 16 Collections
           </div>
@@ -166,7 +166,7 @@ export function MoatControlRoom() {
         </div>
       )}
 
-      <div className="bg-gray-950 border border-gray-900 rounded-xl overflow-hidden">
+      <div className="ops-card rounded-xl overflow-hidden">
         <div className="px-4 py-2.5 border-b border-gray-900 flex items-center gap-2">
           <Database size={12} className="text-cyan-400" />
           <span className="text-xs font-mono text-gray-500 uppercase tracking-widest">

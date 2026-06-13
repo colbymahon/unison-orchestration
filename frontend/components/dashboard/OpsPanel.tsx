@@ -168,7 +168,7 @@ export function OpsPanel({ telemetry, latencyHistory, moat }: Props) {
         </div>
       </section>
 
-      <div className="bg-gray-950 border border-gray-900 rounded-xl p-4 transform-gpu will-change-transform">
+      <div className="ops-card rounded-xl p-4 transform-gpu will-change-transform">
         <div className="text-xs font-mono text-gray-500 uppercase tracking-widest mb-3">
           Edge API Ingress Waveform (admin_poll_ms)
         </div>

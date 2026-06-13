@@ -40,7 +40,7 @@ function LedgerPanelInner({
   return (
     <div className="space-y-6">
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 font-mono">
-        <div className="bg-gray-950 border border-gray-900 rounded-xl p-4 border-l-2 border-l-[#B300FF]">
+        <div className="ops-card rounded-xl p-4 border-l-2 border-l-[#B300FF]">
           <div className="text-[10px] text-gray-600 uppercase tracking-widest flex items-center gap-1">
             <Coins size={11} className="text-purple-400" /> Settled (Fly)
           </div>
@@ -48,7 +48,7 @@ function LedgerPanelInner({
             {formatLiveRevenueUsd(ledger?.settled_usdc_payments ?? 0)}
           </div>
         </div>
-        <div className="bg-gray-950 border border-gray-900 rounded-xl p-4 border-l-2 border-l-rose-500">
+        <div className="ops-card rounded-xl p-4 border-l-2 border-l-rose-500">
           <div className="text-[10px] text-gray-600 uppercase tracking-widest flex items-center gap-1">
             <ShieldX size={11} className="text-rose-400" /> KV Leakage
           </div>
@@ -56,7 +56,7 @@ function LedgerPanelInner({
             {formatUsdcTotal(ledger?.estimated_leakage_usd ?? velocity.totalAccumulatedLeakage)}
           </div>
         </div>
-        <div className="bg-gray-950 border border-gray-900 rounded-xl p-4 border-l-2 border-l-cyan-500">
+        <div className="ops-card rounded-xl p-4 border-l-2 border-l-cyan-500">
           <div className="text-[10px] text-gray-600 uppercase tracking-widest flex items-center gap-1">
             <TrendingUp size={11} className="text-cyan-400" /> Revenue Velocity
           </div>
@@ -67,7 +67,7 @@ function LedgerPanelInner({
             Leakage {formatUsdcPerHour(velocity.leakageRatePerHour)}
           </div>
         </div>
-        <div className="bg-gray-950 border border-gray-900 rounded-xl p-4 border-l-2 border-l-emerald-500">
+        <div className="ops-card rounded-xl p-4 border-l-2 border-l-emerald-500">
           <div className="text-[10px] text-gray-600 uppercase tracking-widest flex items-center gap-1">
             <Wallet size={11} className="text-emerald-400" /> Trapped Gaps
           </div>

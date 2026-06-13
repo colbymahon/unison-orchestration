@@ -253,7 +253,7 @@ function AgentRegistryViewInner({ loading: externalLoading }: Props) {
           ].map((s) => (
             <div
               key={s.label}
-              className="bg-gray-900/50 border border-gray-800 rounded-lg p-3"
+              className="ops-card-muted rounded-lg p-3"
             >
               <div className="text-[9px] text-gray-600 uppercase tracking-wider mb-1">
                 {s.label}

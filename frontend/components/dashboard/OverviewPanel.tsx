@@ -47,33 +47,33 @@ export function OverviewPanel(props: Props) {
 
   return (
     <div className="space-y-4">
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-3 font-mono text-[10px] uppercase tracking-widest">
-        <div className="rounded-lg border border-[#00E5FF]/25 bg-[#050914]/80 px-3 py-2">
-          <span className="text-gray-500">Referral USDC</span>
-          <div className="text-lg font-black text-[#00E5FF] tabular-nums mt-0.5">
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-3 font-data text-[10px] uppercase tracking-widest">
+        <div className="ops-stat-chip ops-stat-chip--cyan">
+          <span className="text-white/40">Referral USDC</span>
+          <div className="text-lg font-bold text-[#00E5FF] tabular-nums mt-0.5">
             ${(affiliate?.aggregate_referral_usdc ?? 0).toFixed(6)}
           </div>
         </div>
-        <div className="rounded-lg border border-white/10 bg-black/40 px-3 py-2">
-          <span className="text-gray-500">Routing Events</span>
-          <div className="text-lg font-black text-cyan-300/90 tabular-nums mt-0.5">
+        <div className="ops-stat-chip">
+          <span className="text-white/40">Routing events</span>
+          <div className="text-lg font-bold text-cyan-300/90 tabular-nums mt-0.5">
             {affiliate?.total_routing_events ?? 0}
           </div>
         </div>
-        <div className="rounded-lg border border-white/10 bg-black/40 px-3 py-2">
-          <span className="text-gray-500">Fly Regions</span>
+        <div className="ops-stat-chip">
+          <span className="text-white/40">Fly regions</span>
           <div className="text-sm font-bold text-emerald-400/90 mt-1 truncate">
             {(props.activeFlyRegions ?? ["iad"]).join(" · ")}
           </div>
         </div>
-        <div className="rounded-lg border border-rose-500/30 bg-black/40 px-3 py-2">
-          <span className="text-gray-500">Churn Rate</span>
-          <div className="text-lg font-black text-rose-400/90 tabular-nums mt-0.5">
+        <div className="ops-stat-chip ops-stat-chip--rose">
+          <span className="text-white/40">Churn rate</span>
+          <div className="text-lg font-bold text-rose-400/90 tabular-nums mt-0.5">
             {churnRateDisplay}
           </div>
           {systemRetriesCount > 0 && (
-            <div className="text-[9px] text-gray-600 mt-0.5 normal-case tracking-normal">
-              System Retries: {systemRetriesCount}
+            <div className="text-[9px] text-white/35 mt-0.5 normal-case tracking-normal">
+              System retries: {systemRetriesCount}
             </div>
           )}
         </div>

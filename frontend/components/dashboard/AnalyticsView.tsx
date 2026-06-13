@@ -242,7 +242,7 @@ export function AnalyticsView({
       </p>
 
       {/* Storefront */}
-      <section className="bg-gray-950 border border-gray-900 rounded-xl p-6">
+      <section className="ops-card rounded-xl p-6">
         <SectionHeader
           icon={Database}
           title="Storefront · Data Moat"
@@ -255,7 +255,7 @@ export function AnalyticsView({
             { label: "Indexed Total", val: (a?.storefront.indexed_total ?? 0).toLocaleString(), color: EMERALD },
             { label: "Avg / Collection", val: (a?.storefront.vectors_per_collection_avg ?? 0).toLocaleString(), color: "#94a3b8" },
           ].map((s) => (
-            <div key={s.label} className="bg-gray-900/50 border border-gray-800 rounded-lg p-4 text-center">
+            <div key={s.label} className="ops-card-muted rounded-lg p-4 text-center">
               <div className="text-[10px] text-gray-500 font-mono uppercase mb-1">{s.label}</div>
               <div className="text-xl font-black font-[var(--font-grotesk)]" style={{ color: s.color }}>
                 {s.val}
@@ -289,7 +289,7 @@ export function AnalyticsView({
       </section>
 
       {/* A2A */}
-      <section className="bg-gray-950 border border-gray-900 rounded-xl p-6">
+      <section className="ops-card rounded-xl p-6">
         <SectionHeader
           icon={Bot}
           title="A2A · Agent-to-Agent Mesh"
@@ -303,7 +303,7 @@ export function AnalyticsView({
             { label: "Zero Results", val: (a?.a2a.zero_result_queries ?? 0).toLocaleString(), icon: Activity },
             { label: "Sessions", val: String(a?.a2a.active_sessions ?? 0), icon: Radio },
           ].map((s) => (
-            <div key={s.label} className="bg-gray-900/50 border border-gray-800 rounded-lg p-3">
+            <div key={s.label} className="ops-card-muted rounded-lg p-3">
               <s.icon className="w-3.5 h-3.5 text-gray-600 mx-auto mb-1" />
               <div className="text-[9px] text-gray-500 uppercase">{s.label}</div>
               <div className="text-lg font-black text-white mt-0.5">{s.val}</div>
@@ -361,7 +361,7 @@ export function AnalyticsView({
       </section>
 
       {/* Revenue + time series */}
-      <section className="bg-gray-950 border border-gray-900 rounded-xl p-6">
+      <section className="ops-card rounded-xl p-6">
         <SectionHeader
           icon={TrendingUp}
           title="Revenue · Tokenomics"
@@ -374,7 +374,7 @@ export function AnalyticsView({
             { label: "Compute Saved", val: `$${(a?.revenue.compute_saved_usd ?? 0).toFixed(4)}`, color: EMERALD },
             { label: "Avg / Query", val: `$${(a?.revenue.avg_revenue_per_query ?? 0).toFixed(4)}`, color: PURPLE },
           ].map((s) => (
-            <div key={s.label} className="bg-gray-900/50 border border-gray-800 rounded-lg p-4">
+            <div key={s.label} className="ops-card-muted rounded-lg p-4">
               <div className="text-[10px] text-gray-500 font-mono uppercase">{s.label}</div>
               <div className="text-lg font-black mt-1" style={{ color: s.color }}>{s.val}</div>
             </div>
@@ -415,7 +415,7 @@ export function AnalyticsView({
       </section>
 
       {/* Latency */}
-      <section className="bg-gray-950 border border-gray-900 rounded-xl p-6">
+      <section className="ops-card rounded-xl p-6">
         <SectionHeader
           icon={Layers}
           title="Latency · Infrastructure"
@@ -464,7 +464,7 @@ export function AnalyticsView({
       </section>
 
       {/* Growth signals */}
-      <section className="bg-gray-950 border border-gray-900 rounded-xl p-6">
+      <section className="ops-card rounded-xl p-6">
         <SectionHeader
           icon={BarChart3}
           title="Growth · Demand Signals"
