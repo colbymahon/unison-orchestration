@@ -164,13 +164,13 @@ export function PayoutsView({ loading: externalLoading }: Props) {
     <div className="space-y-8">
       <div className="text-center max-w-3xl mx-auto">
         <p className="font-data text-[10px] text-purple-400 tracking-[0.25em] uppercase mb-3">
-          Base L2 · USDC · {treasury?.split_terms ?? "70:30"}
+          Base L2 · USDC · {treasury?.split_terms ?? "100:0"}
         </p>
         <h2 className="font-brand text-2xl sm:text-3xl font-bold text-white mb-2">
           Treasury &amp; Payouts
         </h2>
         <p className="font-[var(--font-inter)] text-sm text-white/45 leading-relaxed">
-          Native x402 settlement streams — 30% platform vault, 70% creator wallets.
+          Native x402 settlement streams — 100% platform treasury.
           No counterparty custody; funds settle directly on-chain.
         </p>
         <div className="flex flex-wrap items-center justify-center gap-3 mt-4 font-data text-[10px] text-white/30">
@@ -240,7 +240,7 @@ export function PayoutsView({ loading: externalLoading }: Props) {
               onChange={(e) => setOverridePlatform(e.target.checked)}
               className="w-4 h-4 accent-cyan-400"
             />
-            <span className="font-data text-xs text-white/60">Override platform treasury (30%)</span>
+            <span className="font-data text-xs text-white/60">Override platform treasury (100%)</span>
           </label>
           <label className="inline-flex items-center gap-3 cursor-pointer">
             <input
@@ -249,7 +249,7 @@ export function PayoutsView({ loading: externalLoading }: Props) {
               onChange={(e) => setOverrideCreator(e.target.checked)}
               className="w-4 h-4 accent-purple-400"
             />
-            <span className="font-data text-xs text-white/60">Override creator allocations (70%)</span>
+            <span className="font-data text-xs text-white/60">Override creator allocations (0%)</span>
           </label>
         </div>
 
@@ -327,7 +327,7 @@ export function PayoutsView({ loading: externalLoading }: Props) {
             <TelemetryValue className="text-[#B300FF]">
               {isLoading ? "…" : `$${formatUsdc(treasury?.creator_disbursements_usdc)}`}
             </TelemetryValue>
-            <p className="font-data text-[10px] text-slate-500 mt-2">70% creator allocation</p>
+            <p className="font-data text-[10px] text-slate-500 mt-2">0% creator allocation</p>
             <p className="font-data text-xs text-amber-400/80 mt-3">
               Pending leakage: ${formatUsdc(treasury?.pending_local_allocation_usdc)} USDC
             </p>
@@ -350,13 +350,13 @@ export function PayoutsView({ loading: externalLoading }: Props) {
             </dd>
           </div>
           <div>
-            <dt className="text-white/35 uppercase mb-1">Platform (30%)</dt>
+            <dt className="text-white/35 uppercase mb-1">Platform (100%)</dt>
             <dd className="text-cyan-400 text-lg font-bold">
               ${formatUsdc(treasury?.platform_revenue_usdc)}
             </dd>
           </div>
           <div>
-            <dt className="text-white/35 uppercase mb-1">Creators (70%)</dt>
+            <dt className="text-white/35 uppercase mb-1">Creators (0%)</dt>
             <dd className="text-purple-400 text-lg font-bold">
               ${formatUsdc(treasury?.creator_disbursements_usdc)}
             </dd>

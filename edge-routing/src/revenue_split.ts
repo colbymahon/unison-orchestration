@@ -1,14 +1,14 @@
 /**
- * Phase 2 Pillar 3 — Developer revenue split (70% creator / 30% platform).
+ * Phase 2 Pillar 3 — Platform revenue split (100% platform / 0% creator attribution).
  */
 
 export interface RevenueSplitEnv {
   PAYMENT_DEST: string;
 }
 
-export const REVENUE_SPLIT_TERMS = "70:30";
-export const CREATOR_SHARE_BPS = 7000;
-export const PLATFORM_SHARE_BPS = 3000;
+export const REVENUE_SPLIT_TERMS = "100:0";
+export const CREATOR_SHARE_BPS = 0;
+export const PLATFORM_SHARE_BPS = 10_000;
 
 export const CREATOR_ADDRESS_HEADER = "X-Unison-Creator-Address";
 export const REVENUE_SPLIT_HEADER = "X-Unison-Revenue-Split";
@@ -19,7 +19,7 @@ export const PLATFORM_TREASURY_DEFAULT =
 
 /**
  * Indexed vertical slots → creator destination wallets.
- * Third-party contributors receive 70% attribution on resolved queries.
+ * All revenue attribution routes to the platform treasury wallet.
  */
 const COLLECTION_CREATOR_MAP: Record<string, string> = {
   unison_medical_core: "0x568D9Da985F8253F59939D124B35E736B8e3B42d",

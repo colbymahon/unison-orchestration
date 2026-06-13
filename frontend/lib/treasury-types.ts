@@ -6,7 +6,7 @@ export interface TreasuryCollectionCreator {
 
 export interface TreasuryPayload {
   platform_treasury: string;
-  split_terms: "70:30";
+  split_terms: "100:0";
   chain_id: number;
   usdc_contract: string;
   settled_total_usdc: number;

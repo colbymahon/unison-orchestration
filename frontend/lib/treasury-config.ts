@@ -1,10 +1,10 @@
 /**
- * Treasury / 70:30 revenue split — mirrors edge-routing/src/revenue_split.ts
+ * Treasury / 100:0 revenue split — mirrors edge-routing/src/revenue_split.ts
  */
 
-export const REVENUE_SPLIT_TERMS = "70:30" as const;
-export const CREATOR_SHARE_BPS = 7000;
-export const PLATFORM_SHARE_BPS = 3000;
+export const REVENUE_SPLIT_TERMS = "100:0" as const;
+export const CREATOR_SHARE_BPS = 0;
+export const PLATFORM_SHARE_BPS = 10_000;
 
 export const PLATFORM_TREASURY_ADDRESS =
   process.env.PAYMENT_DEST?.trim() ||

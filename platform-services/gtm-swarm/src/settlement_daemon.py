@@ -79,13 +79,13 @@ TREASURY_CONFIG_FILE = _state_file("treasury_config.json")
 TREASURY_CONFIG_KV_KEY = "unison:treasury_config"
 TREASURY_FLY_WORKFLOW_ID = "_ops_treasury_master"
 
-CREATOR_SHARE_BPS = 7000
-PLATFORM_SHARE_BPS = 3000
-REVENUE_SPLIT_TERMS = "70:30"
+CREATOR_SHARE_BPS = 0
+PLATFORM_SHARE_BPS = 10_000
+REVENUE_SPLIT_TERMS = "100:0"
 
 _COLLECTION_SCAN = re.compile(rb"unison_[a-z_]+_core")
 
-# Mirrors edge-routing/src/revenue_split.ts — 70% creator / 30% platform.
+# Mirrors edge-routing/src/revenue_split.ts — 100% platform / 0% creator attribution.
 _COLLECTION_CREATOR_MAP: dict[str, str] = {
     "unison_medical_core": "0x568D9Da985F8253F59939D124B35E736B8e3B42d",
     "unison_engineering_core": "0x568D9Da985F8253F59939D124B35E736B8e3B42d",
@@ -281,11 +281,13 @@ def _log_revenue_split_allocation(
 ) -> None:
     creator_usdc, platform_usdc = _calculate_revenue_split(amount_usdc)
     logger.info(
-        "[SPLIT ENGAGED] Collection: %s -> Creator (70%%): %s (%.6f USDC) | "
-        "Platform (30%%): %s (%.6f USDC) | terms=%s tx=%s",
+        "[SPLIT ENGAGED] Collection: %s -> Creator (%d%%): %s (%.6f USDC) | "
+        "Platform (%d%%): %s (%.6f USDC) | terms=%s tx=%s",
         collection_id,
+        CREATOR_SHARE_BPS // 100,
         creator_address,
         creator_usdc,
+        PLATFORM_SHARE_BPS // 100,
         platform_address,
         platform_usdc,
         REVENUE_SPLIT_TERMS,
