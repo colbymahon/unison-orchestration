@@ -1,7 +1,7 @@
 "use client";
 
 import { useMemo } from "react";
-import type { LedgerTelemetryPayload } from "./types";
+import type { HistoryPoint, LedgerTelemetryPayload } from "./types";
 import { OverviewTelemetryGrid } from "./OverviewTelemetryGrid";
 import { normalizeAffiliateLedgerPayload } from "@/lib/dashboard-edge";
 import {
@@ -17,6 +17,7 @@ interface Props {
   ledger: LedgerTelemetryPayload | null;
   ledgerLoading: boolean;
   trappedGaps: LedgerTelemetryPayload["trapped_gaps"];
+  revenueHistory?: HistoryPoint[];
   edgeLatencyMs: number | null;
   endpointStatuses: Record<string, { status: string; latency: number | null }>;
   activeFlyRegions?: string[];

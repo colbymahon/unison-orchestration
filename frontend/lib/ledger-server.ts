@@ -216,7 +216,8 @@ export async function fetchLedgerTelemetry(): Promise<LedgerTelemetryResponse> {
   const blocked_402_rejections = global402Count;
   const consistentRevenue =
     computeSettledQueryCount(globalQueriesCount) * QUERY_PRICE_USDC;
-  const settled_usdc_payments = consistentRevenue;
+  const flyRevenue = fly?.estimated_revenue_usd ?? 0;
+  const settled_usdc_payments = Math.max(consistentRevenue, flyRevenue);
 
   const estimated_leakage_usd = trapped_gaps.reduce(
     (s, g) => s + (g.accumulated_lost_revenue ?? 0),

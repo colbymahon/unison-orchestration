@@ -1,7 +1,7 @@
 "use client";
 
 import { useMemo } from "react";
-import type { LedgerTelemetryPayload } from "./types";
+import type { HistoryPoint, LedgerTelemetryPayload } from "./types";
 import { TelemetryCard, TelemetryValue } from "./TelemetryCard";
 import { RevenueVelocityMeter } from "./RevenueVelocityMeter";
 import {
@@ -23,6 +23,7 @@ interface Props {
   ledger: LedgerTelemetryPayload | null;
   ledgerLoading: boolean;
   trappedGaps: LedgerTelemetryPayload["trapped_gaps"];
+  revenueHistory?: HistoryPoint[];
   edgeLatencyMs: number | null;
   endpointStatuses: Record<string, { status: string; latency: number | null }>;
 }
@@ -42,6 +43,7 @@ export function OverviewTelemetryGrid({
   ledger,
   ledgerLoading,
   trappedGaps,
+  revenueHistory = [],
   edgeLatencyMs,
   endpointStatuses,
 }: Props) {
@@ -109,7 +111,16 @@ export function OverviewTelemetryGrid({
       </TelemetryCard>
 
       <div className="flex flex-col h-full min-h-[220px]">
-        <RevenueVelocityMeter gaps={trappedGaps} loading={ledgerLoading} uniform />
+        <RevenueVelocityMeter
+          gaps={trappedGaps}
+          revenueHistory={revenueHistory}
+          settledUsdc={ledger?.settled_usdc_payments}
+          estimatedRevenueUsd={ledger?.fly_telemetry?.estimated_revenue_usd}
+          uptimeSeconds={ledger?.uptime_seconds}
+          edgeKvLive={ledger?.sources.edge_kv}
+          loading={ledgerLoading}
+          uniform
+        />
       </div>
 
       <TelemetryCard

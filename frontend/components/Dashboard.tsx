@@ -5,7 +5,7 @@ import {
   AlertTriangle, HardDrive, Radio,
   ServerCrash, SearchX, Globe, RefreshCw,
 } from "lucide-react";
-import type { LedgerTelemetryPayload } from "./dashboard/types";
+import type { LedgerTelemetryPayload, HistoryPoint } from "./dashboard/types";
 import { useStickyLedger } from "@/hooks/useStickyLedger";
 import { useLiveFetch } from "@/lib/use-live-fetch";
 import {
@@ -13,6 +13,7 @@ import {
   LEDGER_POLL_MS,
   MOAT_POLL_MS,
   INFRA_POLL_MS,
+  ANALYTICS_POLL_MS,
 } from "@/lib/dashboard-fetch";
 import { DataMoatPanel } from "./dashboard/DataMoatPanel";
 import { LedgerPanel } from "./dashboard/LedgerPanel";
@@ -24,7 +25,8 @@ import { AgenticDiscovery } from "./dashboard/AgenticDiscovery";
 import { LiveTerminal } from "./dashboard/LiveTerminal";
 import { AgentRegistryView } from "./dashboard/AgentRegistryView";
 import { PayoutsView } from "./dashboard/PayoutsView";
-import type { HistoryPoint } from "./dashboard/types";
+import { AnalyticsView } from "./dashboard/AnalyticsView";
+import type { AnalyticsPayload } from "@/lib/analytics-server";
 
 interface MoatCollectionRow {
   name: string;
@@ -77,6 +79,7 @@ const SYSTEM_CONFIG = {
 
 type TabId =
   | "overview"
+  | "analytics"
   | "ledger"
   | "treasury"
   | "registry"
@@ -87,6 +90,7 @@ type TabId =
 
 const TABS: Array<{ id: TabId; label: string }> = [
   { id: "overview", label: "Overview"           },
+  { id: "analytics", label: "Analytics"         },
   { id: "ledger",   label: "Ledger"             },
   { id: "treasury", label: "Treasury & Payouts" },
   { id: "registry", label: "Agent Registry"     },
@@ -124,6 +128,14 @@ export default function Dashboard() {
     pollIntervalMs: INFRA_POLL_MS,
   });
 
+  const { data: analytics, loading: analyticsLoading } = useLiveFetch<AnalyticsPayload>(
+    "/api/v1/analytics",
+    {
+      ...DASHBOARD_FETCH_BASE,
+      pollIntervalMs: ANALYTICS_POLL_MS,
+    }
+  );
+
   const { snapshot: ledgerSnapshot, bootstrapping: stickyBootstrapping } =
     useStickyLedger(ledger, ledgerLoading);
   const activeLedger = ledgerSnapshot ?? ledger;
@@ -137,6 +149,7 @@ export default function Dashboard() {
   const [latencyHistory,   setLatencyHistory]   = useState<HistoryPoint[]>([]);
   const [revenueHistory,   setRevenueHistory]   = useState<HistoryPoint[]>([]);
   const [rejectionHistory, setRejectionHistory] = useState<HistoryPoint[]>([]);
+  const [edgeLatencyHistory, setEdgeLatencyHistory] = useState<HistoryPoint[]>([]);
 
   const telemetry = activeLedger?.fly_telemetry ?? null;
 
@@ -151,6 +164,9 @@ export default function Dashboard() {
     }
     return map;
   }, [infraHealth]);
+
+  const edgeLatencyMs =
+    infraHealth?.edge_latency_ms ?? endpointStatuses.EDGE_GATEWAY?.latency ?? null;
 
   useEffect(() => {
     if (!activeLedger) return;
@@ -169,6 +185,15 @@ export default function Dashboard() {
       { t: tick, v: activeLedger.blocked_402_rejections },
     ]);
   }, [activeLedger]);
+
+  useEffect(() => {
+    if (edgeLatencyMs == null) return;
+    const tick = Date.now();
+    setEdgeLatencyHistory((h) => [
+      ...h.slice(-23),
+      { t: tick, v: edgeLatencyMs },
+    ]);
+  }, [edgeLatencyMs]);
 
   const moatTotalVectors = moat?.total_vectors ?? 0;
   const moatCollectionCount = moat?.collection_count ?? 0;
@@ -194,8 +219,6 @@ export default function Dashboard() {
   const moatVectors = moatTotalVectors;
   const liveCollections = moatCollectionCount;
   const trappedGaps = activeLedger?.trapped_gaps ?? [];
-  const edgeLatencyMs =
-    infraHealth?.edge_latency_ms ?? endpointStatuses.EDGE_GATEWAY?.latency ?? null;
 
   return (
     <div className="min-h-screen bg-[#030712] text-gray-100 flex flex-col font-sans selection:bg-emerald-500/20 selection:text-emerald-400">
@@ -301,6 +324,7 @@ export default function Dashboard() {
               ledger={activeLedger}
               ledgerLoading={ledgerLoading}
               trappedGaps={trappedGaps}
+              revenueHistory={revenueHistory}
               edgeLatencyMs={edgeLatencyMs}
               endpointStatuses={endpointStatuses}
               activeFlyRegions={infraHealth?.active_fly_regions ?? ["iad", "lhr", "nrt"]}
@@ -371,6 +395,18 @@ export default function Dashboard() {
               </div>
             </div>
           </div>
+        )}
+
+        {/* ── TAB: ANALYTICS ──────────────────────────────────────────── */}
+        {activeTab === "analytics" && (
+          <AnalyticsView
+            analytics={analytics ?? null}
+            revenueHistory={revenueHistory}
+            rejectionHistory={rejectionHistory}
+            latencyHistory={latencyHistory}
+            edgeLatencyHistory={edgeLatencyHistory}
+            loading={analyticsLoading && !analytics}
+          />
         )}
 
         {/* ── TAB 2: LEDGER ───────────────────────────────────────────── */}
