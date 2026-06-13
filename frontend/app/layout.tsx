@@ -218,7 +218,7 @@ export default async function RootLayout({
   const headerList = await headers();
   const path =
     headerList.get("x-unison-path") ?? headerList.get("x-invoke-path") ?? "";
-  const skipLiveJsonLd = path.startsWith("/dashboard");
+  const skipLiveJsonLd = path.startsWith("/admin");
 
   const moat = skipLiveJsonLd
     ? STATIC_MOAT_FOR_JSONLD

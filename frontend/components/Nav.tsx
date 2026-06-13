@@ -6,11 +6,13 @@ import { usePathname } from "next/navigation";
 import { motion, AnimatePresence } from "framer-motion";
 import { Menu, X, Zap } from "lucide-react";
 
+import { OPS_BASE } from "@/lib/ops-routes";
+
 const links = [
   { href: "/",          label: "The Apex"      },
   { href: "/corpora",   label: "The Corpora"   },
   { href: "/docs",      label: "MCP Gateway"   },
-  { href: "/dashboard", label: "Command Center" },
+  { href: OPS_BASE,     label: "Command Center" },
 ];
 
 export function Nav() {
@@ -59,7 +61,7 @@ export function Nav() {
               <li key={href}>
                 <Link
                   href={href}
-                  prefetch={href !== "/dashboard"}
+                  prefetch={href !== OPS_BASE}
                   className={`px-4 py-2 rounded-lg text-sm font-medium transition-all duration-200 ${
                     active
                       ? "text-cyan-400 bg-cyan-400/10 border border-cyan-400/20"
@@ -117,7 +119,7 @@ export function Nav() {
                   <li key={href}>
                     <Link
                       href={href}
-                      prefetch={href !== "/dashboard"}
+                      prefetch={href !== OPS_BASE}
                       onClick={() => setOpen(false)}
                       className={`block px-4 py-3 rounded-lg text-sm font-medium transition-all ${
                         active

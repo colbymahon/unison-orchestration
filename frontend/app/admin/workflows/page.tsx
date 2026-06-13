@@ -2,14 +2,15 @@ export const dynamic = "force-dynamic";
 export const revalidate = 0;
 
 import Link from "next/link";
-import { RevenueGapsQueue } from "@/components/dashboard/RevenueGapsQueue";
+import { OPS_BASE } from "@/lib/ops-routes";
+import { WorkflowCanvas } from "@/components/workflows/WorkflowCanvas";
 
 export const metadata = {
-  title: "Revenue Gaps — Unison Ops",
+  title: "Workflow Canvas — Unison Ops",
   robots: { index: false, follow: false },
 };
 
-export default function RevenueGapsPage() {
+export default function WorkflowsPage() {
   return (
     <div className="text-gray-200">
       <header className="border-b border-gray-900 bg-[#050914]/90 px-6 py-4 flex items-center justify-between">
@@ -18,23 +19,23 @@ export default function RevenueGapsPage() {
             className="text-sm font-bold text-white uppercase tracking-widest"
             style={{ fontFamily: "var(--font-grotesk)" }}
           >
-            Unison Ops · Revenue Gaps
+            Unison Ops · Visual Workflow Canvas
           </div>
           <div className="font-mono text-[10px] text-gray-600 mt-0.5">
-            Phase B0 human-review queue
+            Phase 2 Pillar 2 — graph DSL → task queue → swarm_commander
           </div>
         </div>
         <Link
-          href="/dashboard"
+          href={OPS_BASE}
           prefetch
           className="font-mono text-xs text-cyan-400 hover:text-cyan-300 border border-cyan-900/40 px-3 py-1.5 rounded-lg"
         >
-          ← Main dashboard
+          ← Command Center
         </Link>
       </header>
 
-      <main className="p-6 max-w-7xl mx-auto">
-        <RevenueGapsQueue />
+      <main className="p-4 sm:p-6 max-w-[1920px] mx-auto">
+        <WorkflowCanvas />
       </main>
     </div>
   );

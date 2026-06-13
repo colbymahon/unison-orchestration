@@ -6,6 +6,7 @@ import {
   ServerCrash, SearchX, Globe, RefreshCw,
 } from "lucide-react";
 import type { LedgerTelemetryPayload, HistoryPoint } from "./dashboard/types";
+import { OPS_BASE } from "@/lib/ops-routes";
 import { useStickyLedger } from "@/hooks/useStickyLedger";
 import { useLiveFetch } from "@/lib/use-live-fetch";
 import {
@@ -267,13 +268,13 @@ export default function Dashboard() {
 
         <div className="flex flex-wrap items-center gap-2">
           <a
-            href="/dashboard/workflows"
+            href={`${OPS_BASE}/workflows`}
             className="hidden sm:inline font-mono text-[10px] text-purple-400/80 hover:text-purple-300 border border-purple-900/30 px-2 py-1.5 rounded-lg"
           >
             Workflows →
           </a>
           <a
-            href="/dashboard/register-corpus"
+            href={`${OPS_BASE}/register-corpus`}
             className="hidden sm:inline font-mono text-[10px] text-emerald-400/80 hover:text-emerald-300 border border-emerald-900/30 px-2 py-1.5 rounded-lg"
           >
             Register Corpus →
@@ -500,7 +501,7 @@ export default function Dashboard() {
             />
 
             <a
-              href="/dashboard/revenue-gaps"
+              href={`${OPS_BASE}/revenue-gaps`}
               className="block bg-cyan-950/20 border border-cyan-900/40 rounded-xl p-4 hover:border-cyan-500/50 transition-colors"
             >
               <div className="font-mono text-xs text-cyan-400 font-bold uppercase tracking-wider">
@@ -512,7 +513,7 @@ export default function Dashboard() {
             </a>
 
             <a
-              href="/dashboard/register-corpus"
+              href={`${OPS_BASE}/register-corpus`}
               className="block bg-emerald-950/20 border border-emerald-900/40 rounded-xl p-4 hover:border-emerald-500/50 transition-colors"
             >
               <div className="font-mono text-xs text-emerald-400 font-bold uppercase tracking-wider">
@@ -574,7 +575,7 @@ export default function Dashboard() {
               <div className="mt-2 text-[10px] font-mono text-gray-700">
                 {zeroResultCount} trapped gap(s) · leakage $
                 {(activeLedger?.estimated_leakage_usd ?? 0).toFixed(3)} ·{" "}
-                <a href="/dashboard/revenue-gaps" className="text-cyan-600 hover:text-cyan-400">
+                <a href={`${OPS_BASE}/revenue-gaps`} className="text-cyan-600 hover:text-cyan-400">
                   full command surface →
                 </a>
               </div>

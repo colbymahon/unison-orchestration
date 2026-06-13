@@ -2,30 +2,31 @@ export const dynamic = "force-dynamic";
 export const revalidate = 0;
 
 import Link from "next/link";
-import { RegisterCorpusForm } from "@/components/dashboard/RegisterCorpusForm";
+import { OPS_BASE } from "@/lib/ops-routes";
+import { RevenueGapsQueue } from "@/components/dashboard/RevenueGapsQueue";
 
 export const metadata = {
-  title: "Register Corpus — Unison Ops",
+  title: "Revenue Gaps — Unison Ops",
   robots: { index: false, follow: false },
 };
 
-export default function RegisterCorpusPage() {
+export default function RevenueGapsPage() {
   return (
-    <div className="text-gray-200 min-h-[calc(100vh-4rem)]">
+    <div className="text-gray-200">
       <header className="border-b border-gray-900 bg-[#050914]/90 px-6 py-4 flex items-center justify-between">
         <div>
           <div
             className="text-sm font-bold text-white uppercase tracking-widest"
             style={{ fontFamily: "var(--font-grotesk)" }}
           >
-            Unison Ops · Register Corpus
+            Unison Ops · Revenue Gaps
           </div>
           <div className="font-mono text-[10px] text-gray-600 mt-0.5">
-            Track 2 Phase 2c · WebAuthn-gated creator onboarding
+            Phase B0 human-review queue
           </div>
         </div>
         <Link
-          href="/dashboard"
+          href={OPS_BASE}
           prefetch
           className="font-mono text-xs text-cyan-400 hover:text-cyan-300 border border-cyan-900/40 px-3 py-1.5 rounded-lg"
         >
@@ -33,8 +34,8 @@ export default function RegisterCorpusPage() {
         </Link>
       </header>
 
-      <main className="py-12 px-6">
-        <RegisterCorpusForm />
+      <main className="p-6 max-w-7xl mx-auto">
+        <RevenueGapsQueue />
       </main>
     </div>
   );

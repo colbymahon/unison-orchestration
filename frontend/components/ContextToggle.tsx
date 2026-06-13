@@ -2,8 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-
-const OPS_PREFIX = "/dashboard";
+import { OPS_BASE } from "@/lib/ops-routes";
 
 export function ContextToggle() {
   return <ContextToggleInner />;
@@ -11,7 +10,7 @@ export function ContextToggle() {
 
 function ContextToggleInner() {
   const pathname = usePathname() ?? "";
-  const onOps = pathname.startsWith(OPS_PREFIX);
+  const onOps = pathname.startsWith(OPS_BASE);
 
   return (
     <nav
@@ -26,10 +25,10 @@ function ContextToggleInner() {
         style={{ fontFamily: "var(--font-grotesk)" }}
       >
         <Link
-          href="/dashboard"
+          href={OPS_BASE}
           prefetch
           className={`px-4 py-2 rounded-md font-mono text-[11px] font-bold uppercase tracking-widest transition-all duration-200 ${
-            pathname === "/dashboard"
+            pathname === OPS_BASE
               ? "text-[#00E5FF] bg-cyan-400/10 shadow-[0_0_16px_rgba(0,229,255,0.35)] border border-cyan-400/25"
               : onOps
                 ? "text-cyan-400/70 border border-transparent"
@@ -39,10 +38,10 @@ function ContextToggleInner() {
           [ OPERATIONAL AXIS ]
         </Link>
         <Link
-          href="/dashboard/revenue-gaps"
+          href={`${OPS_BASE}/revenue-gaps`}
           prefetch
           className={`px-3 py-2 rounded-md font-mono text-[10px] font-bold uppercase tracking-widest transition-all duration-200 ${
-            pathname === "/dashboard/revenue-gaps"
+            pathname === `${OPS_BASE}/revenue-gaps`
               ? "text-amber-400 bg-amber-400/10 border border-amber-400/25"
               : "text-gray-600 hover:text-amber-400/70 border border-transparent"
           }`}

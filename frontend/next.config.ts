@@ -60,6 +60,21 @@ const nextConfig: NextConfig = {
   // Ensure Three.js / React Three Fiber transpiles correctly
   transpilePackages: ["three"],
 
+  async redirects() {
+    return [
+      {
+        source: "/dashboard",
+        destination: "/admin",
+        permanent: true,
+      },
+      {
+        source: "/dashboard/:path*",
+        destination: "/admin/:path*",
+        permanent: true,
+      },
+    ];
+  },
+
   async rewrites() {
     return {
       afterFiles: [

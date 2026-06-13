@@ -42,7 +42,7 @@ const PUBLIC_AUTH_PREFIXES = [
 ];
 
 const PRIVATE_PREFIXES = [
-  "/dashboard",
+  "/admin",
   "/api/qdrant-stats",
   "/api/v1/ledger-telemetry",
   "/api/v1/agent-registry",
@@ -56,7 +56,7 @@ const PRIVATE_PREFIXES = [
 ];
 
 /** Dashboard HTML is gated client-side; APIs return JSON 401 */
-const CLIENT_GATED_PREFIXES = ["/dashboard"];
+const CLIENT_GATED_PREFIXES = ["/admin"];
 
 function isPreviewOrLocalHost(host: string): boolean {
   const lower = host.toLowerCase();

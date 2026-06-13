@@ -23,8 +23,8 @@ export function PublicNav() {
     return () => window.removeEventListener("scroll", onScroll);
   }, []);
 
-  /* Hide nav on internal dashboard route */
-  if (pathname?.startsWith("/dashboard")) return null;
+  /* Hide nav on private ops console */
+  if (pathname?.startsWith("/admin")) return null;
 
   return (
     <header
@@ -109,19 +109,6 @@ export function PublicNav() {
           >
             MCP Library List ↗
           </a>
-          <Link
-            href="/dashboard"
-            prefetch={false}
-            className="
-              px-4 py-2 rounded-lg text-[12px] font-semibold
-              font-[var(--font-mono)] tracking-wider uppercase
-              text-white/30 border border-white/[0.08]
-              hover:text-white/60 hover:border-white/20
-              transition-all duration-200
-            "
-          >
-            Ops ↗
-          </Link>
         </div>
 
         {/* Mobile burger */}

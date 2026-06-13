@@ -4,7 +4,9 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import type { ReactNode } from "react";
 
-const OPS_PREFIX = "/dashboard";
+import { OPS_BASE } from "@/lib/ops-routes";
+
+const OPS_PREFIX = OPS_BASE;
 
 function ContextNav() {
   const pathname = usePathname() ?? "";
@@ -23,10 +25,10 @@ function ContextNav() {
         style={{ fontFamily: "var(--font-grotesk)" }}
       >
         <Link
-          href="/dashboard"
+          href={OPS_BASE}
           prefetch={false}
           className={`px-4 py-2 rounded-md font-mono text-[11px] font-bold uppercase tracking-widest transition-all duration-200 ${
-            pathname === "/dashboard"
+            pathname === OPS_BASE
               ? "text-[#00E5FF] bg-cyan-400/10 shadow-[0_0_16px_rgba(0,229,255,0.35)] border border-cyan-400/25"
               : onOps
                 ? "text-cyan-400/70 border border-transparent"
@@ -36,10 +38,10 @@ function ContextNav() {
           [ OPERATIONAL AXIS ]
         </Link>
         <Link
-          href="/dashboard/workflows"
+          href={`${OPS_BASE}/workflows`}
           prefetch={false}
           className={`px-3 py-2 rounded-md font-mono text-[10px] font-bold uppercase tracking-widest transition-all duration-200 ${
-            pathname === "/dashboard/workflows"
+            pathname === `${OPS_BASE}/workflows`
               ? "text-purple-400 bg-purple-400/10 border border-purple-400/25"
               : "text-gray-600 hover:text-purple-400/70 border border-transparent"
           }`}
@@ -47,10 +49,10 @@ function ContextNav() {
           FLOWS
         </Link>
         <Link
-          href="/dashboard/revenue-gaps"
+          href={`${OPS_BASE}/revenue-gaps`}
           prefetch={false}
           className={`px-3 py-2 rounded-md font-mono text-[10px] font-bold uppercase tracking-widest transition-all duration-200 ${
-            pathname === "/dashboard/revenue-gaps"
+            pathname === `${OPS_BASE}/revenue-gaps`
               ? "text-amber-400 bg-amber-400/10 border border-amber-400/25"
               : "text-gray-600 hover:text-amber-400/70 border border-transparent"
           }`}
@@ -58,10 +60,10 @@ function ContextNav() {
           GAPS
         </Link>
         <Link
-          href="/dashboard/register-corpus"
+          href={`${OPS_BASE}/register-corpus`}
           prefetch={false}
           className={`px-3 py-2 rounded-md font-mono text-[10px] font-bold uppercase tracking-widest transition-all duration-200 ${
-            pathname === "/dashboard/register-corpus"
+            pathname === `${OPS_BASE}/register-corpus`
               ? "text-emerald-400 bg-emerald-400/10 border border-emerald-400/25"
               : "text-gray-600 hover:text-emerald-400/70 border border-transparent"
           }`}
