@@ -2,7 +2,7 @@
   "$schema": "http://json-schema.org/draft-07/schema#",
   "type": "object",
   "title": "Unison Orchestration Hub — zero-config session",
-  "description": "Maps Smithery installs to the canonical edge gateway and default agent identity.",
+  "description": "Maps Smithery installs to the canonical edge gateway and default agent identity. Python: pip install unison-langchain",
   "properties": {
     "serverUrl": {
       "type": "string",

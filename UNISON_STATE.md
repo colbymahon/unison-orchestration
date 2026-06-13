@@ -138,3 +138,16 @@ The database is dynamically routed via the `collection` parameter in the `mcp/v1
 1. ~~Confirm edge `PAYMENT_DEST` via Wrangler vars or a paid-tier 402 probe (`GET`, not `HEAD`)~~ **DONE 2026-06-02** — `destination=0x568D9Da985F8253F59939D124B35E736B8e3B42d` on live 402
 2. ~~Optional: set `CREATOR_SHARE_BPS = 0` for 100/0 split in attribution logs~~ **DONE 2026-06-02** — `100:0` across edge, settlement daemon, dashboard
 3. GTM benchmarks in `benchmarks/gtm-2026-06-*.md` — rolling vector counts
+
+## 10. Distribution Package (Week 1 — 2026-06-02)
+**Shipped:**
+- `unison-langchain` 0.2.1 — `UnisonLangChainBridge`, `UnisonLlamaIndexBridge`, frictionless README
+- Cursor MCP snippet: `examples/cursor-mcp-snippet.json` + `packages/unison-ts/examples/`
+- Smithery hub republished (`crmendeavors/unison-orchestration-hub` release `0e8a6193`)
+- Sales swarm pitches: `pip install unison-langchain` + `npx unison-orchestration@0.1.1 start`
+
+**Publish PyPI 0.2.1 (requires API token):**
+```bash
+cd packages/unison-langchain
+TWINE_USERNAME=__token__ TWINE_PASSWORD=<pypi-token> python3 -m twine upload dist/unison_langchain-0.2.1*
+```

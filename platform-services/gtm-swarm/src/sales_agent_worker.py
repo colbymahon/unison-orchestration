@@ -242,41 +242,45 @@ class SalesAgentWorker:
             "mcpServers": {
                 "unison-orchestration": {
                     "command": "npx",
-                    "args": [
-                        "-y",
-                        "@smithery/cli",
-                        "run",
-                        "crmendeavors/unison-orchestration-hub",
-                    ],
+                    "args": ["-y", "unison-orchestration@0.1.1", "start"],
                     "env": {
                         "UNISON_AGENT_ID": f"pitch-{target.name[:32]}",
+                        "UNISON_EDGE_SEARCH_URL": self.edge_search,
+                        "UNISON_MANIFEST_URL": self.edge_manifest,
                     },
                 }
             },
             "_comment": (
-                f"Tailored for {target.name}. MCP manifest: {self.edge_manifest}"
+                f"One-click Cursor/Claude MCP for {target.name}. "
+                f"Python alternative: pip install unison-langchain"
             ),
         }
 
     def generate_langchain_snippet(self, target: DiscoveryTarget) -> str:
         return (
             "# pip install unison-langchain\n"
-            "from unison_langchain import UnisonCorporaTool\n\n"
+            "from unison_langchain import UnisonLangChainBridge\n\n"
             f"# Grounding hook for {target.name}\n"
-            "tool = UnisonCorporaTool(\n"
+            "bridge = UnisonLangChainBridge(\n"
             "    collection='unison_engineering_core',\n"
             f"    agent_id='pitch-{target.name[:24]}',\n"
             ")\n"
+            "docs = bridge.as_retriever_invoke('thermodynamic tolerances structural fatigue')\n"
             f"# Free tier: {FREE_TIER_QUERIES} edge queries per agent_id\n"
+            f"# Full retriever: bridge.as_langchain_retriever()  # x402 auto-settlement\n"
             f"# Manifest: {self.edge_manifest}\n"
         )
 
     def generate_llamaindex_snippet(self, target: DiscoveryTarget) -> str:
         return (
-            "# pip install unison-langchain  # LlamaIndex wrapper compatible\n"
-            "from unison_langchain import UnisonCorporaTool\n\n"
-            f"# LlamaIndex FunctionTool bridge for {target.name}\n"
-            "unison_tool = UnisonCorporaTool(collection='unison_public_domain')\n"
-            f"# Register via FunctionTool.from_defaults(fn=unison_tool.run)\n"
+            "# pip install unison-langchain\n"
+            "from unison_langchain import UnisonLlamaIndexBridge\n\n"
+            f"# LlamaIndex bridge for {target.name}\n"
+            "bridge = UnisonLlamaIndexBridge(\n"
+            "    collection='unison_medical_core',\n"
+            f"    agent_id='pitch-{target.name[:24]}',\n"
+            ")\n"
+            "context = bridge.query('Osler 1892 typhoid cold bath protocol')\n"
+            f"# Query engine: bridge.as_query_engine()\n"
             f"# Edge search: {self.edge_search}\n"
         )

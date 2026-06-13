@@ -1,5 +1,15 @@
 # Changelog
 
+## [0.2.1] — 2026-06-02
+
+### Added
+- `UnisonLangChainBridge` and `UnisonLlamaIndexBridge` — one-line framework integration
+- `fetch_tsv_stream()` / `TsvStreamResult` for direct edge TSV access
+
+### Changed
+- README quick-start: `pip install unison-langchain` + `X-Agent-ID` in one block
+- Sales swarm pitches updated to ship bridge snippets + Cursor MCP JSON
+
 ## [0.2.0] — 2026-06-04
 
 ### Added

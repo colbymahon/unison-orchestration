@@ -20,6 +20,7 @@ function createClient(): UnisonMcpClient {
   return new UnisonMcpClient({
     agentId,
     sessionId: process.env.UNISON_SESSION_ID?.trim(),
+    edgeUrl: process.env.UNISON_EDGE_SEARCH_URL?.trim(),
     paymentSettler: paymentSettlerFromEnv(),
   });
 }

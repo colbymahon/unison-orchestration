@@ -11,11 +11,5 @@
         "UNISON_AGENT_PRIVATE_KEY": "<YOUR_AGENT_PRIVATE_KEY_FOR_X402>"
       }
     }
-  },
-  "_install_notes": {
-    "cursor": "Merge mcpServers into Cursor Settings → MCP, or ~/.cursor/mcp.json",
-    "python": "pip install unison-langchain",
-    "smithery": "npx @smithery/cli run crmendeavors/unison-orchestration-hub",
-    "free_tier": "50 queries per UNISON_AGENT_ID before x402 USDC ($0.005/query on Base L2)"
   }
 }

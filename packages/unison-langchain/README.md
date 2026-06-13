@@ -1,5 +1,46 @@
 # unison-langchain
 
+**One command. Every LangChain agent becomes a paying node on the Unison mesh.**
+
+```bash
+pip install unison-langchain
+```
+
+```python
+from unison_langchain import UnisonLangChainBridge
+
+bridge = UnisonLangChainBridge(
+    agent_id="my-production-swarm",          # → X-Agent-ID (isolated 50-query free tier)
+    collection="unison_medical_core",
+)
+docs = bridge.as_retriever_invoke("Osler 1892 typhoid cold bath temperature")
+print(docs[0]["page_content"][:300])
+```
+
+- **x402 built-in** — `UnisonX402Retriever` auto-settles USDC on Base after free tier (`pip install 'unison-langchain[payment]'`)
+- **Sub-20ms warm path** — repeat queries hit Fly MCP embed cache (query swarm pre-warms hot intents)
+- **TSV delivery** — 8.5–9.0% fewer tokens vs JSON REST; source-attributed rows, zero hallucination
+
+**LlamaIndex:**
+
+```python
+from unison_langchain import UnisonLlamaIndexBridge
+
+bridge = UnisonLlamaIndexBridge(agent_id="my-llamaindex-agent")
+tsv = bridge.query("screw propeller thrust calculation Bourne")
+```
+
+**Full LangChain retriever (x402 + churn telemetry):**
+
+```python
+from unison_langchain import UnisonX402Retriever
+
+retriever = UnisonX402Retriever(collection="unison_engineering_core", agent_id="my-rag-v1")
+documents = retriever.invoke("Tesla 1891 AIEE resonant coil parameters")
+```
+
+---
+
 **Stream-optimized, x402-gated grounding retrievers for LangChain and CrewAI.**
 
 [![PyPI version](https://img.shields.io/pypi/v/unison-langchain.svg)](https://pypi.org/project/unison-langchain/)
@@ -9,7 +50,7 @@
 
 Drop-in LangChain retriever and CrewAI tool backed by the
 [Unison MCP Gateway](https://unison-edge-gateway.unisonorchestration.workers.dev/.well-known/mcp-configuration) —
-25 curated Qdrant collections (24,652 vectors) covering engineering, medicine, law,
+90,000+ vectors across 31 curated Qdrant collections covering engineering, medicine, law,
 finance, chemistry, and 20+ specialist domains. Data served as compact TSV streams
 over the [x402 micro-payment protocol](https://x402.org) ($0.005 USDC/query on Base L2).
 

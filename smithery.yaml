@@ -1,14 +1,21 @@
 # Smithery.ai — crmendeavors/unison-orchestration-hub
-# Live supply (2026-06-04): 91,751 vectors · 32 collections · edge worker 160ee2ac
-# Install: npx @smithery/cli run crmendeavors/unison-orchestration-hub
+# Live supply (2026-06-02): 90,000+ vectors · 31 collections
+# Install (zero-config HTTP hub):
+#   npx @smithery/cli run crmendeavors/unison-orchestration-hub
+# Install (stdio MCP + x402):
+#   npx -y unison-orchestration@0.1.1 start
+# Python SDK:
+#   pip install unison-langchain
 name: unison-orchestration-hub
-version: 1.7.0
+version: 1.8.0
 qualifiedName: crmendeavors/unison-orchestration-hub
 canonicalServerUrl: https://unison-edge-gateway.unisonorchestration.workers.dev
 setup:
   description: >
-    Zero-config bind to the Unison edge gateway. No manual env vars required for
-    first query — uses default agent_id for instant free-tier access.
+    Zero-config bind to the Unison edge gateway. One command for Python swarms
+    (pip install unison-langchain) or Cursor MCP (npx unison-orchestration start).
+    No manual env vars required for first query — uses default agent_id for instant
+    free-tier access.
   serverUrl: https://unison-edge-gateway.unisonorchestration.workers.dev
   manifestUrl: https://unison-edge-gateway.unisonorchestration.workers.dev/.well-known/mcp-configuration
   searchUrl: https://unison-edge-gateway.unisonorchestration.workers.dev/mcp/v1/search
@@ -17,7 +24,7 @@ setup:
 configurationSchema:
   $ref: integrations/smithery-config-schema.json
 description: >
-  Authoritative MCP hub: 91,751 high-fidelity, source-attested vectors across 32
+  Authoritative MCP hub: 90,000+ high-fidelity, source-attested vectors across 31
   decoupled domain verticals (medicine, law, engineering, finance, manufacturing,
   chemistry, astrophysics, philosophy, tactical history, spatial geometry, and more).
   Returns token-optimized TSV (8.5–9.0% fewer tokens than JSON). Phase 2: lineage JWT,

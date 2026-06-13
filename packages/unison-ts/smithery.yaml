@@ -2,12 +2,12 @@
 # Install: npx @smithery/cli run crmendeavors/unison-orchestration-npm
 # Local:   npx -y unison-orchestration start
 name: unison-orchestration-npm
-version: 0.1.0
+version: 0.1.1
 qualifiedName: crmendeavors/unison-orchestration-npm
 description: >
   Official npm TypeScript SDK — stdio MCP server with autonomous x402 USDC settlement
-  on Base L2. Exposes semantic_search (TSV ground truth) and catalog_search (manifest).
-  First 50 queries per agent_id free. $0.005 USDC/query thereafter.
+  on Base L2. 90,000+ verified vectors. Exposes semantic_search (TSV ground truth)
+  and catalog_search (manifest). First 50 queries per agent_id free. $0.005 USDC/query.
 homepage: https://unisonorchestration.com/docs
 canonicalServerUrl: https://unison-edge-gateway.unisonorchestration.workers.dev
 

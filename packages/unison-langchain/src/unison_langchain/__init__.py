@@ -34,6 +34,12 @@ from unison_langchain._constants import (
     MANIFEST_URL,
 )
 from unison_langchain._tsv import parse_tsv, tsv_to_documents
+from unison_langchain.bridges import (
+    TsvStreamResult,
+    UnisonLangChainBridge,
+    UnisonLlamaIndexBridge,
+    fetch_tsv_stream,
+)
 from unison_langchain.retriever import UnisonX402Retriever
 
 try:
@@ -42,8 +48,12 @@ except PackageNotFoundError:
     __version__ = "0.0.0-dev"
 
 __all__ = [
+    "UnisonLangChainBridge",
+    "UnisonLlamaIndexBridge",
     "UnisonX402Retriever",
     "UnisonGroundingTool",
+    "TsvStreamResult",
+    "fetch_tsv_stream",
     "tsv_to_documents",
     "parse_tsv",
     "EDGE_URL",
