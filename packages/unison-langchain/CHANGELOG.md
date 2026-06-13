@@ -1,5 +1,15 @@
 # Changelog
 
+## [0.3.0] — 2026-06-13
+
+### Added
+- Autonomous agent provisioning — `provision.py` calls `POST /api/v1/agents/provision` and caches credentials at `~/.unison/agent_credentials.json`
+- `UnisonLangChainBridge` / `UnisonLlamaIndexBridge` auto-provision `X-Agent-ID` + `X-Agent-Attestation` when `agent_id` is omitted
+- `UnisonX402Retriever` auto-provisions sybil attestation token on init
+
+### Changed
+- Zero-friction install: `UnisonLangChainBridge()` with no `agent_id` provisions identity in milliseconds
+
 ## [0.2.1] — 2026-06-02
 
 ### Added

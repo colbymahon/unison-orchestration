@@ -9,10 +9,8 @@ pip install unison-langchain
 ```python
 from unison_langchain import UnisonLangChainBridge
 
-bridge = UnisonLangChainBridge(
-    agent_id="my-production-swarm",          # → X-Agent-ID (isolated 50-query free tier)
-    collection="unison_medical_core",
-)
+# No agent_id? Auto-provisions X-Agent-ID + attestation (50-query free tier).
+bridge = UnisonLangChainBridge(collection="unison_medical_core")
 docs = bridge.as_retriever_invoke("Osler 1892 typhoid cold bath temperature")
 print(docs[0]["page_content"][:300])
 ```
