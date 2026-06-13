@@ -12,7 +12,7 @@
         "UNISON_API_GATEWAY": "https://unison-platform-services.fly.dev",
         "UNISON_BASE_RPC_URL": "https://mainnet.base.org",
         "UNISON_AGENT_PRIVATE_KEY": "0xYOUR_AGENT_PRIVATE_KEY",
-        "BASE_WALLET_OVERRIDE": "0xE37BEA19c284eebc561735588e773C097115668B"
+        "BASE_WALLET_OVERRIDE": "0x568D9Da985F8253F59939D124B35E736B8e3B42d"
       }
     }
   },

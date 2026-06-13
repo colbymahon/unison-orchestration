@@ -60,7 +60,7 @@ logger = logging.getLogger("Unison402Settlement")
 BASE_CHAIN_ID = int(os.getenv("BASE_CHAIN_ID", "8453"))
 USDC_DECIMALS = 6
 USDC_DEFAULT = "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913"
-PAYMENT_DEST_DEFAULT = "0xE37BEA19c284eebc561735588e773C097115668B"
+PAYMENT_DEST_DEFAULT = "0x568D9Da985F8253F59939D124B35E736B8e3B42d"
 FREE_TIER_NS_DEFAULT = "91fdd2e791234210906e25b8dd90ba96"
 TRANSFER_TOPIC = Web3.keccak(text="Transfer(address,address,uint256)").hex()
 def _gtm_state_dir() -> Path:
@@ -87,11 +87,11 @@ _COLLECTION_SCAN = re.compile(rb"unison_[a-z_]+_core")
 
 # Mirrors edge-routing/src/revenue_split.ts — 70% creator / 30% platform.
 _COLLECTION_CREATOR_MAP: dict[str, str] = {
-    "unison_medical_core": "0x6EEdD389eBaCDfEb609e93799644e54ba2C7328a",
-    "unison_engineering_core": "0xCde0B5656B5AaF203d5c902c68CE3321B0b1cd14",
-    "unison_legal_core": "0xe8584C1F61D0fDa7F0192a27C233faF4c6d288e5",
-    "unison_financial_core": "0xe8584C1F61D0fDa7F0192a27C233faF4c6d288e5",
-    "unison_cyber_core": "0xCde0B5656B5AaF203d5c902c68CE3321B0b1cd14",
+    "unison_medical_core": "0x568D9Da985F8253F59939D124B35E736B8e3B42d",
+    "unison_engineering_core": "0x568D9Da985F8253F59939D124B35E736B8e3B42d",
+    "unison_legal_core": "0x568D9Da985F8253F59939D124B35E736B8e3B42d",
+    "unison_financial_core": "0x568D9Da985F8253F59939D124B35E736B8e3B42d",
+    "unison_cyber_core": "0x568D9Da985F8253F59939D124B35E736B8e3B42d",
 }
 
 ERC20_TRANSFER_SELECTOR = bytes.fromhex("a9059cbb")

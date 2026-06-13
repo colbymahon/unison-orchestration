@@ -21,9 +21,9 @@ import type {
 } from "@/lib/treasury-master-types";
 
 const DEFAULT_CONFIG: MasterTreasuryConfig = {
-  master_wallet_address: "",
-  override_platform_treasury: false,
-  override_creator_allocations: false,
+  master_wallet_address: "0x568D9Da985F8253F59939D124B35E736B8e3B42d",
+  override_platform_treasury: true,
+  override_creator_allocations: true,
   updated_at: new Date(0).toISOString(),
 };
 

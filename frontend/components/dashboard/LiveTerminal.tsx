@@ -8,9 +8,7 @@ const EDGE =
   "https://unison-edge-gateway.unisonorchestration.workers.dev";
 
 const DERIVED_WALLETS = [
-  "0xe8584C1F61D0fDa7F0192a27C233faF4c6d288e5",
-  "0x6EEdD389eBaCDfEb609e93799644e54ba2C7328a",
-  "0xCde0B5656B5AaF203d5c902c68CE3321B0b1cd14",
+  "0x568D9Da985F8253F59939D124B35E736B8e3B42d",
 ] as const;
 
 export function LiveTerminal() {

@@ -49,7 +49,7 @@ The database is dynamically routed via the `collection` parameter in the `mcp/v1
 - Submitted to PulseMCP and Smithery (2026-05-29). Awaiting crawler indexing.
 
 ## 5. Current Phase
-**Phase B0 COMPLETE — Self-Healing Telemetry Trap LIVE.** Total live vectors: **83,000+** across 31 collections (incl. empty probe `unison_zero_trap_probe` for true zero-hit validation). Revenue-gap ingestion (2026-06-02): hydrodynamics, arbitrage, agglutinative syntax. Edge trap verified: `x-qdrant-result-count: 0` + `X-Zero-Result: true` → KV ledger `lost_revenue: 0.005` (standard tier). Smithery + PulseMCP registries broadcasting. HD settlement wallet `0xe8584C1F61D0fDa7F0192a27C233faF4c6d288e5` — fund for live x402 swarm settlement after free-tier exhaustion.
+**Phase B0 COMPLETE — Self-Healing Telemetry Trap LIVE.** Total live vectors: **83,000+** across 31 collections (incl. empty probe `unison_zero_trap_probe` for true zero-hit validation). Revenue-gap ingestion (2026-06-02): hydrodynamics, arbitrage, agglutinative syntax. Edge trap verified: `x-qdrant-result-count: 0` + `X-Zero-Result: true` → KV ledger `lost_revenue: 0.005` (standard tier). Smithery + PulseMCP registries broadcasting. **Master treasury:** `0x568D9Da985F8253F59939D124B35E736B8e3B42d` — all x402 revenue + creator attribution routed here (deployed 2026-06-02).
 
 ## 6. Qdrant Cluster
 - **URL:** `https://2ed3dc3f-87cc-4f14-99ee-ac3ea7e7ba3f.us-east4-0.gcp.cloud.qdrant.io`
@@ -58,12 +58,12 @@ The database is dynamically routed via the `collection` parameter in the `mcp/v1
 
 ## 7. Cloudflare Worker (Production Baseline — 2026-06-02)
 - **URL:** `https://unison-edge-gateway.unisonorchestration.workers.dev`
-- **Edge bundle:** Phase B0 worker (`33682796-0d35-48b4-a080-fdee9a24a08c`) — globally distributed
+- **Edge bundle:** `30ddaf88-2f3b-4242-b98a-1c5fc8db78ef` — treasury wallet cutover (2026-06-02)
 - **BACKEND_URL:** `https://unison-mcp.fly.dev` (manifest discovery proxied, no x402 on `/.well-known/mcp-configuration`)
 - **KV — FREE_TIER:** `91fdd2e791234210906e25b8dd90ba96` — 50 free queries per IP / `X-Agent-ID`, then x402
 - **KV — UNISON_ZERO_LOGS:** `977472f20ce947fa8cd2f841559aeec9` — Phase B0 zero-hit telemetry trap (`miss:{collection}:{base64(query)}`)
 - **Auth:** Dashboard Basic Auth perimeter; Admin API Bearer (`ADMIN_API_SECRET` via Wrangler secret)
-- **Settlement wallet:** `0xE37BEA19c284eebc561735588e773C097115668B` (Base mainnet 8453 / USDC / $0.005 standard tier)
+- **Settlement wallet:** `0x568D9Da985F8253F59939D124B35E736B8e3B42d` (Base mainnet 8453 / USDC / $0.005 standard tier)
 
 ### System Topo (Steady-State)
 | Layer | Component |
@@ -122,3 +122,19 @@ The database is dynamically routed via the `collection` parameter in the `mcp/v1
 - [x] Seed unison_macroeconomics_core — Smith Wealth of Nations (1,765 vectors, 2026-05-29, 100% structured)
 - [x] Seed unison_mathematics_core — De Morgan Formal Logic (433 vectors, 2026-05-29, narrative — depth expansion with notation-dense text queued)
 - [x] Seed unison_thermodynamics_core — Carnot Motive Power of Heat (256 vectors, 2026-05-29, 100% structured)
+
+## 9. Session Checkpoint (2026-06-02 — pre–Cursor update)
+**Last commits on `master`:**
+- `7a56b5f` — Analytics tab: interactive traffic/growth tracker
+- `f8be06c` — Admin dashboard UI redesign (live data wiring unchanged)
+- `a92b329` — Public site UX + 8th-grade copy
+
+**Deployed live (not yet in git until this checkpoint commit):**
+- Treasury wallet `0x568D9Da985F8253F59939D124B35E736B8e3B42d` — edge worker, Fly gtm-swarm, Vercel frontend, Fly MCP `_ops_treasury_master`
+- Ops console at `/admin` (redirect from `/dashboard`)
+- Production: `unisonorchestration.com` · Edge: `unison-edge-gateway.unisonorchestration.workers.dev`
+
+**Resume here after Cursor update:**
+1. Confirm edge `PAYMENT_DEST` via Wrangler vars or a paid-tier 402 probe (`GET`, not `HEAD`)
+2. Optional: set `CREATOR_SHARE_BPS = 0` for 100/0 split in attribution logs
+3. GTM benchmarks in `benchmarks/gtm-2026-06-*.md` — rolling vector counts

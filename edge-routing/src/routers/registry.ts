@@ -35,7 +35,7 @@ export interface CompositionPlan {
   splitHeader: string;
 }
 
-const TREASURY_WALLET = "0xE37BEA19c284eebc561735588e773C097115668B";
+const TREASURY_WALLET = "0x568D9Da985F8253F59939D124B35E736B8e3B42d";
 
 /** Production partner registry — extend via KV in 2c.2 */
 export const PARTNER_REGISTRY: PartnerRegistryEntry[] = [

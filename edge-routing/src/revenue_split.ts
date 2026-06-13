@@ -15,18 +15,18 @@ export const REVENUE_SPLIT_HEADER = "X-Unison-Revenue-Split";
 
 /** V18 Org platform treasury — matches edge PAYMENT_DEST / settlement daemon. */
 export const PLATFORM_TREASURY_DEFAULT =
-  "0xE37BEA19c284eebc561735588e773C097115668B";
+  "0x568D9Da985F8253F59939D124B35E736B8e3B42d";
 
 /**
  * Indexed vertical slots → creator destination wallets.
  * Third-party contributors receive 70% attribution on resolved queries.
  */
 const COLLECTION_CREATOR_MAP: Record<string, string> = {
-  unison_medical_core: "0x6EEdD389eBaCDfEb609e93799644e54ba2C7328a",
-  unison_engineering_core: "0xCde0B5656B5AaF203d5c902c68CE3321B0b1cd14",
-  unison_legal_core: "0xe8584C1F61D0fDa7F0192a27C233faF4c6d288e5",
-  unison_financial_core: "0x6EEdD389eBaCDfEb609e93799644e54ba2C7328a",
-  unison_cyber_core: "0xCde0B5656B5AaF203d5c902c68CE3321B0b1cd14",
+  unison_medical_core: "0x568D9Da985F8253F59939D124B35E736B8e3B42d",
+  unison_engineering_core: "0x568D9Da985F8253F59939D124B35E736B8e3B42d",
+  unison_legal_core: "0x568D9Da985F8253F59939D124B35E736B8e3B42d",
+  unison_financial_core: "0x568D9Da985F8253F59939D124B35E736B8e3B42d",
+  unison_cyber_core: "0x568D9Da985F8253F59939D124B35E736B8e3B42d",
 };
 
 const HEX_WALLET = /^0x[a-fA-F0-9]{40}$/;

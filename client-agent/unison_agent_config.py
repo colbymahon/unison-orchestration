@@ -12,6 +12,7 @@ from base_builder import BASE_BUILDER_CODE
 BRAND_NAME = "Unison Orchestration"
 BRAND_NAMESPACE = "unison_orchestration"
 AGENT_VERSION = "v1.0"
+AGENT_FLEET_LABEL = f"Unison Orchestration Agent Fleet ({AGENT_VERSION})"
 USER_AGENT = f"UnisonOrchestrationAgent/{AGENT_VERSION} (Attribution: {BASE_BUILDER_CODE})"
 
 CANONICAL_SITE_ORIGIN = "https://unisonorchestration.com"
