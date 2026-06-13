@@ -21,6 +21,7 @@ interface Props {
   totalHandledRequests?: number;
   blocked402Rejections?: number;
   settledUsdcPayments?: number;
+  platformUsdcBalanceOnchain?: number | null;
 }
 
 const PURPLE = "#B300FF";
@@ -29,6 +30,14 @@ const CYAN   = "#00E5FF";
 const fmt4 = (n: number) => `$${n.toFixed(4)}`;
 const fmtUsd = (n: number) =>
   n >= 1 ? `$${n.toFixed(2)}` : `$${n.toFixed(4)}`;
+
+function formatOnChainUsdc(amount: number | null | undefined): string {
+  if (amount == null || Number.isNaN(amount)) return "— USDC";
+  return `$${amount.toLocaleString("en-US", {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  })} USDC`;
+}
 
 function StatBox({
   label, value, sub, accent, icon: Icon,
@@ -45,7 +54,10 @@ function StatBox({
         <Icon size={12} style={{ color: accent }} />
         {label}
       </div>
-      <div className="font-[var(--font-grotesk)] text-3xl font-black" style={{ color: accent }}>
+      <div
+        className="font-[var(--font-grotesk)] text-3xl font-black tabular-nums"
+        style={{ color: accent }}
+      >
         {value}
       </div>
       <div className="text-xs font-mono text-gray-600">{sub}</div>
@@ -74,6 +86,7 @@ export function RevenueEngine({
   totalHandledRequests = 0,
   blocked402Rejections = 0,
   settledUsdcPayments,
+  platformUsdcBalanceOnchain = null,
 }: Props) {
   const t = telemetry;
 
@@ -89,6 +102,7 @@ export function RevenueEngine({
   );
 
   const liveRevenueDisplay = formatLiveRevenueUsd(liveRevenueUsd);
+  const treasuryDisplay = formatOnChainUsdc(platformUsdcBalanceOnchain);
 
   const clearanceRate = useMemo(() => {
     const total = totalHandledRequests || (t?.total_queries ?? 0);
@@ -117,9 +131,9 @@ export function RevenueEngine({
       {/* KPI row */}
       <div className="grid grid-cols-2 xl:grid-cols-4 gap-4">
         <StatBox
-          label="Total USDC Revenue"
-          value={liveRevenueDisplay}
-          sub={`${clearedQueryCount} cleared queries × $${QUERY_PRICE_USDC}`}
+          label="Live Treasury (On-Chain)"
+          value={treasuryDisplay}
+          sub={`Settled ledger: ${liveRevenueDisplay} · Base L2 USDC`}
           accent={PURPLE}
           icon={Coins}
         />

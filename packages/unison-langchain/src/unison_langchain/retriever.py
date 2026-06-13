@@ -31,6 +31,7 @@ from unison_langchain._edge_headers import (
     premium_usdc_with_buffer,
 )
 from unison_langchain._tsv import tsv_to_documents
+from unison_langchain.provision import needs_provision, resolve_agent_identity
 
 
 class UnisonX402Retriever(BaseRetriever):
@@ -96,6 +97,10 @@ class UnisonX402Retriever(BaseRetriever):
         default=None,
         description="Optional wallet for submit_attestation_score (else dev binding).",
     )
+    attestation_token: str | None = Field(
+        default=None,
+        description="X-Agent-Attestation sybil gate token (auto-provisioned when absent).",
+    )
 
     _private_key: str | None = None
     _lineage_outbound: str | None = None
@@ -104,6 +109,15 @@ class UnisonX402Retriever(BaseRetriever):
     @model_validator(mode="after")
     def _load_private_key(self) -> UnisonX402Retriever:
         self._private_key = os.getenv("UNISON_AGENT_PRIVATE_KEY")
+        if needs_provision(self.agent_id) or not self.attestation_token:
+            resolved_id, token = resolve_agent_identity(
+                self.agent_id,
+                framework="langchain",
+                purpose="UnisonX402Retriever autonomous grounding",
+            )
+            self.agent_id = resolved_id
+            if token and not self.attestation_token:
+                self.attestation_token = token
         return self
 
     @property
@@ -117,12 +131,15 @@ class UnisonX402Retriever(BaseRetriever):
         return self._last_query_string
 
     def _base_headers(self) -> dict[str, str]:
-        return merge_headers(
+        headers = merge_headers(
             {"X-Agent-ID": self.agent_id},
             self.lineage_token,
             affiliate_wallet=self.affiliate_wallet,
             callback_url=self.callback_url,
         )
+        if self.attestation_token:
+            headers["X-Agent-Attestation"] = self.attestation_token.strip()
+        return headers
 
     def _schedule_friction(
         self,

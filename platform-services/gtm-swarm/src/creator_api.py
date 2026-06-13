@@ -6,6 +6,7 @@ Exposes cluster-internal registration and manifest routes over the
 CreatorRegistryStore SQLite enclave.
 
 Routes:
+  POST /api/v1/agents/provision   — zero-friction X-Agent-ID + attestation (public)
   POST /api/v1/creator/register  — sanitize + insert creator row
   POST /api/v1/creator/ingest     — chunk, embed, upsert creator payload
   GET  /api/v1/creator/manifest  — cluster-auth gated registry read
@@ -29,9 +30,11 @@ from typing import Any
 
 from aiohttp import web
 
+from agent_provision import parse_provision_request, provision_agent
 from creator_kv_sync import build_trust_weights_map, sync_trust_weights_to_kv
 from ingestion_pipeline import ingest_creator_payload
 from memory_manager import CreatorRegistryStore
+from registry_schema import AgentRegistryStore
 from state_paths import agent_memory_db, ensure_state_dirs, load_unison_env
 
 logger = logging.getLogger("UnisonCreatorAPI")
@@ -219,6 +222,66 @@ async def handle_creator_weights(request: web.Request) -> web.Response:
     )
 
 
+@web.middleware
+async def provision_cors_middleware(request: web.Request, handler):
+    """Allow cross-origin SDK provisioning from developer machines."""
+    if request.method == "OPTIONS" and request.path == "/api/v1/agents/provision":
+        return web.Response(
+            status=204,
+            headers={
+                "Access-Control-Allow-Origin": "*",
+                "Access-Control-Allow-Methods": "POST, OPTIONS",
+                "Access-Control-Allow-Headers": "Content-Type, Accept",
+                "Access-Control-Max-Age": "86400",
+            },
+        )
+    response = await handler(request)
+    if request.path == "/api/v1/agents/provision":
+        response.headers["Access-Control-Allow-Origin"] = "*"
+        response.headers["Access-Control-Allow-Methods"] = "POST, OPTIONS"
+        response.headers["Access-Control-Allow-Headers"] = "Content-Type, Accept"
+    return response
+
+
+async def handle_agent_provision(request: web.Request) -> web.Response:
+    try:
+        body = await request.json()
+    except json.JSONDecodeError:
+        return _json_response({"error": "invalid_json", "message": "Request body must be JSON"}, 400)
+
+    if not isinstance(body, dict):
+        return _json_response({"error": "invalid_json", "message": "JSON object required"}, 400)
+
+    parsed = parse_provision_request(body)
+    if parsed[0] is None:
+        return _json_response({"error": "invalid_request", "message": parsed[1]}, 400)
+
+    framework, purpose = parsed
+    store: AgentRegistryStore = request.app["agent_registry_store"]
+
+    try:
+        payload = await asyncio.to_thread(
+            provision_agent,
+            framework=framework,
+            purpose=purpose,
+            store=store,
+        )
+    except EnvironmentError as exc:
+        logger.error("provision signing secret missing: %s", exc)
+        return _json_response(
+            {"error": "provision_unavailable", "message": "Attestation signing not configured"},
+            503,
+        )
+    except Exception as exc:
+        logger.exception("agent provision failed framework=%s", framework)
+        return _json_response(
+            {"error": "provision_failed", "message": str(exc)},
+            500,
+        )
+
+    return _json_response(payload, 201)
+
+
 async def handle_health(_request: web.Request) -> web.Response:
     return web.json_response(
         {
@@ -255,9 +318,11 @@ def create_app(db_path: str | Path | None = None) -> web.Application:
     load_unison_env()
     ensure_state_dirs()
     resolved_db = db_path or agent_memory_db()
-    app = web.Application()
+    app = web.Application(middlewares=[provision_cors_middleware])
     app["creator_store"] = CreatorRegistryStore(resolved_db)
+    app["agent_registry_store"] = AgentRegistryStore(resolved_db)
     app.router.add_get("/health", handle_health)
+    app.router.add_post("/api/v1/agents/provision", handle_agent_provision)
     app.router.add_post("/api/v1/creator/register", handle_creator_register)
     app.router.add_post("/api/v1/creator/ingest", handle_creator_ingest)
     app.router.add_get("/api/v1/creator/weights", handle_creator_weights)

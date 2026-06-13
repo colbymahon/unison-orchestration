@@ -15,7 +15,9 @@ import {
   MOAT_POLL_MS,
   INFRA_POLL_MS,
   ANALYTICS_POLL_MS,
+  TREASURY_POLL_MS,
 } from "@/lib/dashboard-fetch";
+import type { TreasuryPayload } from "@/lib/treasury-types";
 import { DataMoatPanel } from "./dashboard/DataMoatPanel";
 import { LedgerPanel } from "./dashboard/LedgerPanel";
 import { OverviewPanel } from "./dashboard/OverviewPanel";
@@ -136,6 +138,11 @@ export default function Dashboard() {
       pollIntervalMs: ANALYTICS_POLL_MS,
     }
   );
+
+  const { data: treasury } = useLiveFetch<TreasuryPayload>("/api/v1/treasury", {
+    ...DASHBOARD_FETCH_BASE,
+    pollIntervalMs: TREASURY_POLL_MS,
+  });
 
   const { snapshot: ledgerSnapshot, bootstrapping: stickyBootstrapping } =
     useStickyLedger(ledger, ledgerLoading);
@@ -401,6 +408,7 @@ export default function Dashboard() {
             revenueHistory={revenueHistory}
             rejectionHistory={rejectionHistory}
             loading={ledgerBootstrapping}
+            platformUsdcBalanceOnchain={treasury?.platform_usdc_balance_onchain ?? null}
           />
         )}
 

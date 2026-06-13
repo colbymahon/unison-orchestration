@@ -9,6 +9,7 @@ from typing import Any, Callable
 import requests
 
 from unison_langchain._constants import EDGE_URL
+from unison_langchain.provision import resolve_agent_identity
 
 EDGE_SEARCH_DEFAULT = f"{EDGE_URL.rstrip('/')}/mcp/v1/search"
 
@@ -94,12 +95,28 @@ class UnisonLangChainBridge:
         retriever = bridge.as_langchain_retriever()
     """
 
-    agent_id: str
+    agent_id: str = ""
     collection: str = "unison_engineering_core"
     edge_url: str = EDGE_SEARCH_DEFAULT
     top_k: int = 8
     timeout: int = 30
     session_id: str | None = None
+    purpose: str = "LangChain RAG grounding via unison-langchain"
+    _attestation_token: str | None = field(default=None, repr=False, compare=False)
+
+    def __post_init__(self) -> None:
+        resolved_id, token = resolve_agent_identity(
+            self.agent_id,
+            framework="langchain",
+            purpose=self.purpose,
+        )
+        self.agent_id = resolved_id
+        self._attestation_token = token
+
+    def _attestation_headers(self) -> dict[str, str] | None:
+        if self._attestation_token:
+            return {"X-Agent-Attestation": self._attestation_token}
+        return None
 
     def search(self, query: str, *, collection: str | None = None) -> TsvStreamResult:
         return fetch_tsv_stream(
@@ -110,6 +127,7 @@ class UnisonLangChainBridge:
             session_id=self.session_id,
             top_k=self.top_k,
             timeout=self.timeout,
+            extra_headers=self._attestation_headers(),
         )
 
     def as_retriever_invoke(self, query: str) -> list[dict[str, Any]]:
@@ -153,6 +171,7 @@ class UnisonLangChainBridge:
             k=self.top_k,
             agent_id=self.agent_id,
             timeout=self.timeout,
+            attestation_token=self._attestation_token,
         )
 
     def tool_callable(self) -> Callable[[str], str]:
@@ -177,12 +196,28 @@ class UnisonLlamaIndexBridge:
         context = bridge.query("Osler 1892 typhoid cold bath protocol")
     """
 
-    agent_id: str
+    agent_id: str = ""
     collection: str = "unison_engineering_core"
     edge_url: str = EDGE_SEARCH_DEFAULT
     top_k: int = 8
     timeout: int = 30
     session_id: str | None = None
+    purpose: str = "LlamaIndex RAG grounding via unison-langchain"
+    _attestation_token: str | None = field(default=None, repr=False, compare=False)
+
+    def __post_init__(self) -> None:
+        resolved_id, token = resolve_agent_identity(
+            self.agent_id,
+            framework="llamaindex",
+            purpose=self.purpose,
+        )
+        self.agent_id = resolved_id
+        self._attestation_token = token
+
+    def _attestation_headers(self) -> dict[str, str] | None:
+        if self._attestation_token:
+            return {"X-Agent-Attestation": self._attestation_token}
+        return None
 
     def search(self, query: str, *, collection: str | None = None) -> TsvStreamResult:
         return fetch_tsv_stream(
@@ -193,6 +228,7 @@ class UnisonLlamaIndexBridge:
             session_id=self.session_id,
             top_k=self.top_k,
             timeout=self.timeout,
+            extra_headers=self._attestation_headers(),
         )
 
     def query(self, query: str) -> str:

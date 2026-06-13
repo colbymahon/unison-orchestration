@@ -15,12 +15,14 @@ interface Props {
   revenueHistory: HistoryPoint[];
   rejectionHistory: HistoryPoint[];
   loading?: boolean;
+  platformUsdcBalanceOnchain?: number | null;
 }
 
 function LedgerPanelInner({
   ledger,
   revenueHistory,
   rejectionHistory,
+  platformUsdcBalanceOnchain = null,
 }: Props) {
   const substrate = useSubstrateViewModel(ledger);
   const telemetry = ledger?.fly_telemetry ?? null;
@@ -90,6 +92,7 @@ function LedgerPanelInner({
         totalHandledRequests={ledger?.total_handled_requests}
         blocked402Rejections={ledger?.blocked_402_rejections}
         settledUsdcPayments={ledger?.settled_usdc_payments}
+        platformUsdcBalanceOnchain={platformUsdcBalanceOnchain}
       />
     </div>
   );

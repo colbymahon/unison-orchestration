@@ -12,3 +12,4 @@ export const AFFILIATE_POLL_MS = 5_000;
 export const MOAT_POLL_MS = 5_000;
 export const INFRA_POLL_MS = 5_000;
 export const ANALYTICS_POLL_MS = 8_000;
+export const TREASURY_POLL_MS = 30_000;
