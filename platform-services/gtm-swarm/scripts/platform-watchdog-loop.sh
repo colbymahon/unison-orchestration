@@ -48,6 +48,7 @@ while true; do
   crawler_proc="$(process_alive "knowledge_crawler.py")"
   gap_proc="$(process_alive "gap_autopilot.py")"
   council_proc="$(process_alive "omni_capture_council.py")"
+  moltbook_proc="$(process_alive "moltbook_agent.py")"
 
   if [[ "${local_code}" != "200" ]]; then
     log "WARN creator_api health HTTP ${local_code}"
@@ -76,6 +77,9 @@ while true; do
   if [[ "${council_proc}" != "online" ]]; then
     log "WARN omni_council process ${council_proc}"
   fi
+  if [[ "${moltbook_proc}" != "online" ]]; then
+    log "WARN moltbook_agent process ${moltbook_proc}"
+  fi
   if [[ ! -f "${SETTLEMENT_STATE}" ]]; then
     log "WARN settlement state file missing at ${SETTLEMENT_STATE}"
   fi
@@ -84,7 +88,7 @@ while true; do
   fi
 
   if [[ "${local_code}" == "200" && "${mcp_code}" == "200" && "${settlement_proc}" == "online" && "${gtm_proc}" == "online" ]]; then
-    log "OK mesh green (creator=${local_code} mcp=${mcp_code} settlement=${settlement_proc} gtm=${gtm_proc} swarm=${swarm_proc} query=${query_proc} sales=${sales_proc} crawler=${crawler_proc} gap_autopilot=${gap_proc} omni_council=${council_proc})"
+    log "OK mesh green (creator=${local_code} mcp=${mcp_code} settlement=${settlement_proc} gtm=${gtm_proc} swarm=${swarm_proc} query=${query_proc} sales=${sales_proc} crawler=${crawler_proc} gap_autopilot=${gap_proc} omni_council=${council_proc} moltbook_agent=${moltbook_proc})"
   fi
 
   sleep "${INTERVAL}"

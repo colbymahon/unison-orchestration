@@ -1,4 +1,4 @@
-# Unison platform-services — total cloud sovereignty (10/10 daemon mesh)
+# Unison platform-services — total cloud sovereignty (11/11 daemon mesh)
 # Shared NVMe volume: single machine runs all daemons via run-platform-mesh.sh (SQLite WAL).
 #
 # Logical process map (inside platform mesh supervisor):
@@ -8,6 +8,7 @@
 #   knowledge_crawler   → python3 src/knowledge_crawler.py
 #   gap_autopilot       → python3 src/gap_autopilot.py
 #   omni_council        → python3 src/omni_capture_council.py
+#   moltbook_agent      → python3 src/moltbook_agent.py
 #   settlement_daemon   → python3 src/settlement_daemon.py
 #   gtm_coordinator     → python3 src/gtm_swarm_coordinator.py
 #   swarm_commander     → python3 src/swarm_commander.py
@@ -58,6 +59,7 @@ primary_region = 'iad'
   UNISON_MCP_URL = 'https://unison-mcp.fly.dev/mcp/v1/search'
   MOLTBOOK_POSTING_ENABLED = 'true'
   MOLTBOOK_POST_INTERVAL_HOURS = '24'
+  MOLTBOOK_AGENT_INTERVAL_HOURS = '4'
   MOLTBOOK_SUBMOLT = 'general'
   MOLTBOOK_TARGET_HANDLE = 'hirespark'
 
