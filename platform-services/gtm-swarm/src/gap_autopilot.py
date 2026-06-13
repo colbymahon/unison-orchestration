@@ -10,7 +10,8 @@ settlement daemon transactions via busy_timeout + short transactions).
 
 Environment:
   GAP_AUTOPILOT_POLL_SECONDS     — default 60
-  GAP_AUTOPILOT_MAX_PER_CYCLE    — default 5
+  GAP_AUTOPILOT_MAX_PER_CYCLE    — default 50
+  GAP_AUTOPILOT_PARALLEL         — concurrent recoveries per cycle (default 12)
   ADMIN_API_SECRET               — edge admin bearer (required on Fly)
   OPENAI_API_KEY, QDRANT_URL, QDRANT_API_KEY
   UNISON_EDGE_GATEWAY_URL        — trapped-gap source
@@ -44,6 +45,7 @@ from registry_schema import (
     AgentRegistryStore,
     list_corpus_verticals,
 )
+from sqlite_elite import run_sync_db
 from state_paths import agent_state_dir, ensure_state_dirs, load_unison_env
 
 _SRC = Path(__file__).resolve().parent
@@ -309,13 +311,45 @@ def embed_and_upsert(
     return len(embedded)
 
 
+def batch_embed_and_upsert(
+    openai_client: OpenAI,
+    qdrant: QdrantClient,
+    chunks: list[tuple[TextChunk, str]],
+) -> dict[str, int]:
+    """Batch-embed and upsert recovery chunks grouped by collection."""
+    if not chunks:
+        return {}
+    by_collection: dict[str, list[TextChunk]] = {}
+    for chunk, collection in chunks:
+        by_collection.setdefault(collection, []).append(chunk)
+
+    totals: dict[str, int] = {}
+    for collection, collection_chunks in by_collection.items():
+        ensure_collection(qdrant, collection, log)
+        embedded = embed_chunks(collection_chunks, openai_client, log)
+        upsert_vectors(embedded, qdrant, collection, log)
+        totals[collection] = len(embedded)
+    return totals
+
+
+@dataclass
+class PendingRecovery:
+    gap: dict[str, Any]
+    gap_key: str
+    query: str
+    collection: str
+    chunk: TextChunk
+    lost_revenue: float
+
+
 class GapAutopilot:
     def __init__(self) -> None:
         self.edge_base = os.getenv("UNISON_EDGE_GATEWAY_URL", EDGE_DEFAULT).rstrip("/")
         self.mcp_search = _resolve_mcp_search_url()
         self.admin_secret = os.getenv("ADMIN_API_SECRET", "").strip()
         self.poll_seconds = _env_int("GAP_AUTOPILOT_POLL_SECONDS", 60)
-        self.max_per_cycle = _env_int("GAP_AUTOPILOT_MAX_PER_CYCLE", 5)
+        self.max_per_cycle = _env_int("GAP_AUTOPILOT_MAX_PER_CYCLE", 50)
+        self.parallel_limit = _env_int("GAP_AUTOPILOT_PARALLEL", 12)
         self.registry = AgentRegistryStore()
         self.telemetry = AutopilotTelemetry()
 
@@ -346,68 +380,91 @@ class GapAutopilot:
         local_status = self.registry.get_gap_status(gap_key)
         return local_status in {"recovered", "processing"}
 
-    async def recover_gap(
+    async def _synthesize_recovery(
         self,
-        session: aiohttp.ClientSession,
         gap: dict[str, Any],
         openai_client: OpenAI,
-        qdrant: QdrantClient,
-    ) -> bool:
+    ) -> PendingRecovery | None:
         gap_key = str(gap.get("key") or "")
         query = str(gap.get("query") or gap.get("q") or "").strip()
         collection_hint = str(gap.get("collection") or "").strip()
         if not gap_key or not query:
-            return False
+            return None
 
         collection = resolve_collection(query, collection_hint)
         lost = float(gap.get("accumulated_lost_revenue") or gap.get("lost_revenue") or 0.005)
 
-        self.registry.upsert_gap_trap(
+        def _mark_processing() -> None:
+            self.registry.upsert_gap_trap(
+                gap_key=gap_key,
+                query=query,
+                collection=collection,
+                lost_revenue_usdc=lost,
+                status="zero_hit",
+            )
+            self.registry.update_gap_status(gap_key, status="processing")
+
+        await run_sync_db(_mark_processing)
+        log.info("[RECOVERY] %s | %s | %s", gap_key, collection, query[:80])
+        body = await run_sync_db(
+            lambda: synthesize_fragment(openai_client, query, collection)
+        )
+        chunk = build_recovery_chunk(query, collection, body)
+        return PendingRecovery(
+            gap=gap,
             gap_key=gap_key,
             query=query,
             collection=collection,
-            lost_revenue_usdc=lost,
-            status="zero_hit",
+            chunk=chunk,
+            lost_revenue=lost,
         )
-        self.registry.update_gap_status(gap_key, status="processing")
 
+    async def _finalize_recovery(
+        self,
+        session: aiohttp.ClientSession,
+        pending: PendingRecovery,
+        *,
+        vectors: int,
+        hit_count: int,
+    ) -> bool:
+        gap_key = pending.gap_key
         try:
-            log.info("[RECOVERY] %s | %s | %s", gap_key, collection, query[:80])
-            body = synthesize_fragment(openai_client, query, collection)
-            chunk = build_recovery_chunk(query, collection, body)
-            vectors = embed_and_upsert(openai_client, qdrant, chunk, collection)
-            self.registry.record_corpus_ingest(collection, vectors)
-
-            hit_count = await verify_replay(
-                session,
-                query=query,
-                collection=collection,
-                mcp_search_url=self.mcp_search,
-            )
             if hit_count <= 0:
                 raise RuntimeError(f"replay verification failed (hits={hit_count})")
 
-            self.registry.update_gap_status(
-                gap_key,
-                status="recovered",
-                vectors_upserted=vectors,
-                replay_hit_count=hit_count,
-            )
+            def _mark_recovered() -> None:
+                self.registry.record_corpus_ingest(pending.collection, vectors)
+                self.registry.update_gap_status(
+                    gap_key,
+                    status="recovered",
+                    vectors_upserted=vectors,
+                    replay_hit_count=hit_count,
+                )
+
+            await run_sync_db(_mark_recovered)
             if self.admin_secret:
                 await mark_gap_recovered_remote(
-                    session, self.edge_base, self.admin_secret, gap_key, hit_count
+                    session,
+                    self.edge_base,
+                    self.admin_secret,
+                    gap_key,
+                    hit_count,
                 )
             log.info(
                 "[RECOVERED] %s vectors=%d replay_hits=%d collection=%s",
                 gap_key,
                 vectors,
                 hit_count,
-                collection,
+                pending.collection,
             )
             return True
         except Exception as exc:
             msg = str(exc)[:500]
-            self.registry.update_gap_status(gap_key, status="failed", last_error=msg)
+            await run_sync_db(
+                lambda: self.registry.update_gap_status(
+                    gap_key, status="failed", last_error=msg
+                )
+            )
             self.telemetry.errors.append(f"{gap_key}:{msg}")
             log.error("[RECOVERY FAILED] %s — %s", gap_key, exc)
             return False
@@ -423,6 +480,8 @@ class GapAutopilot:
             "failed": 0,
             "skipped": 0,
             "examined": 0,
+            "parallel_limit": self.parallel_limit,
+            "max_per_cycle": self.max_per_cycle,
         }
 
         async with aiohttp.ClientSession() as session:
@@ -432,22 +491,80 @@ class GapAutopilot:
                 reverse=True,
             )
 
-            processed = 0
+            candidates: list[dict[str, Any]] = []
             for gap in gaps:
-                if processed >= self.max_per_cycle:
-                    break
                 summary["examined"] += 1
                 if self._should_skip(gap):
                     summary["skipped"] += 1
                     continue
-                processed += 1
-                ok = await self.recover_gap(session, gap, openai_client, qdrant)
-                if ok:
-                    summary["recovered"] += 1
-                    self.telemetry.gaps_recovered_total += 1
-                else:
-                    summary["failed"] += 1
-                    self.telemetry.gaps_failed_total += 1
+                candidates.append(gap)
+                if len(candidates) >= self.max_per_cycle:
+                    break
+
+            if not candidates:
+                return summary
+
+            semaphore = asyncio.Semaphore(self.parallel_limit)
+
+            async def _synthesize_bounded(gap: dict[str, Any]) -> PendingRecovery | None:
+                async with semaphore:
+                    try:
+                        return await self._synthesize_recovery(gap, openai_client)
+                    except Exception as exc:
+                        gap_key = str(gap.get("key") or "unknown")
+                        msg = str(exc)[:500]
+                        await run_sync_db(
+                            lambda key=gap_key, err=msg: self.registry.update_gap_status(
+                                key, status="failed", last_error=err
+                            )
+                        )
+                        self.telemetry.errors.append(f"{gap_key}:{msg}")
+                        log.error("[SYNTHESIS FAILED] %s — %s", gap_key, exc)
+                        return None
+
+            synth_results = await asyncio.gather(
+                *[_synthesize_bounded(gap) for gap in candidates]
+            )
+            pending = [item for item in synth_results if item is not None]
+            summary["failed"] += len(synth_results) - len(pending)
+
+            if pending:
+                chunk_pairs = [(item.chunk, item.collection) for item in pending]
+
+                def _batch_upsert() -> dict[str, int]:
+                    return batch_embed_and_upsert(openai_client, qdrant, chunk_pairs)
+
+                upsert_totals = await run_sync_db(_batch_upsert)
+                log.info(
+                    "[BATCH UPSERT] recovered_chunks=%d collections=%s",
+                    len(pending),
+                    ",".join(f"{k}:{v}" for k, v in upsert_totals.items()),
+                )
+
+                async def _verify_bounded(item: PendingRecovery) -> bool:
+                    async with semaphore:
+                        hit_count = await verify_replay(
+                            session,
+                            query=item.query,
+                            collection=item.collection,
+                            mcp_search_url=self.mcp_search,
+                        )
+                        return await self._finalize_recovery(
+                            session,
+                            item,
+                            vectors=1,
+                            hit_count=hit_count,
+                        )
+
+                verify_results = await asyncio.gather(
+                    *[_verify_bounded(item) for item in pending]
+                )
+                summary["recovered"] = sum(1 for ok in verify_results if ok)
+                summary["failed"] += sum(1 for ok in verify_results if not ok)
+                self.telemetry.gaps_recovered_total += summary["recovered"]
+                self.telemetry.gaps_failed_total += sum(
+                    1 for ok in verify_results if not ok
+                )
 
             if summary["recovered"] > 0:
                 await revalidate_catalog(session)
@@ -456,9 +573,10 @@ class GapAutopilot:
 
     async def run_forever(self) -> None:
         log.info(
-            "Gap Autopilot online — poll=%ds max_per_cycle=%d edge=%s",
+            "Gap Autopilot online — poll=%ds max_per_cycle=%d parallel=%d edge=%s",
             self.poll_seconds,
             self.max_per_cycle,
+            self.parallel_limit,
             self.edge_base,
         )
         self.telemetry.status = "running"

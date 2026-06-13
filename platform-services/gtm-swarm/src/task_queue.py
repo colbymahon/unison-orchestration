@@ -12,6 +12,8 @@ import uuid
 from pathlib import Path
 from typing import Any
 
+from sqlite_elite import CONNECT_TIMEOUT_SEC, apply_elite_pragmas
+
 def _default_db() -> Path:
     from state_paths import agent_memory_db, ensure_state_dirs
 
@@ -35,9 +37,9 @@ class TaskQueueStore:
         self._init_schema()
 
     def _connect(self) -> sqlite3.Connection:
-        conn = sqlite3.connect(self.db_path, timeout=5.0)
+        conn = sqlite3.connect(str(self.db_path), timeout=CONNECT_TIMEOUT_SEC)
         conn.row_factory = sqlite3.Row
-        conn.execute("PRAGMA busy_timeout = 5000")
+        apply_elite_pragmas(conn)
         return conn
 
     def _init_schema(self) -> None:

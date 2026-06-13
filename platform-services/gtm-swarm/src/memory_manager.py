@@ -14,6 +14,8 @@ import time
 from pathlib import Path
 from typing import Any
 
+from sqlite_elite import CONNECT_TIMEOUT_SEC, apply_elite_pragmas
+
 _BASE_WALLET_RE = re.compile(r"^0x[a-fA-F0-9]{40}$")
 _SLUG_RE = re.compile(r"^[a-z0-9][a-z0-9_-]{2,63}$")
 _VALID_UPLOAD_STATUSES = frozenset(
@@ -39,8 +41,9 @@ class AgentMemoryManager:
         self._init_schema()
 
     def _connect(self) -> sqlite3.Connection:
-        conn = sqlite3.connect(self.db_path)
+        conn = sqlite3.connect(str(self.db_path), timeout=CONNECT_TIMEOUT_SEC)
         conn.row_factory = sqlite3.Row
+        apply_elite_pragmas(conn)
         return conn
 
     def _init_schema(self) -> None:
@@ -203,10 +206,9 @@ class CreatorRegistryStore:
         self._init_schema()
 
     def _connect(self) -> sqlite3.Connection:
-        conn = sqlite3.connect(self.db_path, timeout=5.0)
+        conn = sqlite3.connect(str(self.db_path), timeout=CONNECT_TIMEOUT_SEC)
         conn.row_factory = sqlite3.Row
-        conn.execute("PRAGMA busy_timeout = 5000")
-        conn.execute("PRAGMA journal_mode = WAL")
+        apply_elite_pragmas(conn)
         return conn
 
     def _init_schema(self) -> None:

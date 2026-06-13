@@ -60,6 +60,7 @@ FRAMEWORK_COLLECTION: dict[str, str] = {
     "mcp": "unison_engineering_core",
     "crewai": "unison_engineering_core",
     "autogen": "unison_engineering_core",
+    "semantic_kernel": "unison_engineering_core",
 }
 
 FRAMEWORK_QUERY_SEEDS: dict[str, list[str]] = {
@@ -304,6 +305,24 @@ async def run_warm_cycle(
     return summary
 
 
+async def _run_registry_reboot_background() -> None:
+    """Non-blocking agent registry reboot — must not delay embed warm cycles."""
+    try:
+        from registry_agent_reboot import reboot_all_agents  # noqa: WPS433
+
+        await reboot_all_agents(
+            collection=os.getenv("REGISTRY_ACTIVATE_COLLECTION", "unison_engineering_core"),
+            query=os.getenv(
+                "REGISTRY_ACTIVATE_QUERY",
+                "registry reboot activation probe thermodynamic tolerances",
+            ),
+            concurrency=int(os.getenv("REGISTRY_REBOOT_CONCURRENCY", "10")),
+            only_idle=True,
+        )
+    except Exception as exc:
+        log.exception("Background registry reboot failed (non-fatal): %s", exc)
+
+
 async def run_daemon(
     *,
     tick_seconds: int,
@@ -317,16 +336,9 @@ async def run_daemon(
         log.info("=== Query swarm warm cycle %d START (tick=%ds) ===", cycle, tick_seconds)
         try:
             await run_warm_cycle(max_targets=max_targets, concurrency=concurrency)
-            from registry_agent_reboot import reboot_all_agents  # noqa: WPS433
-
-            await reboot_all_agents(
-                collection=os.getenv("REGISTRY_ACTIVATE_COLLECTION", "unison_engineering_core"),
-                query=os.getenv(
-                    "REGISTRY_ACTIVATE_QUERY",
-                    "registry reboot activation probe thermodynamic tolerances",
-                ),
-                concurrency=int(os.getenv("REGISTRY_REBOOT_CONCURRENCY", "10")),
-                only_idle=True,
+            asyncio.create_task(
+                _run_registry_reboot_background(),
+                name=f"registry-reboot-cycle-{cycle}",
             )
         except Exception as exc:
             log.exception("Warm cycle %d failed (non-fatal): %s", cycle, exc)

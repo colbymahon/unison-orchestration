@@ -10,7 +10,7 @@ Telemetry:
 
 Environment:
   SALES_TICK_SECONDS       — cycle interval (default 3600)
-  SALES_WORKER_POOL        — concurrent workers (default 3)
+  SALES_WORKER_POOL        — concurrent workers (default 15)
   SALES_DISCOVERY_QUERIES  — comma-separated search terms
   GITHUB_TOKEN             — optional GitHub API token (higher rate limits)
   SMITHERY_API_KEY         — optional Smithery registry key
@@ -68,7 +68,16 @@ DEFAULT_QUERIES = (
     "mcp server",
     "model context protocol",
     "crewai tool",
+    "crewai agent",
+    "autogen agent",
+    "autogen multi-agent",
+    "semantic kernel agent",
+    "semantic kernel plugin",
+    "mcp client python",
+    "mcp client typescript",
     "autonomous agent framework",
+    "x402 agent payment",
+    "agentic rag retriever",
 )
 
 SMITHERY_API = "https://api.smithery.ai/servers"
@@ -88,10 +97,14 @@ def _infer_framework(text: str) -> str:
         return "langchain"
     if "llamaindex" in lowered or "llama-index" in lowered:
         return "llamaindex"
+    if "crewai" in lowered:
+        return "crewai"
+    if "autogen" in lowered:
+        return "autogen"
+    if "semantic kernel" in lowered or "semantickernel" in lowered:
+        return "semantic_kernel"
     if "mcp" in lowered or "model context protocol" in lowered:
         return "mcp"
-    if "crewai" in lowered:
-        return "langchain"
     return "mcp"
 
 
@@ -363,7 +376,7 @@ def main() -> None:
     parser.add_argument(
         "--pool-size",
         type=int,
-        default=int(os.getenv("SALES_WORKER_POOL", "3")),
+        default=int(os.getenv("SALES_WORKER_POOL", "15")),
         help="Concurrent worker pool size (default 3)",
     )
     parser.add_argument(

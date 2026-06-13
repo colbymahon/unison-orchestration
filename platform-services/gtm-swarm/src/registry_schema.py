@@ -14,6 +14,8 @@ from dataclasses import asdict, dataclass
 from pathlib import Path
 from typing import Any
 
+from sqlite_elite import CONNECT_TIMEOUT_SEC, apply_elite_pragmas
+
 def _default_db() -> Path:
     from state_paths import agent_memory_db, ensure_state_dirs
 
@@ -122,9 +124,9 @@ class AgentRegistryStore:
         self._init_schema()
 
     def _connect(self) -> sqlite3.Connection:
-        conn = sqlite3.connect(self.db_path)
+        conn = sqlite3.connect(str(self.db_path), timeout=CONNECT_TIMEOUT_SEC)
         conn.row_factory = sqlite3.Row
-        conn.execute("PRAGMA foreign_keys = ON")
+        apply_elite_pragmas(conn)
         return conn
 
     def _init_schema(self) -> None:
@@ -384,8 +386,6 @@ class AgentRegistryStore:
     ) -> None:
         now = time.time()
         with self._connect() as conn:
-            conn.execute("PRAGMA journal_mode=WAL")
-            conn.execute("PRAGMA busy_timeout=5000")
             conn.execute(
                 """
                 INSERT INTO revenue_gap_ledger
@@ -425,8 +425,6 @@ class AgentRegistryStore:
     ) -> None:
         now = time.time()
         with self._connect() as conn:
-            conn.execute("PRAGMA journal_mode=WAL")
-            conn.execute("PRAGMA busy_timeout=5000")
             conn.execute(
                 """
                 UPDATE revenue_gap_ledger
