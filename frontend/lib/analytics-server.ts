@@ -29,6 +29,26 @@ export interface AnalyticsCollectionRow {
 }
 
 export interface AnalyticsPayload {
+  traffic: {
+    public: {
+      manifest_crawl_hits: number;
+      discovery_rate_per_hr: number;
+      moat_vectors: number;
+      collection_count: number;
+      indexed_total: number;
+      moat_cache_hit: boolean;
+    };
+    a2a: {
+      total_queries: number;
+      blocked_402: number;
+      clearance_rate_pct: number;
+      active_agents: number;
+      active_sessions: number;
+      global_kv_queries: number | null;
+      global_kv_402: number | null;
+      query_rate_per_hr: number;
+    };
+  };
   storefront: {
     total_vectors: number;
     collection_count: number;
@@ -258,6 +278,11 @@ export async function fetchAnalyticsSnapshot(): Promise<AnalyticsPayload> {
     .map((r) => r.trim())
     .filter(Boolean);
 
+  const uptime_hr = Math.max(ledger.uptime_seconds / 3600, 0.01);
+  const manifest_crawl_hits = ledger.manifest_crawl_hits;
+  const discovery_rate_per_hr = Number((manifest_crawl_hits / uptime_hr).toFixed(3));
+  const query_rate_per_hr = Number((total_queries / uptime_hr).toFixed(3));
+
   const top_collections = [...collections]
     .sort((a, b) => b.count - a.count)
     .slice(0, 15)
@@ -270,6 +295,26 @@ export async function fetchAnalyticsSnapshot(): Promise<AnalyticsPayload> {
     }));
 
   return {
+    traffic: {
+      public: {
+        manifest_crawl_hits,
+        discovery_rate_per_hr,
+        moat_vectors: total_vectors,
+        collection_count,
+        indexed_total,
+        moat_cache_hit: moatOk ? Boolean(moatResult.cache_hit) : false,
+      },
+      a2a: {
+        total_queries,
+        blocked_402,
+        clearance_rate_pct,
+        active_agents,
+        active_sessions: registry.active_sessions_count,
+        global_kv_queries: ledger.global_metrics?.total_queries ?? null,
+        global_kv_402: ledger.global_metrics?.total_402_blocks ?? null,
+        query_rate_per_hr,
+      },
+    },
     storefront: {
       total_vectors,
       collection_count,
