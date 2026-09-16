@@ -14,6 +14,7 @@ model's ungrounded assertion did not contain any ground-truth tokens.
 
 | Date | `gpt-4o` | `gpt-4o-mini` | Token Δ |
 |---|---|---|---|
+| [2026-09-16](benchmarks/reports/2026-09-16.md) **0.0/100** | **0.0/100** | -2900.0% |
 | [2026-09-15](benchmarks/reports/2026-09-15.md) **0.0/100** | **0.0/100** | -2900.0% |
 | [2026-09-14](benchmarks/reports/2026-09-14.md) **0.0/100** | **0.0/100** | -2900.0% |
 | [2026-09-13](benchmarks/reports/2026-09-13.md) **0.0/100** | **0.0/100** | -2900.0% |
